@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>Koval's 3D Grapher</title>
+    <meta name="keywords" content="3D Grapher, 3D Plotter, Function Visualization, Cylindrical plotter, Spherical plotter">
+    <meta name="description" content="A full color, dynamic function grapher of three dimensions.">
+    <link rel="stylesheet" type="text/css" href="mystyles.css">
+    <script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+    <link rel="stylesheet" type="text/css" href="mathquill-0.10.1/mathquill.css">
+    <script src="//code.jquery.com/jquery-1.11.2.min.js"></script>
+    <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+    <script src="mathquill-0.10.1/mathquill.min.js"></script>
+    <script src="math.js"></script>
+</head>
+<body>
+    <div id='help-popup' class='hidden popup'>
+        <div id='help-content' class='popup-content'>
+            <div id='help-menu'>
+                <a id='help-menu-basics' href='#help-basics' class='help-menu-button'>
+                    Introduction
+                </a>
+                <a id='help-menu-usage' href='#help-usage' class='help-menu-button'>
+                    Usage
+                </a>
+                <a id='help-menu-equation-input' href='#help-equations' class='help-menu-button'>
+                    Equations
+                </a>
+                <a id='help-menu-cartesian' href='#help-cartesian' class='help-menu-button'>
+                    Cartesian
+                </a>
+                <a id='help-menu-cylindrical' href='#help-cylindrical' class='help-menu-button'>
+                    Cylindrical
+                </a>
+                <a id='help-menu-spherical' href='#help-spherical' class='help-menu-button'>
+                    Spherical
+                </a>
+                <a id='help-menu-parametric' href='#help-parametric' class='help-menu-button'>
+                    Parametric
+                </a>
+                <a id='help-menu-plotting' href='#help-plotting' class='help-menu-button'>
+                    Plotting
+                </a>
+                <a id='help-menu-animation' href='#help-animation' class='help-menu-button'>
+                    Animation
+                </a>
+                <a id='help-menu-export' href='#help-export' class='help-menu-button'>
+                    Exporting
+                </a>
+                <a id='help-menu-new-stuff' href='#help-new-stuff' class='help-menu-button'>
+                    New Stuff
+                </a>
+                <a id='help-menu-about' href='#help-about' class='help-menu-button'>
+                    About
+                </a>
+            </div>
+            <div id='help-info'>
+                <span id='help-home-welcome-text'>Welcome</span>
+                <br>
+                <span id='help-home-subtext'>Koval's 3D Grapher: Tutorial</span>
+                <br>
+                <div class='center wide-margin'>
+                    <img src='http://i.imgur.com/0lpfPwW.png' width='500px'>
+                </div>
+                <br>
+                <span id='help-basics' style='font-size:50px;margin-top:30px'>Introduction</span>
+                <br>
+                <p>
+                    In basic algebra we all learned the equation \(y=mx+b\). 
+                </p>
+                <br>
+                <img width='50%' src='http://i.imgur.com/63wDSfB.png' class='center'>
+                <p>
+                    We have a relationship between two variables, \(x\) and \(y\). This
+                    relationship tells us that out of every point \((x,y)\) in all of the coordinate space,
+                    there are a certain group of points that has their \(y\) component equal to their \(x\) 
+                    component, times \(m\) and plus \(b\). This group of points is represented by the line 
+                    you see.
+                </p>
+                <div style='width:50%' class='center'>
+                    <img width='100%' src='http://i.imgur.com/aGDETFQ.png'>
+                    <span>The relation \(e^y+\ln{x}=xy\). Credit goes to desmos.com for the graph.</span>
+                </div>
+                <p>
+                    This means that a relationship such as \(e^y+\ln{x}=xy\) is just as valid as 
+                    \(y=mx+b\), there will be a point in the coordinate space whenever \(e^y+\ln{x}\) 
+                    happens to equal \(xy\).
+                </p>
+                <p>
+                    However, most graphers you find, either online or on your calculator,
+                    take the relation in "\(y=\)" form. Because iterating through all possible points in 
+                    the coordinate plane (or in your current domain) is often computationally expensive &#x2012;
+                    especially for a calculator &#x2012; they need a shortcut to compute the points which lie on the graph.
+                    When it is in "\(y=\)" form, the computer can just iterate through the possible values of 
+                    \(x\) in the domain and find the corresponding \(y\) value to go with it with some degree of accuracy.
+                </p>
+                <p>
+                    The concept is identical for three dimensions. There is a relation between 3 variables
+                    instead of 2, and the graph is made up of all the points from the 3D coordinate space
+                    which makes the expression true.
+                </p>
+                <div style='width:50%' class='center'>
+                    <img width='100%' src='http://i.imgur.com/Be8dlVk.png'>
+                    <span>The relation \(z=x\sin{x}+y\sin{y}\) on the domain \(x:[-5,5], y:[-5,5]\). This
+                    is a representation of all the points for which this function of \(z\) is true.</span>
+                </div>
+                <p>
+                    The computational difficulties are compounded in three dimensions. Implicitly graphing, 
+                    that is, iterating through all the possible points in the domain, is impossible within a reasonable
+                    amount of time. Therefore I have simplified expressions to functions of two variables,
+                    so that 
+                    the computer needs only to iterate through two dimensions and compute the third.
+                </p>
+                <span id='help-usage' style='font-size:50px;margin-top:30px'>Usage</span>
+                <p>
+                    Koval's 3D Grapher is pretty simple. Choose the coordinate type at the top of the left hand 
+                    column (Cartesian, Cylindrical or Spherical). Then type in whatever equation you want with 
+                    the 3 inputs at the top. Press the green graph button on the bottom or press control-enter. 
+                    <br>
+                    <br>
+                    You can rotate the graph by clicking and dragging the graph. You can also zoom in and out by 
+                    scrolling.
+                    <br>
+                    <br>
+                    You can toggle color, axes, perspective, directional lighting, mesh and color scheme 
+                    with their respective checkboxes at the bottom.
+                    <br>
+                    <br>
+                    The "Points Wide" input is how many points are plotted on each of the axes. So 50 points 
+                    wide would be 50 points on one axis and 50 on the other for a total of 2500 points plotted 
+                    total. Although you can set this number to whatever you want, I would recommend no more than 350 
+                    for usable rotation without color and no more than 200 with color. However, if you want 
+                    a still image (technically rotatable, just takes a very long time), you can set this arbitrarilly 
+                    high, depending on how long you want to wait, and, of course stuff like memory. 1000 is usually 
+                    sufficient for high quality shots. 
+                </p>
+                <span id='help-equations' style='font-size:50px;margin-top:30px'>Equations</span>
+                <p>
+                    I used <a target="_blank" class='hyperlink' href='http://mathquill.com/'>MathQuill</a>
+                    for the math text boxes and 
+                    <a target="_blank" class='hyperlink' href='http://mathjs.org/'>Math.js</a> 
+                    for evaluation.
+                    <br><br>
+                    <strong>Operations</strong>
+                    <br>
+                    These are the basic operations available.
+                    <table class='center'>
+                        <tr>
+                            <th>Operation</th>
+                            <th>Meaning</th>
+                            <th>Example</th>
+                        </tr>
+                        <tr>
+                            <td>+</td>
+                            <td>Addition</td>
+                            <td>\(x+y\)</td>
+                        </tr>
+                        <tr>
+                            <td>-</td>
+                            <td>Subtraction</td>
+                            <td>\(x-y\)</td>
+                        </tr>
+                        <tr>
+                            <td>*</td>
+                            <td>Multiplication</td>
+                            <td>\(x*y\) or \(xy\)</td>
+                        </tr>
+                        <tr>
+                            <td>/</td>
+                            <td>Division</td>
+                            <td>\(\frac{x}{y}\)</td>
+                        </tr>
+                        <tr>
+                            <td>^</td>
+                            <td>Exponentation</td>
+                            <td>\(x^y\)</td>
+                        </tr>
+                        <tr>
+                            <td>|...|</td>
+                            <td>Absolute Value*</td>
+                            <td>\(|x|\)</td>
+                        </tr>
+                        <tr>
+                            <td>!</td>
+                            <td>Factorial</td>
+                            <td>\(x!\)</td>
+                        </tr>
+                    </table>
+                    <br><br>
+                    * Be careful with the vertical bars as absolute value. It's easy for you to see that 
+                    \(||x|+|y|| \neq (||)x(|+|)y(||)\), but for the computer it is quite difficult. When in 
+                    doubt, use \(abs(...)\).
+                </p>
+                <p>
+                    <strong>Functions</strong>
+                    <br>
+                    Functions take 1 or more value as an input and give an output. For common functions, such as
+                    \(\sin(x)\), simply type "sin x". For multi-input functions, such as the \(\max(x,y)\) function, 
+                    seperate the inputs with commas. For non-standard functions (like \(\text{floor}(x)\)), type "\" 
+                    (backslash), followed by the name of your function.
+                    <br>
+                    <span class='note'><strong>Note:</strong> Make sure to put parentheses around the function inputs when the 
+                    grouping is not clear: \(\ln x + y \neq \ln{(x+y)}\). Pro tip: select whatever you want to put
+                    in parentheses and press "(".</span>
+                    <br>
+                </p>
+                <br>
+                <table class='center'>
+                    <tr>
+                        <th>Function Name</th>
+                        <th>Meaning</th>
+                        <th>Need Backslash?</th>
+                    </tr>
+                    <tr>
+                        <td>\(\text{abs}(x)\)</td>
+                        <td>Absolute Value</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{acos}(x)\)</td>
+                        <td>Arccosine (or inverse cosine)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{acosh}(x)\)</td>
+                        <td>Inverse hyperbolic cosine function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{acot}(x)\)</td>
+                        <td>Inverse cotangent function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{acoth}(x)\)</td>
+                        <td>Inverse hyperbolic cotangent function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{acsc}(x)\)</td>
+                        <td>Inverse cosecant function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{acsch}(x)\)</td>
+                        <td>Inverse hyperbolic cosecant function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{add}(x,y)\)</td>
+                        <td>Adds two numbers or matrices together. I have no idea
+                        when you would ever use this because it is identical to \(+\)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{asec}(x)\)</td>
+                        <td>Inverse secant function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{asech}(x)\)</td>
+                        <td>Inverse hyperbolic secant function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{asin}(x)\)</td>
+                        <td>Inverse sine function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{asinh}(x)\)</td>
+                        <td>Inverse hyperbolic sine function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{atan}(x)\)</td>
+                        <td>Inverse tangent function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{atan2}(y,x)\)</td>
+                        <td>Inverse tangent function, extends \(\text{atan}(x)\) function
+                        to account for all angles.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{atanh}(x)\)</td>
+                        <td>Inverse hyperbolic tangent function</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{bellNumbers}(n)\)</td>
+                        <td>Returns the \(n^{\text{th}}\) 
+                        <a target="_blank" href='https://en.wikipedia.org/wiki/Bell_number'>Bell Number</a>.
+                        This function only accepts positive integers.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{bitAnd}(x,y)\)</td>
+                        <td>Bitwise AND function.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{bitNot}(x,y)\)</td>
+                        <td>Bitwise NOT function.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{bitOr}(x,y)\)</td>
+                        <td>Bitwise OR function.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{bitXor}(x,y)\)</td>
+                        <td>Bitwise XOR function.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{catalan}(n)\)</td>
+                        <td>Returns the \(n^{\text{th}}\) 
+                        <a target="_blank" href='https://en.wikipedia.org/wiki/Catalan_number'>Catalan Number</a>.
+                        This function only accepts positive integers.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{cbrt}(x)\)</td>
+                        <td>Cube root function. Equivalent to raising to the \(1/3\) power.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{ceil}(x)\)</td>
+                        <td>Ceiling function. Returns the smallest integer greater than \(x\)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{combinations}(n,k)\)</td>
+                        <td>Number of combinations of picking \(k\) items from \(n\) items.
+                        Note that \(k\leq n\) and both \(k\) and \(n\) are positive integers.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{complex}(r, im)\)</td>
+                        <td>creates a complex number from a real and imaginary part.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{composition}(n,k)\)</td>
+                        <td>The number of ways to represent \(n\) as the sum of \(k\) numbers.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{concat}(x,y,z...)\)</td>
+                        <td>Concatenates two or more matrices together.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{conj}(x)\)</td>
+                        <td>Returns the conjugate of a complex number.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{cos}(x)\)</td>
+                        <td>Cosine function</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{cosh}(x)\)</td>
+                        <td>Hyperbolic cosine function</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{cot}(x)\)</td>
+                        <td>Cotangent function</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{coth}(x)\)</td>
+                        <td>Hyperbolic cotangent function</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{cross}(x,y)\)</td>
+                        <td>Returns the cross product of two vectors.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{csc}(x)\)</td>
+                        <td>Cosecant function</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{csch}(x)\)</td>
+                        <td>Hyperbolic cosecant function.</td>
+                        <td>No</td>
+                    </tr>
+                    <!--<tr>
+                        <td>\(\text{cube}(x)\)</td>
+                        <td>Cubes the input. It is equal to \(x^3\). BUGGY</td>
+                        <td>Yes</td>
+                    </tr>
+                    -->
+                    <tr>
+                        <td>\(\text{det}(x)\)</td>
+                        <td>Calculates the determinant of a matrix. The matrix must be square.</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{distance}(x,y)\)</td>
+                        <td>Calculates the Euclidian distance between two points. The points may
+                        be two or three dimensional.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{dot}(x)\)</td>
+                        <td>Calculates the dot product of two vectors.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{dotDivide}(x,y)\)</td>
+                        <td>Calculates the element-wise division of two matrices.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{dotMultiply}(x,y)\)</td>
+                        <td>Calculates the element-wise multiplication of two matrices.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{dotPow}(x,y)\)</td>
+                        <td>Calculates the element-wise power (\(x^y\)) of two matrices.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{exp}(x)\)</td>
+                        <td>Calculates \(e^x\).</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{factorial}(x)\)</td>
+                        <td>Calculates the factorial of a number. This is the same as the \(!\) operator.
+                        \(x\) must be positive</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{fix}(x)\)</td>
+                        <td>Rounds \(x\) toward zero.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{floor}(x)\)</td>
+                        <td>Rounds \(x\) toward negative infinity.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{gamma}(x)\)</td>
+                        <td>The Gamma function. An extension of the factorial function.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{gcd}(x,y)\)</td>
+                        <td>Computes the greatest common divisor among \(x\) and \(y\)</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{hypot}(x,y,...)\)</td>
+                        <td>Calculates the hypotenusa of the values. This is equal to 
+                        \(\sqrt{x^2+y^2...}\)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{im}(x)\)</td>
+                        <td>Returns the imaginary portion of \(x\).</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{inv}(x)\)</td>
+                        <td>Calculates the inverse of a matrix. The matrix must be square.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{kldivergence}(x,y)\)</td>
+                        <td>Computes the <a target="_blank" href='https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence'>Kullback-Leibler</a>
+                        divergence between two distributions</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{lcm}(x)\)</td>
+                        <td>Calculates the least common multiple of two numbers.</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{leftShift}(x, y)\)</td>
+                        <td>Bitwise shifts \(x\) left by \(y\) bits. For all you programmers it is equal 
+                        to \(x &lt;&lt; y\)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{log}(x, y)\)</td>
+                        <td>Calculates \(\log_y{x}\). If \(y\) is ommitted, then 
+                        it defaults to \(\log_{e}{x}\).</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{max}(x, y, ...)\)</td>
+                        <td>Calculates the maximum value out of the inputs.</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{mean}(x, y,...)\)</td>
+                        <td>Calculates the mean of the inputs.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{median}(x, y,...)\)</td>
+                        <td>Calculates the mediam of the inputs.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{min}(x, y, ...)\)</td>
+                        <td>Calculates the minimum value out of the inputs.</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{mod}(x, y)\)</td>
+                        <td>Calculates \(x\,\%\,y\) (for programmers), also known as the modulus.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{mode}(x, y, ...)\)</td>
+                        <td>Calculates the most common value among the inputs.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{nthRoot}(x, n)\)</td>
+                        <td>Calculates the \(n^{\text{th}}\) root of \(x\). \(n\) defaults to 
+                        two if not provided.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{pickRandom}(x)\)</td>
+                        <td>Picks a random element from the 1-dimensional array \(x\)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{random}(x,y)\)</td>
+                        <td>Picks a random number between \(x\) and \(y\) (inclusive only on minimum). 
+                        It defaults to zero if \(x\) is not provided, and \([0,1]\) if neither 
+                        \(x\) nor \(y\) is provided.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{randomInt}(x,y)\)</td>
+                        <td>Picks a random integer between \(x\) and \(y\) (inclusive only on minimum). 
+                        It defaults to zero if \(x\) is not provided.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{re}(x)\)</td>
+                        <td>Returns the real part of the complex number \(x\)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{rightArithShift}(x, y)\)</td>
+                        <td>Bitwise shifts \(x\) right arithmetically by \(y\) bits. For all you programmers it is equal 
+                        to \(x &gt;&gt; y\)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{rightLogShift}(x, y)\)</td>
+                        <td>Bitwise shifts \(x\) right logically by \(y\) bits. It is equal to 
+                        \(x &gt;&gt;&gt; y\)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <!--<tr>
+                        <td>\(\text{round}(x, n)\)</td>
+                        <td>Rounds \(x\) to \(n\) decimal places. Default for \(n\) is zero. BUGGY</td>
+                        <td>Yes</td>
+                    </tr>
+                    -->
+                    <tr>
+                        <td>\(\text{sec}(x)\)</td>
+                        <td>Calculates the secant of \(x\).</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{sech}(x)\)</td>
+                        <td>Calculates the hyperbolic secant of \(x\).</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{sign}(x)\)</td>
+                        <td>Calculates the sign of \(x\). This is \(-1\) when \(x&lt;1\), 
+                        \(1\) when \(x&gt;1\) and \(0\) when \(x=0\).</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{sin}(x)\)</td>
+                        <td>Calculates the sine of \(x\)</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{sinh}(x)\)</td>
+                        <td>Calculates the hyperbolic sine of \(x\)</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{sqrt}(x)\)</td>
+                        <td>Calculates the square root of \(x\)</td>
+                        <td>No</td>
+                    </tr>
+                    <!--<tr>
+                        <td>\(\text{square}(x)\)</td>
+                        <td>Calculates \(x^2\). BUGGY</td>
+                        <td>Yes</td>
+                    </tr>
+                    -->
+                    <tr>
+                        <td>\(\text{std}(x,y,...)\)</td>
+                        <td>Calculates the standard deviation of the inputs.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{stirlingS2}(x,y)\)</td>
+                        <td>Calculates the 
+                        <a href='https://en.wikipedia.org/wiki/Stirling_numbers_of_the_second_kind' target="_blank"></a>stirling number of the second kind</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{tan}(x)\)</td>
+                        <td>Calculates tangent of \(x\).</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{tanh}(x)\)</td>
+                        <td>Calculates hyperbolic tangent of \(x\).</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{trace}(x)\)</td>
+                        <td>Calculates trace of matrix \(x\), the sum 
+                        of the elements on the main diagonal. \(x\)
+                        must be square.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>\(\text{transpose}(x)\)</td>
+                        <td>Reflects each element of the square matrix \(x\) over 
+                        its main diagonal.</td>
+                        <td>Yes</td>
+                    </tr>
+                    <!--
+                    <tr>
+                        <td>\(\text{var}(x,y,...)\)</td>
+                        <td>Computes the varience of the inputs as a list. BUGGY</td>
+                        <td>Yes</td>
+                    </tr>
+                    -->
+                </table>
+                <p>
+                    Don't see the function you'd like? Check out the full list of functions from 
+                    <a href='http://mathjs.org/docs/reference/functions/alphabetical.html'>mathjs.org</a>,
+                    at your own risk, of course.
+                </p>
+                <p>
+                    Although they weren't originally planned, matrices are well supported within the mathjs 
+                    framework, so they are largely suppored here are well. 
+                    <br>
+                    Here's an example of a 2 by 2 matrix: \([[1,2][3,4]]\).
+                    \([1,2;3,4]\) is also acceptable.
+                </p>
+                <span id='help-cartesian' style='font-size:50px;margin-top:30px'>Cartesian Coordinates</span>
+                <p>
+                    Cartesian points are defined by three variables: \(x\), \(y\), and \(z\).
+                    Each variable determines a distance from the origin along a dimension. 
+                    The three dimensions, the \(x\) axis, \(y\) axis, and \(z\) axis are 
+                    perpendicular to each other, with \(x \times y = z\) (\(x\) cross \(y\)).
+                </p>
+                <p>
+                    Basically, its an extension of your basic \(x\) \(y\) coordinate plane. There's 
+                    just another dimension sticking up out of it.
+                </p>
+                <div style='width:50%' class='center'>
+                    <img width='100%' src='http://i.imgur.com/dvk8WfP.png'>
+                    <span>\(z=\frac{3}{2}\cos{\frac{xy}{3}}\) on \(x:[-10,10], y:[-10,10], z:[-10,10]\)</span>
+                </div>
+                <p>
+                    <strong>Input</strong>
+                    <br>
+                    You can enter equations in terms of any of the three variables. However, as discussed in the 
+                    introduction, this grapher does not support implicit graphing, so a variable must be 
+                    in terms of the other two. If you find yourself wanting to create equations like 
+                    \(10^2=x^2+y^2+z^2\), consider another coordinate system, such as 
+                    the spherical system.
+                </p>
+                <p>
+                    <strong>Domain</strong>
+                    <br>
+                    Most of the functions you can make continue on forever in all directions,
+                    so obviously those can't be shone all at once.
+                    You can control what part of the function you see with the domain inputs:
+                    \(x\), \(y\) and \(z\) minimum and maximum.
+                </p>
+                <span id='help-cylindrical' style='font-size:50px;margin-top:30px'>Cylindrical Coordinates</span>
+                <p>
+                    Cylindrical coordinates are defined by three variables: \(\rho\), \(\phi\), and \(z\).
+                    \(\rho\) is the distance from the z axis (analogous to \(r\) in polar coordinates),
+                    \(\phi\) is the angle from the positive \(x\) axis (analogous to \(\theta\) in polar coordinates),
+                    and \(z\) is the height from 
+                    the \(x\) \(y\) plane.
+                </p>
+                <div style='width:100%;display:flex'>
+                    <div style='float:left; width:33.3%; text-align:center'>
+                        <img width='100%' src='http://i.imgur.com/ZYRlwNQ.png'>
+                        <span>\(\rho=4\): Each point is 4 away from the \(z\) axis.</span>
+                    </div>
+                    <div style='float:left; width:33.3%; text-align:center'>
+                        <img width='100%' src='http://i.imgur.com/stVh0tJ.png'>
+                        <span>\(\phi=\frac{\pi}{4}\): Each point, when connected to the \(z\)-axis,
+                        makes a \(\frac{\pi}{4}\) angle with the positive \(x\) axis.</span>
+                    </div>
+                    <div style='float:left; width:33.3%; text-align:center'>
+                        <img width='100%' src='http://i.imgur.com/hApvGYF.png'>
+                        <span>\(z=1\): Each point is 1 from the \(x\) \(y\) axis.</span>
+                    </div>
+                </div>
+                <p>
+                    <br>
+                    <strong>Input</strong>
+                    <br>
+                    You may enter equations in terms of any variable. 
+                    To type a greek letter, press the backspace key followed 
+                    by the name of the letter - "\rho" : \(\rho\), "\phi": \(\phi\).
+                    <br>
+                    <br>
+                    <strong>Domain</strong>
+                    <br>
+                    Remember that the function doesn't stop after it 
+                    runs off the screen! 
+                    You may enter a minimum and maximum value for all three variables using the inputs 
+                    provided.
+                </p>
+                <span id='help-spherical' style='font-size:50px;margin-top:30px'>Spherical Coordinates</span>
+                <p>
+                    A spherical coordinate is defined by its euclidean distance from the origin, \(r\), 
+                    the angle it forms with the \(z\) axis and the positive \(x\) axis, \(\theta\), and the angle 
+                    it forms with the origin and the \(x\) \(y\) plane, \(\phi\). It's the 3D analogue of 
+                    the polor system. 
+                </p>
+                 <div style='width:100%;display:flex'>
+                    <div style='float:left; width:33.3%; text-align:center'>
+                        <img width='100%' src='http://i.imgur.com/w6vDVC2.png'>
+                        <span>\(r=5\): Each point is 5 away from the origin.</span>
+                    </div>
+                    <div style='float:left; width:33.3%; text-align:center'>
+                        <img width='100%' src='http://i.imgur.com/hNPUbGf.png'>
+                        <span>\(\theta=\frac{\pi}{4}\): Each point, when connected to the \(z\) axis,
+                        makes a \(\frac{\pi}{4}\) angle with the positive \(x\) axis.</span>
+                    </div>
+                    <div style='float:left; width:33.3%; text-align:center'>
+                        <img width='100%' src='http://i.imgur.com/60G4oBw.png'>
+                        <span style='padding:20px'>\(\phi=\frac{\pi}{4}\): Each point, when connected to origin,
+                        makes a \(\frac{\pi}{4}\) angle with the \(x\) \(y\) plane.</span>
+                    </div>
+                </div>
+                <p>
+                    <br>
+                    <strong>Input</strong>
+                    <br>
+                    You may enter equations in terms of any variable. 
+                    To type a greek letter, press the backspace key followed 
+                    by the name of the letter - "\theta" : \(\theta\), "\phi": \(\phi\).
+                    <br>
+                    <br>
+                    <strong>Domain</strong>
+                    <br>
+                    You can change the maximum and minimum of each variable with the text boxes 
+                    in the left column.
+                </p>
+                <span id='help-parametric' style='font-size:50px;margin-top:30px'>Parametric</span>
+                <p>
+                    Parametric coordinates are a very useful way to representing functions with an additional 
+                    two variables - \(u\) and \(v\). Instead of setting one variable equal to a combination of 
+                    the other two variables, you set each variable equal to a combination of \(u\) and \(v\).
+                    Then the grapher iterates through the parametric variables (\(u\) and \(v\)) and determines 
+                    the corresponding point from the three equations.
+                    <br>
+                    <br>
+                    Actually, this is actually Koval's 3D Grapher graphs <i>all</i> of your functions, whether 
+                    you realize it or not. 
+                    <br>
+                    <br>
+                    <div style='width:50%' class='center'>
+                        <img width='100%' src='http://i.imgur.com/VE00mTh.png'>
+                        <span>With parametric variables, you can make all sorts of cool shapes, like 
+                        this donut one. It's technically a <i>torus</i>, and its equation(s) in 
+                        cylindrical coordinates: \(\rho=\cos{v}+1.5\), \(\phi=u\), \(z=\sin{v}\). 
+                        </span>
+                    </div>
+                    <br>
+                    <p>
+                    Simply define all of the variables in terms of \(u\) and \(v\) and it will graph your 
+                    function parametrically. Also, the domain for \(u\) and \(v\) will automatically appear.
+                    </p>
+                </p>
+                <span id='help-plotting' style='font-size:50px;margin-top:30px'>Plotting</span>
+                <p>
+                    You can plot individual points with the plot functionality. Click the "Plot" button (on the same 
+                    row as "Cartesian", "Cylindrical" and "Spherical"). Then click the coordinate system you would like the use. 
+                    A table will appear, which you can enter numerical values for points. Click the graph button to plot the points.
+                    <br>
+                    <span class='note'><strong>Note:</strong>You can copy and paste a table from Excel or Google Sheets.</span>
+                    
+                    <div id='plot-img-row'>
+                        <div class='img-container'>
+                            <img src='http://i.imgur.com/uIZAF65.png' width='300px'>
+                            <br>
+                            <span>Click the "Plot" button</span>
+                        </div>
+                        <div class='img-container'>
+                            <img src='http://i.imgur.com/W1VFKqK.png' width='300px'>
+                            <br>
+                            <span>Click coordinate system you would like.</span>
+                        </div>
+                        <div class='img-container'>
+                            <img src='http://i.imgur.com/zD3POjH.png' width='300px'>
+                            <br>
+                            <span>Enter your points.</span>
+                        </div>
+                        <div class='img-container'>
+                            <img src='http://i.imgur.com/ILQfjAx.png' width='300px'>
+                            <br>
+                            <span style='width:100%'>Click the "Graph" button. (To show axes, click the "show axes" checkbox)</span>
+                        </div>
+                    </div>
+                </p>
+                <span id='help-animation' style='font-size:50px;margin-top:30px'>Animation</span>
+                <p>
+                    Animation is used for creating a video of a transformation of a graph.
+                    <br>
+                    For example, if you wanted to see the effect on \(z=\sin{2x}+\sin{2y}\) of changing the 
+                    coefficient of \(x\), you could substitute a new variable, \(a\), in for 2:
+                    \[z=\sin{ax}+\sin{2y}\]
+                    Then you can animate with respect to a: 
+                </p>
+                <div class='image-container' style='max-width:100%'><img src='http://i.imgur.com/PVc3yAd.png' style='max-width:90%'></div>
+                <p>
+                    This will iteratate through 40 graphs, each time varying the value of \(a\) slightly (from 2 to 3), to produce 
+                    a smooth animation. 
+                    <br>
+                    <br>
+                    When you press "Animate", Koval's 3D Grapher will begin its iterations. Depending on the quality 
+                    of your original graph (Points Wide) and whether you are coloring your graph, this may take awhile. 
+                    Expect at least a minute on a low quality animation and upwards of 30 minutes to an hour for full 
+                    quality, sophisticated animations.
+                    <br>
+                    <br>
+                    When it is done animating, you will see the (non-rotatable) result in a popup. You can vary the speed of the 
+                    animation and how it loops. You will also have the option to export, which results in a video in the 
+                    <a href='https://en.wikipedia.org/wiki/WebM'>WebM</a> format. 
+                    <br>
+                    <br>
+                    Note that you may change as many variables as you want simultaneously, but each variable name must 
+                    only be a single letter. Please be aware that making \(e\) a variable overrides the mathematical 
+                    constant \(e\).
+                    <br>
+                    <br>
+                    Note that variables are not restricted to equations, the domain inputs accept expressions as well.
+                </p>
+                <span id='help-export' style='font-size:50px;margin-top:30px'>Exporting</span>
+                <p>
+                    You see that button in the upper right hand corner, next to the "help" button? 
+                    That's the export button. You can save your graph as a .png, .bmp, or .jpeg and share 
+                    it with your friends!
+                    <br>
+                    <br>
+                    You can also export animations, see <a href='#help-animation'>Animations</a>.
+                </p>
+                <span id='help-new-stuff' style='font-size:50px;margin-top:30px'>New Stuff</span>
+                <p>
+                    <strong>v 1.1</strong> March 30, 2016
+                    <br>
+                    <ul>
+                        <li>Fixed bug while zooming with non-cubic domain</li>
+                        <li>Optimized graphing procedure, now runs ~2 times faster</li>
+                        <li>Prevented page from freezing while graph is loading</li>
+                        <li>Added progress indicator at bottom</li>
+                        <li>Fixed bug with certain expressions involving a function containing a variable with 
+                            a coefficient</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>v 1.2</strong> April 1, 2016
+                    <ul>
+                        <li>Imported an
+                            <a href='https://github.com/maurizzzio/interval-arithmetic-eval'>interval arithmetic library</a>.
+                            Before, functions such as \(\tan(...)\) would have a line at an infinite discontinuity,
+                            so at \(\pi/2\) for \(\tan{}\), where a very high value would jump to a very low value or 
+                            vice versa. Using an interval arithmetic library, I can produce a small interval which 
+                            I know contains the discontinuity and graph around it.
+                            <ul>
+                                <li>This library does not have the same range of functions that mathjs has. Although 
+                                it works nicely for simple functions like tangent, it fails with the composition of 
+                                more complicated functions. I'm looking for ways around this.</li>
+                            </ul>
+                        </li>
+                        <li>Small bug fix with drawing the first line in an extended function.</li>
+                        <li>Bug fix with line width becoming to small to see if density is greater than ~1500 (which is 
+                            not recommended, by the way)</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>v 1.3</strong> May 15, 2016
+                    <ul>
+                        <li>Added perspective to rendering. It looks much more realistic now.</li>
+                        <li>Now random functions show up when the page is loaded.</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>v 1.4</strong> May 19, 2016
+                    <ul>
+                        <li>Added directional lighting. Looks so much better!</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>v 1.5</strong> May 24, 2016
+                    <ul>
+                        <li>Made drawing a little faster.</li>
+                        <li>Added <a href='#help-plotting'>Plotting</a> functionality! (includes a snazzy resizable table)</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>v 1.6</strong> June 19, 2016
+                    <ul>
+                        <li>Added smooth zooming</li>
+                        <li>Fixed zooming bugs</li>
+                        <li>Added initial coloring</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>v 1.7</strong> September 2, 2016
+                    <ul>
+                        <li>Added options for mesh, directional lighting, perspective, and color schemes (check out the dark themes!)</li>
+                        <li>Added entirely new feature: <a href='#help-animation'>Animations</a>. This 
+                        feature allows you to create and export high quality, pre-computed animations based 
+                        on variation in the graph equation or domain. </li>
+                        <li>Fixed assorted html/css oddities</li>
+                        <li>Fixed plotting axes bug</li>
+                    </ul>
+                </p>
+                <span id='help-about' style='font-size:50px;margin-top:30px'>About</span>
+                <p>
+                    Hey! My name is Alan.
+                    <br>
+                    <br>
+                    I'm 17 years old and a <s>junior</s> senior in high school. I made this website almost entirely from 
+                    scratch over the course of 9 months.
+                    <br>
+                    <br>
+                    Programming has been a hobby of mine for several years now. I started programming on my 
+                    Ti-84 calculator back in 7th grade. I worked my way up to Java, and then to Javascript/HTML 
+                    and web design. Suffice to say, I've moved beyond my first quadradic formula program! Other
+                    than programming, I enjoy playing ping pong and scholastic bowl (it's a cross between Jepardy 
+                    and Family Feud), as well as competing on my high school's math team. 
+                    <br>
+                    <br>
+                    I'd love your feedback! If you found any bugs, or would like to suggest improvements, 
+                    email me at feedback@alankoval.com. 
+                    <br>
+                    <br>
+                    Thought this website was super cool?
+                    <br>
+                    <br>
+                    Make sure to share this website with your favorite social media outlet!
+                    <br>
+                    
+                </p>
+            </div>
+        </div>        
+    </div>
+    <div id='welcome-popup' class='hidden popup'>
+        <div id='welcome-content' class='popup-content'>
+            <div id='welcome-header' class='popup-header'>
+                Koval's 3D Grapher
+            </div>
+            <div id='welcome-inner-content'>
+                Koval's 3D Grapher is still unfinished. 
+                Consider it in the alpha review phase.
+                <br>
+                <br>
+                That being said, there aren't <i>that</i> many bugs left, so it
+                works pretty well.
+                <br>
+                <br>
+                Have fun!
+            </div>
+            <div>
+                <span style='font-size:10px'>Click outside this box to close.</span>
+            </div>
+        </div>
+    </div>
+    <div id='export-popup' class='hidden popup'>
+        <div id='export-content' class='popup-content'>
+            <div class='popup-header'>
+                Save Graph
+            </div>
+            <div id='export-inner-content'>
+                <div id='image-type-row'>
+                    <div id='image-type-label'>File Type: </div>
+                    <select onchange='setUpDownload()' id='image-type-selector'>
+                        <option value='png'>png</option>
+                        <option value='jpeg'>jpeg</option>
+                        <option value='bmp'>bmp</option>
+                    </select>
+                </div>
+                <div id='export-options-row'>
+                </div>
+            </div>
+            <div id='export-end-row'>
+                <button id='export-save-button' class='export-button'><a id='save-href' download='Graph.png' href='#'>Save</a></button>
+                <button id='export-cancel-button' class='export-button'>Cancel</button>
+            </div>
+        </div>
+    </div>
+    <div id='animate-popup' class='hidden popup'>
+        <div id='animate-content' class='popup-content'>
+            <div class='popup-header'>
+                Animation
+            </div>
+            <div class='popup-inner-content'>
+                Use this dialog to set up animations between two different graphs. 
+                <div class='variable-list'>
+                    <div class='variable-list-item'>
+                        <div class='variable-list-item-sub'>
+                            <input class='var-input var-name-input' maxlength='1'>
+                            <br>
+                            <span>Variable name</span>
+                        </div>
+                        <div class='variable-list-item-sub'>
+                            <input class='var-input var-lower-bound-input'>
+                            <br>
+                            <span>Lower Bound</span>
+                        </div>
+                        <div class='variable-list-item-sub'>
+                            <input class='var-input var-upper-bound-input'>
+                            <br>
+                            <span>Upper Bound</span>
+                        </div>
+                        <button class='variable-remove-button'>Remove</button>
+                    </div>
+                    <div class='variable-button-row'>
+                        <button id='add-variable-button'>Add Variable</button>
+                    </div>
+                </div>
+                <span style='display:block; margin-bottom:5px'>Frames: <input id='animation-frame-input' class='var-input'></span>
+                <div class='animate-note'>Note: depending on your step size and domain (and the quality of your current graph), this could take awhile, like
+                on the order of hours if you're not paying attention. For reference, a high quality animation (500 Points Wide, 100 
+                frames, full color) takes about 25 minutes on my (average) computer.
+                </div>
+                <div class='animate-error-area'></div>
+                <button id='animate-start-button'>Animate</button>
+                <progress id='animation-progress-bar' class='hidden' value='0' max='100'></progress>
+            </div>
+        </div>
+    </div>
+    <div id='animation-result-popup' class='popup hidden'>
+        <div id='animation-result-content' class='popup-content'>
+            <div class='popup-header'>
+                Animation Result
+            </div>
+            <duv class='popup-inner-content'>
+                <canvas id='animation-canvas'></canvas>
+                <div>
+                    <div class='animation-result-inputs'>
+                        <div>
+                            <input name='play-style' value='loop' type='radio' checked='checked'>Loop at end
+                        </div>
+                        <div>
+                            <input name='play-style' value='reverse' type='radio'>Reverse at end 
+                        </div>
+                        <div class='animation-result-frame-time'>
+                            Animation speed: <input type='range' value='91' id='animation-result-frame-time-input' class='var-input'>
+                        </div>
+                    </div>
+                    <button id='animation-result-export-button'><a id='animation-result-export-href' download='graphGIF.gif'>Export</a></button>
+                    <progress id='export-gif-progress-bar' class='hidden' value='0' max='1'></progress>
+                    <button id='animation-result-exit-button'>Exit</button>
+                </div>
+            </duv>
+        </div>
+    </div>
+    <div id='full-screen-button'>Full Screen</div>
+    <div class="header">
+        <div id='title'>
+            Koval's 3D Grapher
+        </div>
+        <button id='help' class='top-bar-button'>Help</button>
+        <button id='export-button' class='top-bar-button'>Save Graph</button>
+        <button id='animate-button' class='top-bar-button'>Animate</button>
+    </div>
+    <div class="content">
+        <div class = 'left-side'>
+            <div id='button-row'>
+                <button id='cartesian-button' class='button-row'>Cartesian</button>
+                <button id='cylindrical-button' class='button-row'>Cylindrical</button>
+                <button id='spherical-button' class='button-row'>Spherical</button>
+                <button id='plot-button' class='button-row'>Plot</button>
+            </div>
+            <div id='cartesian-coordinates'>
+                <div id='x-input-row' class='content-input'>
+                    <div id='x-input-row-label' class='input-label'>$$x=$$</div>
+                    <span id='x-input' class='input-area'></span>
+                </div>
+                <div id='y-input-row' class='content-input'>
+                    <div id='y-input-row-label' class='input-label'>$$y=$$</div>
+                    <span id='y-input' class='input-area'></span>
+                </div>
+                <div id='z-input-row' class='content-input'>
+                    <div id='z-input-row-label' class='input-label'>$$z=$$</div>
+                    <span id='z-input' class='input-area'></span>
+                </div>
+            </div>
+            <div id='cylindrical-coordinates'>
+                <div id='rho-input-row' class='content-input'>
+                    <div id='rho-input-row-label' class='input-label'>$$\rho=$$</div>
+                    <span id='rho-input' class='input-area'></span>
+                </div>
+                <div id='phi-input-row' class='content-input'>
+                    <div id='phi-input-row-label' class='input-label'>$$\phi=$$</div>
+                    <span id='phi-input' class='input-area'></span>
+                </div>
+                <div id='height-input-row' class='content-input'>
+                    <div id='height-input-row-label' class='input-label'>$$z=$$</div>
+                    <span id='height-input' class='input-area'></span>
+                </div>
+            </div>
+            <div id='spherical-coordinates'>
+                <div id='r-input-row' class='content-input'>
+                    <div id='r-input-row-label' class='input-label'>$$r=$$</div>
+                    <span id='r-input' class='input-area'></span>
+                </div>
+                <div id='theta-input-row' class='content-input'>
+                    <div id='theta-input-row-label' class='input-label'>$$\theta=$$</div>
+                    <div contenteditable='true' id='theta-input' class='input-area'></div>
+                </div>
+                <div id='sphi-input-row' class='content-input'>
+                    <div id='sphi-input-row-label' class='input-label'>$$\phi=$$</div>
+                    <span id='sphi-input' class='input-area'></span>
+                </div>
+            </div>
+            <div id='plot-row'>
+                <table id='plot-table'>
+                    <thread>
+                        <tr>
+                            <th id='x-plot-heading'>\(x\)</th>
+                            <th id='y-plot-heading'>\(y\)</th>
+                            <th id='z-plot-heading'>\(z\)</th>
+                        </tr>
+                    </thread>
+                    <tbody id='plot-table-body'>
+                        <tr><td></td><td></td><td></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id='density-row' class='content-input'>
+                <div id='density-label' class='input-label'>$$\text{Points Wide}$$</div>
+                <div contenteditable='true' id='density-input' class='input-area'>60</div>
+            </div>
+            <div id='x-y-z-range-row' class='content-input'>
+                <div id='x-range-row' class='content-input xyz-range-row'>
+                    <div id='x-range-min' class='half-row'>
+                        <div id='x-range-min-label' class='range-input-label'>$$x\text{ minimum}$$</div>
+                        <div contenteditable='true' id='x-range-min-input' class='range-input-area'>-10</div>
+                    </div>
+                    <div id='x-range-max' class='half-row'>
+                        <div id='x-range-max-label' class='range-input-label'>$$x\text{ maximum}$$</div>
+                        <div contenteditable='true' id='x-range-max-input' class='range-input-area'>10</div>
+                    </div>
+                </div>
+                <div id='y-range-row' class='content-input xyz-range-row'>
+                    <div id='y-range-min' class='half-row'>
+                        <div id='y-range-min-label' class='range-input-label'>$$y\text{ minimum}$$</div>
+                        <div contenteditable='true' id='y-range-min-input' class='range-input-area'>-10</div>
+                    </div>
+                    <div id='y-range-max' class='half-row'>
+                        <div id='y-range-max-label' class='range-input-label'>$$y\text{ maximum}$$</div>
+                        <div contenteditable='true' id='y-range-max-input' class='range-input-area'>10</div>
+                    </div>
+                </div>
+                <div id='z-range-row' class='content-input xyz-range-row'>
+                    <div id='z-range-min' class='half-row'>
+                        <div id='z-range-min-label' class='range-input-label'>$$z\text{ minimum}$$</div>
+                        <div contenteditable='true' id='z-range-min-input' class='range-input-area'>-10</div>
+                    </div>
+                    <div id='z-range-max' class='half-row'>
+                        <div id='z-range-max-label' class='range-input-label'>$$z\text{ maximum}$$</div>
+                        <div contenteditable='true' id='z-range-max-input' class='range-input-area'>10</div>
+                    </div>
+                </div>
+            </div>
+            <div id='rho-phi-height-range-row' class='content-input'>
+                <div id='rho-range-row' class='content-input xyz-range-row'>
+                    <div id='rho-range-min' class='half-row'>
+                        <div id='rho-range-min-label' class='range-input-label'>$$\rho\text{ minimum}$$</div>
+                        <div contenteditable='true' id='rho-range-min-input' class='range-input-area'>0</div>
+                    </div>
+                    <div id='rho-range-max' class='half-row'>
+                        <div id='rho-range-max-label' class='range-input-label'>$$\rho\text{ maximum}$$</div>
+                        <div contenteditable='true' id='rho-range-max-input' class='range-input-area'>10</div>
+                    </div>
+                </div>
+                <div id='phi-range-row' class='content-input xyz-range-row'>
+                    <div id='phi-range-min' class='half-row'>
+                        <div id='phi-range-min-label' class='range-input-label'>$$\phi\text{ minimum}$$</div>
+                        <div contenteditable='true' id='phi-range-min-input' class='range-input-area'>0</div>
+                    </div>
+                    <div id='phi-range-max' class='half-row'>
+                        <div id='phi-range-max-label' class='range-input-label'>$$\phi\text{ maximum}$$</div>
+                        <div contenteditable='true' id='phi-range-max-input' class='range-input-area'>6.28318530718</div>
+                    </div>
+                </div>
+                <div id='height-range-row' class='content-input xyz-range-row'>
+                    <div id='height-range-min' class='half-row'>
+                        <div id='height-range-min-label' class='range-input-label'>$$z\text{ minimum}$$</div>
+                        <div contenteditable='true' id='height-range-min-input' class='range-input-area'>-10</div>
+                    </div>
+                    <div id='height-range-max' class='half-row'>
+                        <div id='height-range-max-label' class='range-input-label'>$$z\text{ maximum}$$</div>
+                        <div contenteditable='true' id='height-range-max-input' class='range-input-area'>10</div>
+                    </div>
+                </div>
+            </div>
+            <div id='r-theta-sphi-range-row' class='content-input'>
+                <div id='r-range-row' class='content-input xyz-range-row'>
+                    <div id='r-range-min' class='half-row'>
+                        <div id='r-range-min-label' class='range-input-label'>$$r\text{ minimum}$$</div>
+                        <div contenteditable='true' id='r-range-min-input' class='range-input-area'>0</div>
+                    </div>
+                    <div id='r-range-max' class='half-row'>
+                        <div id='r-range-max-label' class='range-input-label'>$$r\text{ maximum}$$</div>
+                        <div contenteditable='true' id='r-range-max-input' class='range-input-area'>10</div>
+                    </div>
+                </div>
+                <div id='theta-range-row' class='content-input xyz-range-row'>
+                    <div id='theta-range-min' class='half-row'>
+                        <div id='theta-range-min-label' class='range-input-label'>$$\theta\text{ minimum}$$</div>
+                        <div contenteditable='true' id='theta-range-min-input' class='range-input-area'>0</div>
+                    </div>
+                    <div id='theta-range-max' class='half-row'>
+                        <div id='theta-range-max-label' class='range-input-label'>$$\theta\text{ maximum}$$</div>
+                        <div contenteditable='true' id='theta-range-max-input' class='range-input-area'>6.28318530718</div>
+                    </div>
+                </div>
+                <div id='sphi-range-row' class='content-input xyz-range-row'>
+                    <div id='sphi-range-min' class='half-row'>
+                        <div id='sphi-range-min-label' class='range-input-label'>$$\phi\text{ minimum}$$</div>
+                        <div contenteditable='true' id='sphi-range-min-input' class='range-input-area'>0</div>
+                    </div>
+                    <div id='sphi-range-max' class='half-row'>
+                        <div id='sphi-range-max-label' class='range-input-label'>$$\phi\text{ maximum}$$</div>
+                        <div contenteditable='true' id='sphi-range-max-input' class='range-input-area'>3.1415926536</div>
+                    </div>
+                </div>
+            </div>
+            <div id='u-v-range-row' class='content-input'>
+                <div id='u-range-row' class='content-input'>
+                    <div id='u-range-min' class='half-row'>
+                        <div id='u-range-min-label' class='range-input-label'>$$u\text{ minimum}$$</div>
+                        <div contenteditable='true' id='u-range-min-input' class='range-input-area'>0</div>
+                    </div>
+                    <div id='u-range-max' class='half-row'>
+                        <div id='u-range-max-label' class='range-input-label'>$$u\text{ maximum}$$</div>
+                        <div contenteditable='true' id='u-range-max-input' class='range-input-area'>6.28318530718</div>
+                    </div>
+                </div>
+                <div id='v-range-row' class='content-input'>
+                    <div id='v-range-min' class='half-row'>
+                        <div id='v-range-min-label' class='range-input-label'>$$v\text{ minimum}$$</div>
+                        <div contenteditable='true' id='v-range-min-input' class='range-input-area'>0</div>
+                    </div>
+                    <div id='v-range-max' class='half-row'>
+                        <div id='v-range-max-label' class='range-input-label'>$$v\text{ maximum}$$</div>
+                        <div contenteditable='true' id='v-range-max-input' class='range-input-area'>6.28318530718</div>
+                    </div>
+                </div>
+            </div>
+            <button id='graph-button'>Graph!</button>
+            <span class='checkbox-label'>Show Axes </span><input id='axes-checkbox' type='checkbox' checked>
+            <div id='color-row'><span class='checkbox-label'>Color Graph </span><input id='color-checkbox' type='checkbox' checked></div>
+            <div id='mesh-row'><span class='checkbox-label'>Show Mesh When Coloring</span><input id='mesh-checkbox' type='checkbox'></div>
+            <div id='directional-lighting-row'><span class='checkbox-label'>Directional Lighting</span><input id='directional-lighting-checkbox' type='checkbox' checked></div>
+            <div id='perspective-row'><span class='checkbox-label'>Perspective</span><input id='perspective-checkbox' type='checkbox' checked></div>
+            <div id='color-scheme-row'><span class='checkbox-label'>Color Scheme</span>
+                <select id='color-scheme-select'>
+                    <option value='dark-blue'>Dark Cool</option>
+                    <option value='dark-rust'>Dark Rust</option>
+                    <option value='dark-cool'>Dark Winter</option>
+                    <option value='light-rust'>Rust</option>
+                    <option value='light-cool'>Winter</option>
+                    <option value='light-blue'>Cool</option>
+                </select>
+            </div>
+        </div>
+        <div id="content-graph">
+            <canvas id="canvas">
+                
+            </canvas>
+        </div>
+    </div>
+    <script type='text/javascript' src='capture.js'></script>
+    <script type='text/javascript' src='interval.js'></script>
+    <script type="text/javascript" src="latex-parser.js"></script>
+    <script type='text/javascript' src='mindmup-editabletable.js'></script>
+    <script type="text/javascript" src="grapher.js"></script>
+</body>
+
+</html>
