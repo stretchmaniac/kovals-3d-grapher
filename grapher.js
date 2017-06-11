@@ -1811,6 +1811,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     
     //sometimes I'm really thankful I stretched the function instead of the domain...
     var defaultXYZLength = (domain.x.max - domain.x.min) / domain.density;
+    var legLength = defaultXYZLength;
     
     points = [];
     pointQuats = [];
@@ -1822,17 +1823,17 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         
     var referencePt;
     
-    //where 1 s = 1 defaultXYZLength
-    var s = sCoord => sCoord*defaultXYZLength / referencePt.deriv1.du;
-    var t = tCoord => tCoord*defaultXYZLength / referencePt.deriv1.dv;
+    //where 1 s = 1 legLength
+    var s = sCoord => sCoord*legLength / referencePt.deriv1.du;
+    var t = tCoord => tCoord*legLength / referencePt.deriv1.dv;
     
     function generatingVecs(){
-        //we want (v1.u * |du|)^2 + (v1.v * |dv|)^2 == defaultXYZLength^2, and the same for v2
+        //we want (v1.u * |du|)^2 + (v1.v * |dv|)^2 == legLength^2, and the same for v2
         //for v1, we just assume v = 0
         var du = referencePt.deriv1.du,
             dv = referencePt.deriv1.dv
         var v1 = {
-            u: defaultXYZLength / magnitude(du),
+            u: legLength / magnitude(du),
             v:0
         };
         //this is essentially a projection
@@ -1842,15 +1843,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
             u:-dot(du, dv) / dot(du, du),
             v:1
         }
-        //now scale v2 to its length is defaultXYZLength
-        var sc = defaultXYZLength / magnitude( add( scalar(v2.u, du), scalar(v2.v, dv) ) );
+        //now scale v2 to its length is legLength
+        var sc = legLength / magnitude( add( scalar(v2.u, du), scalar(v2.v, dv) ) );
         v2.u *= sc;
         v2.v *= sc;
         
         return [v1,v2];
     }
     
-    //returns the uv coordinates of a coordinate specified in perpendicular, normalized (via defaultXYZLength)
+    //returns the uv coordinates of a coordinate specified in perpendicular, normalized (via legLength)
     //  coordinates, with the first coordinate parallel to the du vector
     function dir(s,t){
         var vecs = generatingVecs();
@@ -2007,6 +2008,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     
     function processPoint(pt, edgePoints){
         referencePt = pt;
+        
+        var n1 = pt.beginning.beginning;
+        var n2 = pt.end.end;
+        
+        //if the length from connection point to the base point is less than the distance from the 
+        //base point to n1 or n2, then there is garunteed (I think) no overlap with 2nd or higher neighbors
+        var maxLength = Math.min(magnitude(sub(pt, n1)), magnitude(pt, n2));
+        legLength = maxLength < defaultXYZLength ? maxLength : defaultXYZLength;
+        
         //start point
         var sPoint = pt.beginning;
         //end point
@@ -2062,13 +2072,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 edgePoints.push(connectionPoint);
             }
             
-            var n1 = pt.beginning.beginning;
-            var n2 = pt.end.end;
-            
             //If a point crosses the line caused by pt.beginning and n1, it allows for interior line segments 
             //(e.g. pointing inward instead of outward),
             //This is bad
-            //console.log('snap dist: '+magnitude(sub(connectionPoint, n1)))
             var n1Fault = false;
             var n2Fault = false;
             //is the new segment pointing in the same direction as the neighbor segment?
@@ -2081,12 +2087,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
             if(uvDot(connectionPoint, pt.end, n2) > 0 && !isClockwise(connectionPoint, pt.end, n2) && !isClockwise(n2, pt.end, pt)){
                 n2Fault = true;
                 console.log('n2 (end) fault');
-                //console.log(connectionPoint);
-                //console.log(pt.end)
-                //console.log(n2)
             }
             
-            if((magnitude(sub(connectionPoint, n1)) < defaultXYZLength / 3 || n1Fault) && (withinDomain || n1Fault) && sCount !== sections-1){
+            if((magnitude(sub(connectionPoint, n1)) < legLength / 3 || n1Fault) && (withinDomain || n1Fault) && sCount !== sections-1){
                 console.log('BEGINNING SNAP')
                 //this is a 'beginning' snap
                 connectionPoint = n1;
@@ -2111,7 +2114,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 //I'll do it later
                 currentAngle += angleDelta;
                 //if the end is close enough OR it's the edge and not a fault
-            }else if((magnitude(sub(connectionPoint, n2)) < defaultXYZLength / 3 || n2Fault) && (withinDomain || n2Fault) && sCount !== sections-1){
+            }else if((magnitude(sub(connectionPoint, n2)) < legLength / 3 || n2Fault) && (withinDomain || n2Fault) && sCount !== sections-1){
                 console.log('ENDING SNAP')
                 //this is an 'ending' snap, slightly more complicated
                 //this is garunteed to be the last section, so we'll break at the end
@@ -2143,7 +2146,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 if(sCount === sections - 1){
                     connectionPoint = ePoint;
                     //if the distance to ePoint is too big, we'll split it
-                    if(magnitude(sub(ePoint, pt)) > 1.25 * defaultXYZLength){
+                    if(magnitude(sub(ePoint, pt)) > 1.25 * legLength){
                         console.log('end point split')
                         //add a point in between to even things out
                         var newU = (ePoint.u + pt.u)/2,
