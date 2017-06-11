@@ -1975,7 +1975,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     }
     
     function pushToPointFront(pt){
-        console.log(pt.u+', '+pt.v)
         //do a binary search to find where the pt should go
         var d = distFunc(pt);
         //bounds of index, low and high (inclusive on both)
@@ -1983,6 +1982,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         var high = pointFront.length-1;
         if(d < distFunc(pointFront[low])){
             pointFront.splice(0,0,pt);
+            return;
         }else if(d > distFunc(pointFront[high])){
             pointFront.push(pt);
             return;
@@ -2142,7 +2142,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 //there is no snap, continue as normal
                 if(sCount === sections - 1){
                     connectionPoint = ePoint;
-                    //if the distance to ePoint is too big...
+                    //if the distance to ePoint is too big, we'll split it
                     if(magnitude(sub(ePoint, pt)) > 1.25 * defaultXYZLength){
                         console.log('end point split')
                         //add a point in between to even things out
@@ -2203,6 +2203,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
             }
         }
         pointFront.splice(pointFront.indexOf(pt),1);
+        console.log('pf')
     }
     
     //in order not to mess up the mesh as its graphing, we'll squish the 
@@ -2210,12 +2211,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 24){
+    while(pointFront.length > 0 && c < 466){
         c++;
         processPoint(pointFront[0], edgePoints);
-        //pointFront.sort(function(a,b){
-        //    return distFunc(a) - distFunc(b);
-        //})
     }
     
     //move all the edge points back into the domain
