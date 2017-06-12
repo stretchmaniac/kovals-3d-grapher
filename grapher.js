@@ -2047,6 +2047,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         var genPoint = sPoint;
         var connectionPoint;
         
+        var lastAngleSplits = 0;
+        
         for(var sCount = 0; sCount < sections; sCount++){
             //make connectionPoint as if it was the end of the loop
             vec = dir(Math.cos(currentAngle), Math.sin(currentAngle));
@@ -2094,7 +2096,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 //this is a 'beginning' snap
                 connectionPoint = n1;
                 
-                if(magnitude(sub(connectionPoint, pt)) > 1.1 * defaultXYZLength){
+                if(magnitude(sub(connectionPoint, pt)) > 1.2 * defaultXYZLength){
                     console.log('BEGINNING SPLIT')
                     console.log('how big? '+magnitude(sub(pt, connectionPoint))/defaultXYZLength)
                     //split up this connection
@@ -2155,7 +2157,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 //this is garunteed to be the last section, so we'll break at the end
                 connectionPoint = n2;
                 
-                if(magnitude(sub(pt, connectionPoint)) > 1.1 * defaultXYZLength){
+                if(magnitude(sub(pt, connectionPoint)) > 1.2 * defaultXYZLength){
                     //split up this connection
                     console.log('END SPLIT')
                     console.log('how big? '+magnitude(sub(pt, connectionPoint))/defaultXYZLength)
@@ -2219,6 +2221,16 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 //there is no snap, continue as normal
                 if(sCount === sections - 1){
                     connectionPoint = ePoint;
+                    //if the jump is too big (this jump can accumulate over time and lead to major bugs)
+                    if(magnitude(sub(connectionPoint, genPoint)) > 1.2*defaultXYZLength && lastAngleSplits < 2){
+                        //just redo the current section with a smaller angle
+                        currentAngle -= angleDelta/2;
+                        sCount-=2;
+                        console.log('ANGLE SPLIT')
+                        console.log('(dist) '+magnitude(sub(connectionPoint, genPoint))/defaultXYZLength)
+                        lastAngleSplits++;
+                        continue;
+                    }
                 }else{
                     connectionPoint.end = pt;
                     makeConnection(connectionPoint, pt);
@@ -2259,7 +2271,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 500){
+    while(pointFront.length > 0 && c < 100){
         c++;
         processPoint(pointFront[0], edgePoints);
     }
