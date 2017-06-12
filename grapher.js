@@ -2094,21 +2094,56 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 //this is a 'beginning' snap
                 connectionPoint = n1;
                 
-                makeConnection(pt, connectionPoint);
-                
-                //remove genPoint
-                pointFront.splice(pointFront.indexOf(genPoint), 1);
-                
-                //fix beginnings/endings (there is no new point)
-                connectionPoint.end = pt;
-                
-                //make polygon
-                polygons.push({
-                    indices:[pt.index, connectionPoint.index, genPoint.index],
-                    pts:[]
-                });
-                
-                genPoint = connectionPoint;
+                if(magnitude(sub(connectionPoint, pt)) > 1.1 * defaultXYZLength){
+                    console.log('BEGINNING SPLIT')
+                    console.log('how big? '+magnitude(sub(pt, connectionPoint))/defaultXYZLength)
+                    //split up this connection
+                    var midP = plotPlus(xFunc, yFunc, zFunc, (n1.u + pt.u) / 2, (n1.v + pt.v) / 2);
+                    points.push(midP);
+                    midP.index = points.length - 1;
+                    
+                    pushToPointFront(midP);
+                    
+                    //insert in between points
+                    makeConnection(pt, midP);
+                    makeConnection(midP, connectionPoint);
+                    makeConnection(midP, genPoint);
+                    
+                    //remove genPoint as proceeding sequence
+                    pointFront.splice(pointFront.indexOf(genPoint), 1);
+                    
+                    connectionPoint.end = midP;
+                    midP.beginning = connectionPoint;
+                    midP.end = pt;
+                    
+                    //there's 2 polygons, since we're making a quadrillateral here
+                    polygons.push({
+                        indices:[pt.index, midP.index, genPoint.index],
+                        pts:[]
+                    });
+                    polygons.push({
+                        indices:[midP.index, genPoint.index, connectionPoint.index],
+                        pts:[]
+                    });
+                    
+                    genPoint = midP;
+                }else{
+                    makeConnection(pt, connectionPoint);
+                    
+                    //remove genPoint
+                    pointFront.splice(pointFront.indexOf(genPoint), 1);
+                    
+                    //fix beginnings/endings (there is no new point)
+                    connectionPoint.end = pt;
+                    
+                    //make polygon
+                    polygons.push({
+                        indices:[pt.index, connectionPoint.index, genPoint.index],
+                        pts:[]
+                    });
+                    
+                    genPoint = connectionPoint;
+                }
                 //technically this should be changed so that the current angle is angleDelta + (connectionPoint Angle)
                 //I expect a moderate smoothing effect (e.g. less sharp angles), but it is probably optional
                 //I'll do it later
@@ -2120,60 +2155,70 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 //this is garunteed to be the last section, so we'll break at the end
                 connectionPoint = n2;
                 
-                makeConnection(connectionPoint, genPoint);
-                makeConnection(connectionPoint, pt);
-                
-                //remove the excess point
-                pointFront.splice(pointFront.indexOf(pt.end),1);
-                
-                //fix beginnings/ends
-                connectionPoint.beginning = genPoint;
-                genPoint.end = connectionPoint;
-                
-                //now there are two polygons to add
-                polygons.push({
-                    indices:[pt.index, connectionPoint.index, genPoint.index],
-                    pts:[]
-                });
-                polygons.push({
-                    indices:[pt.index, connectionPoint.index, pt.end.index],
-                    pts:[]
-                });
+                if(magnitude(sub(pt, connectionPoint)) > 1.1 * defaultXYZLength){
+                    //split up this connection
+                    console.log('END SPLIT')
+                    console.log('how big? '+magnitude(sub(pt, connectionPoint))/defaultXYZLength)
+                    var midP = plotPlus(xFunc, yFunc, zFunc, (pt.u + connectionPoint.u) / 2, (pt.v + connectionPoint.v) / 2);
+                    points.push(midP);
+                    midP.index = points.length - 1;
+                    
+                    pushToPointFront(midP);
+                    
+                    //make connections
+                    makeConnection(midP, pt);
+                    makeConnection(midP, connectionPoint);
+                    makeConnection(midP, pt.end)
+                    makeConnection(genPoint, midP);
+                    
+                    midP.beginning = genPoint;
+                    genPoint.end = midP;
+                    midP.end = connectionPoint;
+                    connectionPoint.beginning = midP;
+                    
+                    pointFront.splice(pointFront.indexOf(pt.end),1);
+                    
+                    //3 polygons now!
+                    polygons.push({
+                        indices:[pt.index, midP.index, genPoint.index],
+                        pts:[]
+                    });
+                    polygons.push({
+                        indices:[pt.index, midP.index, pt.end.index],
+                        pts:[]
+                    });
+                    polygons.push({
+                        indices:[midP.index, pt.end.index, connectionPoint.index],
+                        pts:[]
+                    });
+                    
+                }else{
+                    makeConnection(connectionPoint, genPoint);
+                    makeConnection(connectionPoint, pt);
+                    
+                    //remove the excess point
+                    pointFront.splice(pointFront.indexOf(pt.end),1);
+                    
+                    //fix beginnings/ends
+                    connectionPoint.beginning = genPoint;
+                    genPoint.end = connectionPoint;
+                    
+                    //now there are two polygons to add
+                    polygons.push({
+                        indices:[pt.index, connectionPoint.index, genPoint.index],
+                        pts:[]
+                    });
+                    polygons.push({
+                        indices:[pt.index, connectionPoint.index, pt.end.index],
+                        pts:[]
+                    });
+                }
                 
                 break;
             }else{
                 //there is no snap, continue as normal
                 if(sCount === sections - 1){
                     connectionPoint = ePoint;
-                    //if the distance to ePoint is too big, we'll split it
-                    if(magnitude(sub(ePoint, pt)) > 1.25 * legLength){
-                        console.log('end point split')
-                        //add a point in between to even things out
-                        var newU = (ePoint.u + pt.u)/2,
-                            newV = (ePoint.v + pt.v)/2;
-                        var nPt = plotPlus(xFunc, yFunc, zFunc, newU, newV);
-                        
-                        makeConnection(nPt, pt);
-                        makeConnection(nPt, ePoint);
-                        
-                        //ePoint is always the end
-                        nPt.end = ePoint;
-                        ePoint.beginning = nPt;
-                        
-                        nPt.beginning = pt;
-                        pt.end = nPt;
-                        
-                        pushToPointFront(nPt);
-                        points.push(nPt);
-                        nPt.index = points.length - 1;
-                        
-                        polygons.push({
-                            indices:[pt.index, nPt.index, ePoint.index],
-                            pts:[]
-                        });
-                        
-                        connectionPoint = nPt;
-                    }
                 }else{
                     connectionPoint.end = pt;
                     makeConnection(connectionPoint, pt);
@@ -2214,7 +2259,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 466){
+    while(pointFront.length > 0 && c < 500){
         c++;
         processPoint(pointFront[0], edgePoints);
     }
