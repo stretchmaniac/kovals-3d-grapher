@@ -276,7 +276,14 @@ $(function(){
     })
     
     $('#settings-icon').click(function(){
-        
+        $('#settings-popup').removeClass('hidden');
+        $(document).mouseup(function (e){
+            var container = $("#settings-content");
+            if (!container.is(e.target) && container.has(e.target).length === 0){
+                $('#settings-popup').addClass('hidden');
+                $("#settings-content").unbind( 'click', document);
+            }
+        });
     })
     
     MQ = MathQuill.getInterface(2);

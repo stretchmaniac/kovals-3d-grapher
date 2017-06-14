@@ -1089,6 +1089,116 @@
             </duv>
         </div>
     </div>
+    <div id='settings-popup' class='popup hidden'>
+        <div id='settings-content' class='popup-content'>
+            <div class='popup-header'>Settings</div>
+            <div class='popup-inner-content'>
+                <span class='settings-header'>Rendering Options</span>
+                <hr>
+                <div class='checkbox-wrapper'>
+                    <label>
+                        <div class='checkbox-row'>
+                            <input type='checkbox' id='color-graph-checkbox'>
+                            <span></span>
+                            <div class='checkbox-text-wrapper'>
+                                <div class='checkbox-label'>Shade Mesh</div>
+                                <div class='checkbox-description'>Shade each polygon according to a color function based on the value of the function at the point. Uncheck to improve rendering speed.</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                <div class='checkbox-wrapper'>
+                    <label>
+                        <div class='checkbox-row'>
+                            <input type='checkbox' id='directional-lighting-checkbox'>
+                            <span></span>
+                            <div class='checkbox-text-wrapper'>
+                                <div class='checkbox-label'>Use Directional Lighting</div>
+                                <div class='checkbox-description'>Vary the shading of each polygon based on its angle relative to a light source. Does not significantly decrease rendering speed.</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                <div class='checkbox-wrapper'>
+                    <label>
+                        <div class='checkbox-row'>
+                            <input type='checkbox' id='perspective-checkbox'>
+                            <span></span>
+                            <div class='checkbox-text-wrapper'>
+                                <div class='checkbox-label'>Use Perspective</div>
+                                <div class='checkbox-description'>Make points farther away appear closer to the center of view. Highly recommended.</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                <div class='checkbox-wrapper'>
+                    <label>
+                        <div class='checkbox-row'>
+                            <input type='checkbox' id='show-mesh-while-coloring-checkbox'>
+                            <span></span>
+                            <div class='checkbox-text-wrapper'>
+                                <div class='checkbox-label'>Render Mesh when Shading</div>
+                                <div class='checkbox-description'>Draw the mesh boundaries when shading.</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                <span class='settings-header'>Axis Options</span>
+                <hr>
+                <div class='checkbox-wrapper'>
+                    <label>
+                        <div class='checkbox-row'>
+                            <input type='checkbox' id='show-axes-checkbox'>
+                            <span></span>
+                            <div class='checkbox-text-wrapper'>
+                                <div class='checkbox-label'>Show Axes</div>
+                                <div class='checkbox-description'>Show the \(x\), \(y\) and \(z\) axes on the graph.</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                <div class='checkbox-wrapper'>
+                    <label>
+                        <div class='checkbox-row'>
+                            <input type='checkbox' id='show-axes-labels-checkbox'>
+                            <span></span>
+                            <div class='checkbox-text-wrapper'>
+                                <div class='checkbox-label'>Show Axes Labels</div>
+                                <div class='checkbox-description'>Show the minimum and maximum value on each coordinate axis.</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                <span class='settings-header'>Mesh Options</span>
+                <hr>
+                <div style='display:flex;margin-top:20px;padding:3px'>
+                    <span class='checkbox-label' style='display:block;padding-bottom:4px'>Mesh Quality:</span>
+                    <input class='settings-input' id='mesh-quality-input'>
+                </div>
+                <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>A measure vaguely specifying how many polygons to use per unit area of surface. Note that this 
+                    does not put a hard limit on the number of polygons drawn, since some surfaces have a much 
+                    greater surface area than others. Values greater than 500 are not recommended.
+                </span>
+                <span class='settings-header'>Themes</span>
+                <hr>
+                <label radio>
+                    <div class='radio-wrapper'>
+                        <input type='radio' name='theme'>
+                        <span></span>
+                        <div>Dark</div>
+                    </div>
+                </label>
+                <label radio>
+                    <div class='radio-wrapper'>
+                        <input type='radio' name='theme'>
+                        <span></span>
+                        <div>Light</div>
+                    </div>
+                </label>
+                
+            </div>
+        </div>
+    </div>
     <div id='full-screen-button'>Full Screen</div>
     <div class="header">
         <div id='title'>
