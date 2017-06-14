@@ -1,3 +1,6 @@
+:root{
+    --equation-font-color:rgb(199, 197, 159);
+}
 html,body {
     margin: 0;
     padding: 0;
@@ -119,51 +122,14 @@ select{
     float:left;
     position:relative;
 }
-.left-side{
-    width:400px;
-    height:100%;
-    overflow-y:auto;
-    z-index:5;
-    box-shadow: 0px 0px 3px rgba(0,0,0,.3);
-}
-.content-input{
-    width:calc(100%);
-    margin-top:5px;
-    margin-bottom:5px;
-    float:left;
-}
-.input-label{
-    width:10%;
-    height:100%;
-    text-align:center;
-    float:left;
-}
-.input-area{
-    width:calc(90% - 32px);
-    margin-top:5px;
-    margin-right:10px;
-    float:left;
-    vertical-align:middle;
-    border: 1px solid rgba(54, 169, 104,.3);
-    padding:10px;
-    white-space:nowrap;
-    overflow:hidden;
-}
 #content-graph{
-    width:calc(100% - 400px);
+    width:100%;
     height:100%;
     margin:auto;
     position:absolute;
     right:0px;
     top:0px;
     box-shadow:0px 0px 3px rgba(0,0,0,.3);
-}
-#graph-button{
-    padding:7pt;
-    font-size:11pt;
-}
-#density-label{
-    width:20%;
 }
 #canvas{
     margin:0 auto 0 auto;
@@ -184,35 +150,9 @@ button:hover{
 button:active{
     background:rgb(34, 149, 84);
 }
-#density-input{
-    width:70%;
-}
-#x-y-z-range-row{
-    transition:all .5s ease;
-}
-#xyz-range-row{
-    display:block;
-}
 .half-row{
     width:50%;
     float:left;
-}
-.range-input-label{
-    width:50%;
-    height:100%;
-    text-align:right;
-    float:left;
-}
-.range-input-area{
-    width:calc(50% - 32px);
-    margin-top:5px;
-    margin-right:10px;
-    float:left;
-    vertical-align:middle;
-    border: 1px solid rgba(54, 169, 104,.3);
-    padding:10px;
-    white-space:nowrap;
-    overflow:hidden;
 }
 #button-row{
     width:100%;
@@ -331,8 +271,6 @@ button:active{
     font-size:20px;
     padding:7px 10px 7px 10px;
 }
-#image-type-row{
-}
 #export-options-row{
     flex-grow:1;
     display:flex;
@@ -358,15 +296,6 @@ button:active{
 #save-href{
     text-decoration: none;
     color:white;
-}
-.checkbox-label{
-    margin:10px;
-    margin-left:15px;
-    margin-right:5px;
-    font-size:10pt;
-}
-input[type='checkbox']{
-    margin:10px;
 }
 #plot-img-row{
     width:100%;
@@ -542,6 +471,26 @@ input[type=range]:focus::-ms-fill-upper {
 #full-screen-button:hover{
     text-decoration: underline;
     cursor:pointer;
+}
+#work-bar{
+    position:absolute;
+    bottom:100px;
+    left:200px;
+    padding:5px;
+    box-shadow:0px 0px 10px rgba(0,0,0,1);
+    background:#333333;
+}
+#equation-input{
+    width:500px;
+    font-size:20px;
+    padding:10px;
+    display: block;
+    color:var(--equation-font-color);
+}
+.vertical-bar{
+    width:1px;
+    height:100%;
+    color:var(--equation-font-color);
 }
 
 

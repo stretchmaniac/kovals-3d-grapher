@@ -276,100 +276,32 @@ $(function(){
     })
     
     MQ = MathQuill.getInterface(2);
-    var xInput = document.getElementById('x-input');
-    var yInput = document.getElementById('y-input');
-    var zInput = document.getElementById('z-input');
-    var rhoInput = document.getElementById('rho-input');
-    var phiInput = document.getElementById('phi-input');
-    var heightInput = document.getElementById('height-input');
-    var sphiInput = document.getElementById('sphi-input');
-    var rInput = document.getElementById('r-input');
-    var thetaInput = document.getElementById('theta-input');
     var autoCommands = 'pi theta rho phi sqrt sum';
-    var inputs = [xInput, yInput, zInput, phiInput, heightInput, rhoInput, sphiInput, thetaInput, rInput];
-    for(var r = 0; r < inputs.length; r++){
-        (function(){
-            MQ.MathField(inputs[r],{
-                spaceBehavesLikeTab: true,
-                sumStartsWithNEquals: true,
-                supSubsRequireOperand: true,
-                autoCommands: autoCommands,
-                handlers:{
-                    enter:function(mathField){
-                        $('#graph-button').click();
-                    }
-                }
-            });
-        })();
-    }
-    
-    var xMin = document.getElementById('x-range-min-input');
-    var yMin = document.getElementById('y-range-min-input');
-    var zMin = document.getElementById('z-range-min-input');
-    var xMax = document.getElementById('x-range-max-input');
-    var yMax = document.getElementById('y-range-max-input');
-    var zMax = document.getElementById('z-range-max-input');
-    
-    var rhoMin = document.getElementById('rho-range-min-input');
-    var phiMin = document.getElementById('phi-range-min-input');
-    var heightMin = document.getElementById('height-range-min-input');
-    var rhoMax = document.getElementById('rho-range-max-input');
-    var phiMax = document.getElementById('phi-range-max-input');
-    var heightMax = document.getElementById('height-range-max-input');
-    
-    var rMin = document.getElementById('r-range-min-input');
-    var thetaMin = document.getElementById('theta-range-min-input');
-    var sphiMin = document.getElementById('sphi-range-min-input');
-    var rMax = document.getElementById('r-range-max-input');
-    var thetaMax = document.getElementById('theta-range-max-input');
-    var sphiMax = document.getElementById('sphi-range-max-input');
-    
-    var uMin = document.getElementById('u-range-min-input');
-    var uMax = document.getElementById('u-range-max-input');
-    var vMin = document.getElementById('v-range-min-input');
-    var vMax = document.getElementById('v-range-max-input');
-    
-    autoCommands = 'pi sqrt'
-    var domainInputs = [xMin,yMin,zMin,xMax,yMax,zMax,rhoMin,phiMin,heightMin,rhoMax,phiMax,heightMax,rMin,thetaMin,sphiMin,rMax,thetaMax,sphiMax,uMin,uMax,vMin,vMax];
-    for(var w = 0; w < domainInputs.length; w++){
-        (function(){
-            MQ.MathField(domainInputs[w],{
-                supSubsRequireOperand: true,
-                autoCommands: autoCommands
-            })
-        })();
-    }
+    MQ.MathField($('#equation-input')[0],{
+        spaceBehavesLikeTab: true,
+        sumStartsWithNEquals: true,
+        supSubsRequireOperand: true,
+        autoCommands: autoCommands,
+        handlers:{
+            enter:function(mathField){
+                graph();
+            }
+        }
+    });
     
     
     syncAxes()
     
-    //Math.sqrt(45-x*x-y*y)+Math.cos(Math.sqrt(10*(x*x+y*y)))
-    //Math.floor(x/5)+Math.floor(y/5)
-    //Math.tan(x)
-    //Math.sin(x)+Math.sin(y)
     //randomGraph();
-    setTimeout(function(){
-        var xInput = MQ.MathField(document.getElementById('x-input'));
-        var yInput = MQ.MathField(document.getElementById('y-input'));
-        var zInput = MQ.MathField(document.getElementById('z-input'));
-        var rhoInput = MQ.MathField(document.getElementById('rho-input'));
-        var phiInput = MQ.MathField(document.getElementById('phi-input'));
-        var heightInput= MQ.MathField(document.getElementById('height-input'));
-        var rInput = MQ.MathField(document.getElementById('r-input'))
-        var thetaInput = MQ.MathField(document.getElementById('theta-input'))
-        var sphiInput = MQ.MathField(document.getElementById('sphi-input'))
-        var inputs = [xInput, yInput, zInput, rhoInput, phiInput, heightInput, rInput, thetaInput, sphiInput];
-        for(var a = 0; a < inputs.length; a++){
-            var input = inputs[a];
-            input.cmd(')');
-            input.keystroke('Backspace')
-            input.blur();
-        }
-    },500)
+    // setTimeout(function(){
+    //     var input = MQ.MathField($('#equation-input'));
+    //     input.cmd(')');
+    //     input.keystroke('Backspace')
+    //     input.blur();
+    // },500)
     domain.coloring = true;
-    document.getElementById('color-checkbox').checked = true;
     totalQuat = {w: 0.7946319801955918, x: 0.04116688544469564, y: -0.5886375904216452, z: -0.14272733002412488}
-    graph();
+    //graph();
     
     var mouseClicked = false;
     var leftMouseClicked = false;
@@ -2271,7 +2203,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 100){
+    while(pointFront.length > 0 && c < 2000){
         c++;
         processPoint(pointFront[0], edgePoints);
     }
