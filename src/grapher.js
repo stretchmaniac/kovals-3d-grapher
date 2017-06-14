@@ -275,6 +275,10 @@ $(function(){
         }
     })
     
+    $('#settings-icon').click(function(){
+        
+    })
+    
     MQ = MathQuill.getInterface(2);
     var autoCommands = 'pi theta rho phi sqrt sum';
     MQ.MathField($('#equation-input')[0],{
