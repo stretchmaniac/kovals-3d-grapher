@@ -241,7 +241,9 @@ $(function(){
     $('#export-popup').click(function(event){
         
     })
-    $('#animate-button').click(function(event){
+    $('#animation-link').click(function(event){
+        $('#settings-popup').addClass('hidden');
+        $("#settings-content").unbind( 'click', document);
         $('#animate-popup').removeClass('hidden');
         $(document).mousedown(function (e){
             var container = $("#animate-content");
@@ -250,6 +252,7 @@ $(function(){
                 $("#animate-content").unbind( 'click', document);
             }
         });
+        event.preventDefault();
     })
     $('#animate-start-button').click(function(){
         animate();

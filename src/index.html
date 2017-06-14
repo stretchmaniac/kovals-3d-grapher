@@ -1098,7 +1098,7 @@
                 <div class='checkbox-wrapper'>
                     <label>
                         <div class='checkbox-row'>
-                            <input type='checkbox' id='color-graph-checkbox'>
+                            <input type='checkbox' id='color-graph-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Shade Mesh</div>
@@ -1110,7 +1110,7 @@
                 <div class='checkbox-wrapper'>
                     <label>
                         <div class='checkbox-row'>
-                            <input type='checkbox' id='directional-lighting-checkbox'>
+                            <input type='checkbox' id='directional-lighting-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Use Directional Lighting</div>
@@ -1122,7 +1122,7 @@
                 <div class='checkbox-wrapper'>
                     <label>
                         <div class='checkbox-row'>
-                            <input type='checkbox' id='perspective-checkbox'>
+                            <input type='checkbox' id='perspective-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Use Perspective</div>
@@ -1148,7 +1148,7 @@
                 <div class='checkbox-wrapper'>
                     <label>
                         <div class='checkbox-row'>
-                            <input type='checkbox' id='show-axes-checkbox'>
+                            <input type='checkbox' id='show-axes-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Show Axes</div>
@@ -1160,7 +1160,7 @@
                 <div class='checkbox-wrapper'>
                     <label>
                         <div class='checkbox-row'>
-                            <input type='checkbox' id='show-axes-labels-checkbox'>
+                            <input type='checkbox' id='show-axes-labels-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Show Axes Labels</div>
@@ -1171,19 +1171,22 @@
                 </div>
                 <span class='settings-header'>Mesh Options</span>
                 <hr>
-                <div style='display:flex;margin-top:20px;padding:3px'>
+                <div style='display:flex;margin-top:20px;margin-bottom:20px;padding:3px'>
                     <span class='checkbox-label' style='display:block;padding-bottom:4px'>Mesh Quality:</span>
-                    <input class='settings-input' id='mesh-quality-input'>
+                    <input class='settings-input' id='mesh-quality-input' value='30'>
                 </div>
                 <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>A measure vaguely specifying how many polygons to use per unit area of surface. Note that this 
                     does not put a hard limit on the number of polygons drawn, since some surfaces have a much 
                     greater surface area than others. Values greater than 500 are not recommended.
                 </span>
+                <span class='settings-header'>Animations</span>
+                <hr>
+                <span><a id='animation-link' href='google.com'>Manage your animation settings.</a></span>
                 <span class='settings-header'>Themes</span>
                 <hr>
                 <label radio>
                     <div class='radio-wrapper'>
-                        <input type='radio' name='theme'>
+                        <input type='radio' name='theme' checked>
                         <span></span>
                         <div>Dark</div>
                     </div>
@@ -1200,12 +1203,8 @@
         </div>
     </div>
     <div id='full-screen-button'>Full Screen</div>
-    <div class="header">
-        <div id='title'>
-            Koval's 3D Grapher
-        </div>
-        <button id='export-button' class='top-bar-button'>Save Graph</button>
-        <button id='animate-button' class='top-bar-button'>Animate</button>
+    <div id='title'>
+        Koval's 3D Grapher
     </div>
     <div class="content">
         <div id="content-graph">
@@ -1215,10 +1214,13 @@
             <div id='work-bar'>
                 <span id='equation-input'></span>
                 <div class='vertical-bar'></div>
-                <div class='option-wrapper'>
+                <div class='option-wrapper' title='Settings'>
                     <img id='settings-icon' class='option-icon' src="../imgs/settings-icon.svg">
                 </div>
-                <div class='option-wrapper' id='help'>
+                <div class='option-wrapper' id='export-button' title='Download'>
+                    <img id='download-icon' class='option-icon' src="../imgs/download-icon.svg">
+                </div>
+                <div class='option-wrapper' id='help' title='Help'>
                     <img id='help-icon' class='option-icon' src="../imgs/help-icon.svg">
                 </div>
             </div>
