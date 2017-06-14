@@ -2203,7 +2203,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 2000){
+    while(pointFront.length > 0 && c < 100){
         c++;
         processPoint(pointFront[0], edgePoints);
     }
