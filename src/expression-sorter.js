@@ -105,7 +105,7 @@ function characterizeExpression(expr){
             var isAtomic = x => {
                 var s = x.split(',');
                 //correct format, and each element is included in vars
-                return s.length === 3 && x.charAt(0) === '(' && x.charAt(x.length-1) === ')' &&
+                return s.length === 3 && x.charAt(0) === '[' && x.charAt(x.length-1) === ']' &&
                     [s[0].substring(1,s[0].length), s[1], s[2].substring(0, s[2].length - 1)].map(a => vars.indexOf(a) !== -1).indexOf(false) === -1;
             }
             
@@ -177,9 +177,6 @@ function characterizeExpression(expr){
                 };
             }
         }
-        
-    }else if(structure.length === 4){
-        //second type of parametric function above
         
     }else{
         return {
