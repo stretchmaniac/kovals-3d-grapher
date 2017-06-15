@@ -1211,17 +1211,22 @@
             <canvas id="canvas">
                 
             </canvas>
-            <div id='work-bar'>
-                <span id='equation-input'></span>
-                <div class='vertical-bar'></div>
-                <div class='option-wrapper' title='Settings'>
-                    <img id='settings-icon' class='option-icon' src="../imgs/settings-icon.svg">
+            <div id='work-bar-wrapper'>
+                <div id='work-bar'>
+                    <span id='equation-input'></span>
+                    <div class='vertical-bar'></div>
+                    <div class='option-wrapper' title='Settings'>
+                        <img id='settings-icon' class='option-icon' src="../imgs/settings-icon.svg">
+                    </div>
+                    <div class='option-wrapper' id='export-button' title='Download'>
+                        <img id='download-icon' class='option-icon' src="../imgs/download-icon.svg">
+                    </div>
+                    <div class='option-wrapper' id='help' title='Help'>
+                        <img id='help-icon' class='option-icon' src="../imgs/help-icon.svg">
+                    </div>
                 </div>
-                <div class='option-wrapper' id='export-button' title='Download'>
-                    <img id='download-icon' class='option-icon' src="../imgs/download-icon.svg">
-                </div>
-                <div class='option-wrapper' id='help' title='Help'>
-                    <img id='help-icon' class='option-icon' src="../imgs/help-icon.svg">
+                <div id='after-work-bar'>
+                    <div id='notification-bar'>enter expression</div>
                 </div>
             </div>
         </div>
@@ -1229,6 +1234,7 @@
     <script type='text/javascript' src='../libs/capture.js'></script>
     <script type='text/javascript' src='../libs/interval.js'></script>
     <script type="text/javascript" src="latex-parser.js"></script>
+    <script type='text/javascript' src='expression-sorter.js'></script>
     <script type='text/javascript' src='../libs/mindmup-editabletable.js'></script>
     <script type="text/javascript" src="grapher.js"></script>
 </body>

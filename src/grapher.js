@@ -1,5 +1,6 @@
 /*global MathQuill*/
 /*global parseLatex*/
+/*global characterizeExpression*/
 /*global math*/
 /*global MathJax*/
 /*global $*/
@@ -299,6 +300,24 @@ $(function(){
         handlers:{
             enter:function(mathField){
                 graph();
+            },
+            edit:function(mathField){
+                var result = characterizeExpression(parseLatex(mathField.latex(), animationVars));
+                console.log(result)
+                var outputString;
+                if(result.error !== 'none'){
+                    outputString = result.error;
+                    $('#notification-bar').css('color','rgb(255, 102, 102)');
+                }else{
+                    outputString = result.type
+                    if(result.message){
+                        outputString += ': '+result.message;
+                    }
+                    outputString += ', '+(result.parametric ? 'parametric' : 'non-parametric')
+                    $('#notification-bar').css('color','var(--equation-font-color)');
+                }
+                
+                $('#notification-bar').text(outputString);
             }
         }
     });
