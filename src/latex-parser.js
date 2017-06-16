@@ -28,13 +28,9 @@ var thetaChar = 'Ì'
 var phiChar = 'É'
 var rhoChar = 'Î'
 //order is important
-var variables = [thetaChar,phiChar,rhoChar,'e','pi','x','y','z','r','u','v']
+var variables;
 function parseLatex(expression, vars){
-    variables = [thetaChar,phiChar,rhoChar,'e','pi','x','y','z','r','u','v']
-    
-    for(var j = 0; j < vars.length; j++){
-        variables.push(vars[j].name)
-    }
+    variables = [thetaChar,phiChar,rhoChar,'e','pi','x','y','z','r','u','v'].concat(vars);
     
     expression = expression.replace(/\\theta/g, ' '+thetaChar);
     expression = expression.replace(/\\phi/g, ' '+phiChar);
@@ -159,7 +155,7 @@ function parseLatex(expression, vars){
                         goOn = true;
                     }else if(char === '['){
                         nextIndex = matchingRightChar('[',']',expression ,nextIndex)+1;
-                    }else if(char === '+' || char === '-' || char === '}' ||nextIndex === expression.length){
+                    }else if(char === '+' || char === '-' || char === '}' || char === ']' || char === ',' || nextIndex === expression.length){
                         nextIndex--;
                         goOn = false;
                     }else{
