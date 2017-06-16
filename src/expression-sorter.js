@@ -5,7 +5,7 @@
 //  message: <ambiguity, etc message>
 //  type: cartesian | cylindrical | spherical,
 //  parametric: true | false,
-//  expression: <{vars:[__, __, __,], body:__}> if parametric>
+//  expression: <{vars:[__, ...  __, __,], body:__}>
 //}
 function characterizeExpression(expr){
     console.log(expr)
@@ -77,7 +77,7 @@ function characterizeExpression(expr){
                         type:'cartesian',
                         message:'expression ambiguous -- chose cartesian system',
                         parametric:false,
-                        expression:{variable:varName, body:body}
+                        expression:{vars:varName, body:body}
                     };
                 }
                 if(type.type === 'ambiguous-phi'){
@@ -86,14 +86,14 @@ function characterizeExpression(expr){
                         type:'spherical',
                         message:'expression ambiguous -- chose spherical system',
                         parametric:false,
-                        expression:{variable:varName, body:body}
+                        expression:{vars:varName, body:body}
                     };
                 }
                 return {
                     error:'none',
                     type:type.type,
                     parametric:false,
-                    expression:{variable:varName, body: body}
+                    expression:{vars, body: body}
                 }
             }
         }else{
@@ -173,7 +173,7 @@ function characterizeExpression(expr){
                     error:'none',
                     type: coordSys(head),
                     parametric:true,
-                    expression:{variables:head.substring(1,head.length-1).split(','), body:body}
+                    expression:{vars:head.substring(1,head.length-1).split(','), body:body}
                 };
             }
         }
@@ -183,6 +183,34 @@ function characterizeExpression(expr){
             error: "malformed expression: not sure what you're doing with those equals signs"
         };
     }
+}
+
+function parseDomain(expr){
+    expr = expr.replace(/\(\(phi\)\)/g,'(phi)');
+    expr = expr.replace(/\(\(theta\)\)/g,'(theta)');
+    expr = expr.replace(/\(\(rho\)\)/g,'(rho)');
+    //acceptable forms:
+    // x,y,z \in [a,b]
+    // x,y \in [a,b], z \in [c,d]
+    //in any combination
+    var matches = expr.match(/((?:\([^\)\(]*?\),)*\([^\)\(]*?\))in(\[[^,]+?,[^,]+?\])/g);
+    if(!matches){
+        return {};
+    }
+    var varsAccountedFor = [];
+    for(var k = 0; k < matches.length; k++){
+        var m = matches[k];
+        //so we can still have sin in expressions
+        var segs = m.split('in[');
+        var r = segs[1].split(',')
+        var range = {
+            min: r[0],
+            max: r[1].substring(0,r[1].length-1)
+        }
+        var vars = segs[0].split(',').map(x => x.substring(1, x.length-1)).map(x => {return {varName:x, range:range}});
+        varsAccountedFor = varsAccountedFor.concat(vars);
+    }
+    return varsAccountedFor;
 }
 
 //returns 

@@ -1,6 +1,7 @@
 /*global MathQuill*/
 /*global parseLatex*/
 /*global characterizeExpression*/
+/*global parseDomain*/
 /*global math*/
 /*global MathJax*/
 /*global $*/
@@ -19,7 +20,6 @@ var domain = {
     density:60,
     coloring: true,
     showAxes: true,
-    shallowSketch:true,
     percentCalculated:0,
     lightDirections:[{x:0,y:0,z:-1}],
     pointsOnly:false,
@@ -34,9 +34,9 @@ var domain = {
     maxHue:170,
     opacity:1,
     fullscreen:false,
-    maxDeltaSlope:0.3,
-    maxRecursion:1,
     rowLength:null,
+    currentSystem:'cartesian',
+    expressionInfo:null
 }
 
 var compile = require('interval-arithmetic-eval');
@@ -297,6 +297,7 @@ $(function(){
         sumStartsWithNEquals: true,
         supSubsRequireOperand: true,
         autoCommands: autoCommands,
+        //autoOperatorNames:'abs',
         handlers:{
             enter:function(mathField){
                 graph();
@@ -305,22 +306,70 @@ $(function(){
                 var result = characterizeExpression(parseLatex(mathField.latex(), animationVars));
                 console.log(result)
                 var outputString;
-                if(result.error !== 'none'){
+                if(parseLatex(mathField.latex(), animationVars).length === 0){
+                    $('#notification-bar').css('color','var(--equation-font-color)');
+                    outputString = 'enter expression'
+                }else if(result.error !== 'none'){
                     outputString = result.error;
                     $('#notification-bar').css('color','rgb(255, 102, 102)');
                 }else{
                     outputString = result.type
+                    domain.currentSystem = result.type;
+                    
                     if(result.message){
                         outputString += ': '+result.message;
                     }
                     outputString += ', '+(result.parametric ? 'parametric' : 'non-parametric')
                     $('#notification-bar').css('color','var(--equation-font-color)');
+                    
+                    if(result.parametric === true){
+                        domain.currentSystem=result.type+'-parametric';
+                    }else{
+                        domain.currentSystem=result.type;
+                    }
+                    
+                    domain.expressionInfo = result;
+                    
+                    setDomainVisibility();
                 }
                 
                 $('#notification-bar').text(outputString);
             }
         }
     });
+    
+    var defaultValues = [
+            'x,\\ y,\\ z\\in \\left[-10,10\\right]',
+            '\\rho \\in \\left[0,10\\right],\\ \\ \\phi \\in \\left[0,2\\pi \\right],\\ \\ z\\in \\left[-10,10\\right]',
+            'r\\in \\left[0,10\\right],\\ \\ \\theta \\in \\left[0,2\\pi \\right],\\ \\ \\phi \\in \\left[0,\\pi \\right]',
+            'u,\\ v\\in \\left[0,2\\pi \\right]'
+        ]
+    
+    for(var k = 0; k < 4; k++){
+        var el = $('#'+['cart','cyl','sphere','par'][k]+'-domain-bar')[0];
+        MQ.MathField(el, {
+            handlers:{
+                enter: () => {graph();},
+                edit: (field) => {
+                    var latex = parseLatex(field.latex(), animationVars);
+                    var result = parseDomain(latex);
+                }
+            },
+            autoCommands: autoCommands+' in',
+            supSubsRequireOperand: true
+        });
+    }
+    
+    //this seems to be a bug with mathquill. If I do any less than a second, I get weird artifacts 
+    //above the brackets
+    setTimeout(function(){
+        for(k = 0; k < 4; k++){
+            var el = $('#'+['cart','cyl','sphere','par'][k]+'-domain-bar')[0];
+            MQ(el).latex(defaultValues[k])
+        }
+        setDomainVisibility();
+    },1500)
+    
     
     
     syncAxes()
@@ -745,6 +794,33 @@ $('#full-screen-button').click(function(){
     }
 })
 
+function setDomainVisibility(){
+    var toHide = [];
+    //cart-domain-bar will never go away
+    var toShow = [];
+    if(domain.currentSystem.indexOf('cartesian') !== -1){
+        toHide = ['cyl-domain-bar', 'sphere-domain-bar', 'par-domain-bar'];
+    }
+    if(domain.currentSystem.indexOf('cylindrical') !== -1){
+        toHide = ['sphere-domain-bar', 'par-domain-bar'];
+        toShow= ['cyl-domain-bar'];
+    }
+    if(domain.currentSystem.indexOf('spherical') !== -1){
+        toHide = ['cyl-domain-bar','par-domain-bar'];
+        toShow = ['sphere-domain-bar']
+    }
+    
+    if(domain.currentSystem.indexOf('parametric') !== -1){
+        toShow.push('par-domain-bar');
+    }
+    
+    console.log(domain.currentSystem)
+    console.log(toHide)
+    
+    toHide.forEach(x => $('#'+x).css('display','none'));
+    toShow.forEach(x => $('#'+x).css('display','block'));
+}
+
 function animate(){
     //get actual animationVar list
     animationVars = [];
@@ -1093,9 +1169,8 @@ function isSphericalParametric(){
         (sphiInput.indexOf('u') !== -1 || sphiInput.indexOf('v') !== -1);
 }
 
-function evalDomain(div){
-    MQ = MathQuill.getInterface(2);
-    var input = parseLatex(MQ.MathField(div).latex(), animationVars);
+function evalDomain(string){
+    var input = string;
     var scope = {};
     for(var j = 0; j < animationVars.length; j++){
         scope[animationVars[j].name] = animationVars[j].value;
@@ -1111,31 +1186,15 @@ function graph(onFinish){
         onFinish = function(){};
     }
     if(!skipDomain){
-        var variables = ['x','y','z','u','v','rho','phi','height','r','theta','sphi'];
-        for(var k = 0; k < variables.length; k++){
-            var name = variables[k];
-            domain[name].min = evalDomain($('#'+name+'-range-min-input')[0]);
-            domain[name].max = evalDomain($('#'+name+'-range-max-input')[0]);
-        }
-        
-        if(cylindrical){
-            domain.x.max = Math.max(Math.abs(domain.rho.max), Math.abs(domain.rho.min));
-            domain.x.min = -Math.max(Math.abs(domain.rho.max), Math.abs(domain.rho.min));
-            domain.y.max = domain.x.max;
-            domain.y.min = domain.x.min;
-            domain.z.min = domain.height.min;
-            domain.z.max = domain.height.max;
-        }
-        
-        if(spherical){
-            var w = Math.max(Math.abs(domain.r.max), Math.abs(domain.r.min));
-            domain.x.min = -w;
-            domain.x.max = w;
-            domain.y.min = -w;
-            domain.y.max = w;
-            domain.z.min = -w;
-            domain.z.max = w;
-        }
+        ['cart','cyl','sphere','par'].forEach(val => {
+            var field = MQ($('#'+val+'-domain-bar')[0]);
+            var latex = parseLatex(field.latex(), animationVars);
+            var result = parseDomain(latex);
+            result.forEach(val => {
+                domain[val.varName].min = parseFloat(val.range.min);
+                domain[val.varName].max = parseFloat(val.range.max);
+            })
+        })
         var xWidth = domain.x.max - domain.x.min;
         var yWidth = domain.y.max - domain.y.min;
         var zWidth = domain.z.max - domain.z.min;

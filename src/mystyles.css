@@ -1,5 +1,6 @@
 :root{
     --equation-font-color:rgb(199, 197, 159);
+    --equation-font-color-transparent:rgba(199,197,159,.5);
 }
 html,body {
     margin: 0;
@@ -465,6 +466,7 @@ input[type=range]:focus::-ms-fill-upper {
     background:#333333;
     display:flex;
     flex-direction:row;
+    border-bottom: .5px solid var(--equation-font-color-transparent);
 }
 #work-bar-wrapper{
     position:absolute;
@@ -474,7 +476,7 @@ input[type=range]:focus::-ms-fill-upper {
 }
 #after-work-bar{
     width:100%;
-    box-shadow:0px 0px 10px rgba(0,0,0,1);
+    
     background:#333333;
     color:var(--equation-font-color);
     transition:all .5s ease;
@@ -569,8 +571,12 @@ hr + span{
     margin-left:50px;
 }
 #notification-bar{
-    padding:3px;
+    padding:5px;
     font-style: italic;
+}
+#after-work-bar div{
+    padding:5px;
+    display:block;
 }
 
 
