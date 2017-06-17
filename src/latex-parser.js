@@ -155,7 +155,7 @@ function parseLatex(expression, vars){
                         goOn = true;
                     }else if(char === '['){
                         nextIndex = matchingRightChar('[',']',expression ,nextIndex)+1;
-                    }else if(char === '+' || char === '-' || char === '}' || char === ']' || char === ',' || nextIndex === expression.length){
+                    }else if(char === '+' || char === '-' || char === '}' || char === ']' || char === ',' || char === '=' || nextIndex === expression.length){
                         nextIndex--;
                         goOn = false;
                     }else{

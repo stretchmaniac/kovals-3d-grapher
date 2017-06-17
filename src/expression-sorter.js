@@ -8,12 +8,10 @@
 //  expression: <{vars:[__, ...  __, __,], body:__}>
 //}
 function characterizeExpression(expr){
-    console.log(expr)
     //latex-parser encloses multi-character variable names in 2 parentheses...
     expr = expr.replace(/\(\(phi\)\)/g,'(phi)');
     expr = expr.replace(/\(\(theta\)\)/g,'(theta)');
     expr = expr.replace(/\(\(rho\)\)/g,'(rho)');
-    console.log(expr)
     var vars = ['(x)','(y)','(z)','(r)','(phi)','(theta)','(rho)'];
     var varData = {
         cartesian:['(x)','(y)','(z)'],
@@ -34,7 +32,6 @@ function characterizeExpression(expr){
         // or
         // expr = var
         
-        console.log(structure)
         if(structure[0].length === 0 || structure[1].length === 0){
             return {
                 error: 'there must be stuff on both sides of the equals sign'
@@ -54,6 +51,8 @@ function characterizeExpression(expr){
             varName = structure[1];
             body = structure[0];
         }
+        
+        varName = varName.substring(1,varName.length-1)
         
         if(varName && body){
             //we're looking at a non-parametric expression
@@ -77,7 +76,7 @@ function characterizeExpression(expr){
                         type:'cartesian',
                         message:'expression ambiguous -- chose cartesian system',
                         parametric:false,
-                        expression:{vars:varName, body:body}
+                        expression:{vars:[varName], body:body}
                     };
                 }
                 if(type.type === 'ambiguous-phi'){
@@ -86,14 +85,14 @@ function characterizeExpression(expr){
                         type:'spherical',
                         message:'expression ambiguous -- chose spherical system',
                         parametric:false,
-                        expression:{vars:varName, body:body}
+                        expression:{vars:[varName], body:body}
                     };
                 }
                 return {
                     error:'none',
                     type:type.type,
                     parametric:false,
-                    expression:{vars, body: body}
+                    expression:{vars:[varName], body: body}
                 }
             }
         }else{
@@ -115,7 +114,6 @@ function characterizeExpression(expr){
                 //remove parentheses
                 s[0] = s[0].substring(1,s[0].length);
                 s[2] = s[2].substring(0,s[2].length-1);
-                console.log(s)
                 var cart = varData['cartesian'];
                 var sphere = varData['spherical'];
                 var cyl = varData['cylindrical'];
@@ -173,7 +171,7 @@ function characterizeExpression(expr){
                     error:'none',
                     type: coordSys(head),
                     parametric:true,
-                    expression:{vars:head.substring(1,head.length-1).split(','), body:body}
+                    expression:{vars:head.substring(1,head.length-1).split(',').map(x => x.substring(1,x.length-1)), body:body}
                 };
             }
         }

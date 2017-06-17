@@ -27,6 +27,7 @@ var domain = {
     animating:false,
     stopAnimating:true,
     showMeshWhileColoring:false,
+    showAxesLabels:true,
     directionalLighting:true,
     perspective:true,
     backgroundColor:'dark',
@@ -304,7 +305,6 @@ $(function(){
             },
             edit:function(mathField){
                 var result = characterizeExpression(parseLatex(mathField.latex(), animationVars));
-                console.log(result)
                 var outputString;
                 if(parseLatex(mathField.latex(), animationVars).length === 0){
                     $('#notification-bar').css('color','var(--equation-font-color)');
@@ -341,7 +341,7 @@ $(function(){
     var defaultValues = [
             'x,\\ y,\\ z\\in \\left[-10,10\\right]',
             '\\rho \\in \\left[0,10\\right],\\ \\ \\phi \\in \\left[0,2\\pi \\right],\\ \\ z\\in \\left[-10,10\\right]',
-            'r\\in \\left[0,10\\right],\\ \\ \\theta \\in \\left[0,2\\pi \\right],\\ \\ \\phi \\in \\left[0,\\pi \\right]',
+            'r\\in \\left[0,10\\right],\\ \\ \\theta \\in \\left[0,2\\pi \\right],\\ \\ \\phi \\in \\left[-\\frac{\\pi }{2},\\frac{\\pi }{2}\\right]',
             'u,\\ v\\in \\left[0,2\\pi \\right]'
         ]
     
@@ -572,9 +572,6 @@ $(window).resize(function(){
     plotPoints();
 });
 
-var cylindrical = false;
-var spherical = false;
-var cartesian = true;
 var skipDomain = false;
 
 var intervalId, intervalId2, intervalId3, intervalId4, intervalId5;
@@ -717,13 +714,18 @@ $('#color-checkbox').change(function(){
     plotPoints()
 })
 
-$('#mesh-checkbox').change(function(){
-    domain.showMeshWhileColoring = $('#mesh-checkbox').prop('checked');
+$('#show-mesh-while-coloring-checkbox').change(function(){
+    domain.showMeshWhileColoring = $('#show-mesh-while-coloring-checkbox').prop('checked');
     plotPoints();
 })
 
 $('#directional-lighting-checkbox').change(function(){
     domain.directionalLighting = $('#directional-lighting-checkbox').prop('checked');
+    plotPoints();
+})
+
+$('#show-axes-labels-checkbox').change(function(){
+    domain.showAxesLabels = $('#show-axes-labels-checkbox').prop('checked');
     plotPoints();
 })
 
@@ -813,9 +815,6 @@ function setDomainVisibility(){
     if(domain.currentSystem.indexOf('parametric') !== -1){
         toShow.push('par-domain-bar');
     }
-    
-    console.log(domain.currentSystem)
-    console.log(toHide)
     
     toHide.forEach(x => $('#'+x).css('display','none'));
     toShow.forEach(x => $('#'+x).css('display','block'));
@@ -1191,8 +1190,8 @@ function graph(onFinish){
             var latex = parseLatex(field.latex(), animationVars);
             var result = parseDomain(latex);
             result.forEach(val => {
-                domain[val.varName].min = parseFloat(val.range.min);
-                domain[val.varName].max = parseFloat(val.range.max);
+                domain[val.varName].min = math.eval(val.range.min);
+                domain[val.varName].max = math.eval(val.range.max);
             })
         })
         var xWidth = domain.x.max - domain.x.min;
@@ -1240,7 +1239,7 @@ function graph(onFinish){
         [{w:0,x:0,y:0,z:1},{w:0,x:0,y:0,z:-1},{w:0,x:0,y:0,z:1},{w:0,x:0,y:0,z:-1}]
     ];
     
-    var density = parseInt($('#density-input').text(),10);
+    var density = parseInt($('#mesh-quality-input').val(),10);
     domain.density = density;
     syncAxes();
     
@@ -1268,13 +1267,13 @@ function graph(onFinish){
                 var z = cols[2].textContent;
                 
                 var realPoint;
-                if(cylindrical){
+                if(domain.currentSystem === 'cylindrical'){
                     realPoint = cylindricalToCartesian(x,y,z);
                     x = realPoint.x;
                     y = realPoint.y;
                     z = realPoint.z;
                 }
-                if(spherical){
+                if(domain.currentSystem === 'spherical'){
                     realPoint = sphericalToCartesian(x,y,z);
                     x = realPoint.x;
                     y = realPoint.y;
@@ -1350,178 +1349,62 @@ function graph(onFinish){
         plotPoints();
         
     }else{
-        if(cartesian){
-            var xInput = MQ.MathField(document.getElementById('x-input')).latex();
-            xInput = parseLatex(xInput, animationVars);
-            var yInput = MQ.MathField(document.getElementById('y-input')).latex();
-            yInput = parseLatex(yInput, animationVars);
-            var zInput = MQ.MathField(document.getElementById('z-input')).latex();
-            zInput = parseLatex(zInput, animationVars);
-            
-            var parametric = false;
-            
+        var inputs = {
+            x: '',
+            y: '',
+            z:''
+        }
+        var exp = domain.expressionInfo.expression;
+        if(domain.currentSystem.indexOf('cartesian') !== -1){
             var realCenter = getRealDomainCenter();
             var realWidth = getRealDomainWidth();
-            if(isParametric()){
-                parametric = true;
-                $('#u-v-range-row').show();
-                //graph parametric
-                graphParametricFunction(xInput, yInput, zInput, spread, domain.shallowSketch, onFinish);
-                    
-            }else if(xInput.length > 0){
-                yInput = 'u';
-                domain.u.min = realCenter.y - realWidth.y/2;
-                domain.u.max = realCenter.y + realWidth.y/2;
-                zInput = 'v';
-                domain.v.min = realCenter.z - realWidth.z/2;
-                domain.v.max = realCenter.z + realWidth.z/2;
-                graphParametricFunction(xInput, yInput, zInput, spread,domain.shallowSketch, onFinish);
-            }else if(yInput.length > 0){
-                xInput = 'u';
-                domain.u.min = realCenter.x - realWidth.x/2;
-                domain.u.max = realCenter.x + realWidth.x/2;
-                zInput = 'v';
-                domain.v.min = realCenter.z - realWidth.z/2;
-                domain.v.max = realCenter.z + realWidth.z/2;
-                graphParametricFunction(xInput, yInput, zInput, spread,domain.shallowSketch, onFinish);
-            }else if(zInput.length > 0){
-                xInput = 'u';
-                domain.u.min = realCenter.x - realWidth.x/2;
-                domain.u.max = realCenter.x + realWidth.x/2;
-                yInput = 'v';
-                domain.v.min = realCenter.y - realWidth.y/2;
-                domain.v.max = realCenter.y + realWidth.y/2;
-                graphParametricFunction(xInput, yInput, zInput, spread,domain.shallowSketch, onFinish);
+            
+            inputs[exp.vars[0]] = exp.body;
+            
+            var otherVars = ['x','y','z'].filter(x => x !== exp.vars[0]);
+            
+            inputs[otherVars[0]] = 'u';
+            inputs[otherVars[1]] = 'v';
+            
+            domain.u.max = realCenter[otherVars[0]] + realWidth[otherVars[0]]/2
+            domain.u.min = realCenter[otherVars[0]] - realWidth[otherVars[0]]/2
+            
+            domain.v.max = realCenter[otherVars[1]] + realWidth[otherVars[1]]/2
+            domain.v.min = realCenter[otherVars[1]] - realWidth[otherVars[1]]/2
+        }else if(domain.currentSystem.indexOf('cylindrical') !== -1 || domain.currentSystem.indexOf('spherical') !== -1){
+            var cyl = domain.currentSystem.indexOf('cylindrical') !== -1;
+            var cylInputs = cyl ? {rho:'', phi:'', z:''} : {r:'', theta:'', phi:''};
+            cylInputs[exp.vars[0]] = exp.body;
+            
+            var otherVars = (cyl ? ['rho','phi','z'] : ['r','theta','phi']).filter(x => x !== exp.vars[0]);
+            
+            cylInputs[otherVars[0]] = 'u';
+            cylInputs[otherVars[1]] = 'v';
+            
+            domain.u.min = domain[otherVars[0]].min
+            domain.u.max = domain[otherVars[0]].max
+            
+            domain.v.min = domain[otherVars[1]].min
+            domain.v.max = domain[otherVars[1]].max
+            
+            for(var i = 0; i < 2; i++){
+                var regex = new RegExp('\\('+otherVars[i]+'\\)','g');
+                cylInputs[exp.vars[0]] = cylInputs[exp.vars[0]].replace(regex, ['(u)','(v)'][i]);
             }
-            if(parametric === false){
-                //show xyz range
-                $('#u-v-range-row').hide();
-                
-            }
-            $('#cartesian-button').click();
-        }else if(cylindrical){
-            var rhoInput = MQ.MathField(document.getElementById('rho-input')).latex();
-            rhoInput = parseLatex(rhoInput, animationVars);
-            var phiInput = MQ.MathField(document.getElementById('phi-input')).latex();
-            phiInput = parseLatex(phiInput, animationVars);
-            var heightInput = MQ.MathField(document.getElementById('height-input')).latex();
-            heightInput = parseLatex(heightInput, animationVars);
-            if(isCylindricalParametric()){
-                //deal with any dependancies 
-                for(var b=0; b < 3; b++){
-                    rhoInput = rhoInput.replace(/phi/g,phiInput);
-                    rhoInput = rhoInput.replace(/\(z\)/g,'('+heightInput+')');
-                    phiInput = phiInput.replace(/rho/g,rhoInput);
-                    phiInput = phiInput.replace(/\(z\)/g,'('+heightInput+')');
-                    heightInput = heightInput.replace(/phi/g,phiInput);
-                    heightInput = heightInput.replace(/rho/g,rhoInput);
-                }
-                xInput = '('+rhoInput+')' + 'cos('+phiInput+')';
-                yInput = '('+rhoInput+')' + 'sin('+phiInput+')';
-                zInput = heightInput;
-                
-                $('#u-range-row').show();
-                $('#v-range-row').show();
-                
-                graphParametricFunction(xInput, yInput, zInput, spread,domain.shallowSketch, onFinish);
+            
+            if(cyl){
+                inputs.x = '('+cylInputs.rho+')*cos('+cylInputs.phi+')';
+                inputs.y = '('+cylInputs.rho+')*sin('+cylInputs.phi+')';
+                inputs.z = cylInputs.z;
             }else{
-                //can graph this parametrically
-                if(rhoInput.length > 0){
-                    rhoInput = rhoInput.replace(/\(z\)/g,'(u)');
-                    rhoInput = rhoInput.replace(/phi/g, 'v');
-                    zInput = 'u';
-                    xInput = '('+rhoInput+')cos(v)';
-                    yInput = '('+rhoInput+')sin(v)';
-                    domain.u.min = domain.height.min;
-                    domain.u.max = domain.height.max;
-                    domain.v.min = domain.phi.min;
-                    domain.v.max = domain.phi.max;
-                    graphParametricFunction(xInput, yInput, zInput,spread,domain.shallowSketch, onFinish);
-                }else if(phiInput.length > 0){
-                    phiInput = phiInput.replace(/\(z\)/g,'(u)');
-                    phiInput = phiInput.replace(/rho/g,'v');
-                    zInput = 'u';
-                    xInput = 'v*cos('+phiInput+')';
-                    yInput = 'v*sin('+phiInput+')';
-                    domain.u.min = domain.height.min;
-                    domain.u.max = domain.height.max;
-                    domain.v.min = domain.rho.min;
-                    domain.v.max = domain.rho.max;
-                    graphParametricFunction(xInput, yInput, zInput, spread,domain.shallowSketch, onFinish);
-                }else if(heightInput.length > 0){
-                    zInput = heightInput;
-                    xInput = 'cos(u)*v';
-                    yInput = 'sin(u)*v';
-                    zInput = zInput.replace(/rho/g,'v');
-                    zInput = zInput.replace(/phi/g,'u');
-                    domain.u.min = domain.phi.min;
-                    domain.u.max = domain.phi.max;
-                    domain.v.min = domain.rho.min;
-                    domain.v.max = domain.rho.max;
-                    graphParametricFunction(xInput, yInput, zInput, spread,domain.shallowSketch, onFinish);
-                }
-            }
-            $('#cylindrical-button').click();
-        }else if(spherical){
-            var rInput = MQ.MathField(document.getElementById('r-input')).latex();
-            rInput = parseLatex(rInput, animationVars);
-            var thetaInput = MQ.MathField(document.getElementById('theta-input')).latex();
-            thetaInput = parseLatex(thetaInput, animationVars);
-            var sphiInput = MQ.MathField(document.getElementById('sphi-input')).latex();
-            sphiInput = parseLatex(sphiInput, animationVars);
-            
-            if(!isSphericalParametric()){
-                $('#u-range-row').hide();
-                $('#v-range-row').hide();
-                if(rInput.length > 0){
-                    thetaInput = 'u';
-                    domain.u.min = domain.theta.min;
-                    domain.u.max = domain.theta.max;
-                    sphiInput = 'v';
-                    domain.v.min = domain.sphi.min;
-                    domain.v.max = domain.sphi.max;
-                    rInput = rInput.replace(/theta/g,'u');
-                    rInput = rInput.replace(/phi/g,'v');
-                }else if(thetaInput.length > 0){
-                    rInput = 'u';
-                    domain.u.min = domain.r.min;
-                    domain.u.max = domain.r.max;
-                    sphiInput = 'v';
-                    domain.v.min = domain.sphi.min;
-                    domain.v.max = domain.sphi.max;
-                    thetaInput = thetaInput.replace(/\(r\)/g,'(u)');
-                    thetaInput = thetaInput.replace(/phi/g,'v');
-                }else if(sphiInput.length >0){
-                    rInput = 'u';
-                    domain.u.min = domain.r.min;
-                    domain.u.max = domain.r.max;
-                    thetaInput = 'v';
-                    domain.v.min = domain.theta.min;
-                    domain.v.max = domain.theta.max;
-                    sphiInput = sphiInput.replace(/\(r\)/g,'(u)');
-                    sphiInput = sphiInput.replace(/theta/g,'v');
-                }
-            }else{
-                $('#u-range-row').show();
-                $('#v-range-row').show();
+                inputs.x = '('+cylInputs.r+')*cos('+cylInputs.theta+')*cos('+cylInputs.phi+')';
+                inputs.y = '('+cylInputs.r+')*sin('+cylInputs.theta+')*cos('+cylInputs.phi+')';
+                inputs.z = '('+cylInputs.r+')*sin('+cylInputs.phi+')';
             }
             
-            for(var h = 0; h < 3; h++){
-                rInput = rInput.replace('theta',thetaInput);
-                rInput = rInput.replace('phi',sphiInput);
-                thetaInput = thetaInput.replace('(r)','('+rInput+')');
-                thetaInput = thetaInput.replace('phi',sphiInput);
-                sphiInput = sphiInput.replace('(r)','('+rInput+')');
-                sphiInput = sphiInput.replace('theta',thetaInput);
-            }
-            
-            xInput = '('+rInput+')'+'*'+'sin('+sphiInput+')*cos('+thetaInput+')';
-            yInput = '('+rInput+')'+'*'+'sin('+sphiInput+')*sin('+thetaInput+')';
-            zInput = '('+rInput+')'+'*'+'cos('+sphiInput+')';
-            graphParametricFunction(xInput, yInput, zInput, spread,domain.shallowSketch, onFinish);
-            
-            $('#spherical-button').click();
+            console.log(inputs)
         }
+        graphParametricFunction(inputs.x, inputs.y, inputs.z, spread, onFinish);
     }
 }
 
@@ -1541,7 +1424,7 @@ function refreshMathJax(){
     MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
 }
 
-function graphParametricFunction(xFunc, yFunc, zFunc, spread, draw, onFinish){
+function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
     syncAxes();
     pointQuats = [];
     
@@ -1611,7 +1494,8 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, draw, onFinish){
         syncQuats();
         domain.coloring = color;
         plotPoints();
-    })
+    });
+    onFinish();
     return;
     
     var pointsToPush = [];
@@ -1842,14 +1726,11 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     polygons = [];
     
     //center of domain, the seed point
+    //note that this is NOT always foolproff ==> z = rho, rho in [-10, 10]
     var uMiddle = (domain.u.max + domain.u.min) / 2,
         vMiddle = (domain.v.max + domain.v.min) / 2;
         
     var referencePt;
-    
-    //where 1 s = 1 legLength
-    var s = sCoord => sCoord*legLength / referencePt.deriv1.du;
-    var t = tCoord => tCoord*legLength / referencePt.deriv1.dv;
     
     function generatingVecs(){
         //we want (v1.u * |du|)^2 + (v1.v * |dv|)^2 == legLength^2, and the same for v2
@@ -1860,6 +1741,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
             u: legLength / magnitude(du),
             v:0
         };
+        console.log(v1)
         //this is essentially a projection
         //for future reference, think of du and dv embedded in xyz space, need new vector
         //pointing "toward" dv but perpendicular to du, in uv coordinates
@@ -2935,15 +2817,15 @@ function plotPoints(){
                 var center=domain.center;
                 rotate(polyVal, quatConj(totalQuat), center);
                 var value;
-                if(cartesian){
+                if(domain.currentSystem.indexOf('cartesian') !== -1){
                     realZ = polyVal.z;
                     value = (realZ - domain.z.min) / (domain.z.max - domain.z.min) - .5;
                 }
-                if(spherical){
+                if(domain.currentSystem.indexOf('spherical') !== -1){
                     var dist = Math.sqrt(polyVal.x*polyVal.x + polyVal.y*polyVal.y + polyVal.z*polyVal.z);
                     value = dist / (domain.r.max) -.5;
                 }
-                if(cylindrical){
+                if(domain.currentSystem.indexOf('cylindrical') !== -1){
                     dist = Math.sqrt(polyVal.x*polyVal.x + polyVal.y*polyVal.y);
                     value = dist / domain.rho.max - .5;
                 }
@@ -3044,15 +2926,15 @@ function plotPoints(){
         ctx.textAlign = 'center';
         var c = getRealDomainCenter()
         var w = getRealDomainWidth()
-        if(xMaxTitle && xMinTitle){
+        if(xMaxTitle && xMinTitle && domain.showAxesLabels){
             ctx.fillText('x: '+(c.x+w.x/2),xMaxTitle.x + xTranslate, xMaxTitle.y + yTranslate);
             ctx.fillText('x: '+(c.x-w.x/2),xMinTitle.x + xTranslate, xMinTitle.y + yTranslate);
         }
-        if(yMaxTitle && yMinTitle){
+        if(yMaxTitle && yMinTitle && domain.showAxesLabels){
             ctx.fillText('y: '+(c.y+w.y/2),yMaxTitle.x + xTranslate, yMaxTitle.y + yTranslate);
             ctx.fillText('y: '+(c.y-w.y/2),yMinTitle.x + xTranslate, yMinTitle.y + yTranslate);
         }
-        if(zMaxTitle && zMinTitle){
+        if(zMaxTitle && zMinTitle && domain.showAxesLabels){
             ctx.fillText('z: '+(c.z+w.z/2),zMaxTitle.x + xTranslate, zMaxTitle.y + yTranslate);
             ctx.fillText('z: '+(c.z-w.z/2),zMinTitle.x + xTranslate, zMinTitle.y + yTranslate);
         }
