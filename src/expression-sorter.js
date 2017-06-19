@@ -52,7 +52,7 @@ function characterizeExpression(expr){
             body = structure[0];
         }
         
-        varName = varName.substring(1,varName.length-1)
+        varName = varName ? varName.substring(1,varName.length-1) : varName
         
         if(varName && body){
             //we're looking at a non-parametric expression

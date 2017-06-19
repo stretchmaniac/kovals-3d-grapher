@@ -801,23 +801,24 @@ function setDomainVisibility(){
     //cart-domain-bar will never go away
     var toShow = [];
     if(domain.currentSystem.indexOf('cartesian') !== -1){
-        toHide = ['cyl-domain-bar', 'sphere-domain-bar', 'par-domain-bar'];
+        toHide = ['cyl', 'sphere', 'par'];
     }
     if(domain.currentSystem.indexOf('cylindrical') !== -1){
-        toHide = ['sphere-domain-bar', 'par-domain-bar'];
-        toShow= ['cyl-domain-bar'];
+        toHide = ['sphere', 'par'];
+        toShow= ['cyl'];
     }
     if(domain.currentSystem.indexOf('spherical') !== -1){
-        toHide = ['cyl-domain-bar','par-domain-bar'];
-        toShow = ['sphere-domain-bar']
+        toHide = ['cyl','par'];
+        toShow = ['sphere'];
     }
     
     if(domain.currentSystem.indexOf('parametric') !== -1){
-        toShow.push('par-domain-bar');
+        toShow = ['par'];
+        toHide = ['cyl','sphere'];
     }
     
-    toHide.forEach(x => $('#'+x).css('display','none'));
-    toShow.forEach(x => $('#'+x).css('display','block'));
+    toHide.forEach(x => $('#'+x+'-domain-bar').css('display','none'));
+    toShow.forEach(x => $('#'+x+'-domain-bar').css('display','block'));
 }
 
 function animate(){
@@ -1355,7 +1356,16 @@ function graph(onFinish){
             z:''
         }
         var exp = domain.expressionInfo.expression;
-        if(domain.currentSystem.indexOf('cartesian') !== -1){
+        if(domain.currentSystem.indexOf('parametric') !== -1){
+            //by convention, the entire body is stored in the xFunc
+            //unfortunately, parametric cylindrical and spherical systems will need a little post processing (see plot),
+            // since it's relatively impossible to pick apart components before the evalutation.
+            inputs.x = exp.body;
+            //dummy input to prevent math.js from complaining
+            inputs.y = 'x';
+            inputs.z = 'x';
+        }
+        else if(domain.currentSystem.indexOf('cartesian') !== -1){
             var realCenter = getRealDomainCenter();
             var realWidth = getRealDomainWidth();
             
@@ -1497,49 +1507,6 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
     });
     onFinish();
     return;
-    
-    var pointsToPush = [];
-    polygons = [];
-    intervalId = setInterval(function(){
-        if(a * uJump < uTotal){
-            var rowsGraphed = 0;
-            for(var b = 0; b < handleablePoints/domain.density && a * uJump < uTotal; b++){
-                rowsGraphed++;
-                var u = domain.u.min + a * uJump;
-                graphParametricRow(vJump, a, vTotal, xFunc, yFunc, zFunc,u, intervalXFunc, intervalYFunc, intervalZFunc, pointsToPush);
-                a++;
-                domain.percentCalculated = a*uJump / uTotal;
-            }
-            onlyPlotNewPoints = true;
-            pointsToPlot = domain.density * rowsGraphed;
-            plotPoints();
-            displayCanvasMessage('drawing... '+(domain.percentCalculated*100).toFixed(2)+'%');
-            onlyPlotNewPoints = false;
-        }else{
-            formPolygons(a);
-            clearInterval(intervalId);
-            for(var k = 0; k < pointsToPush.length; k++){
-                pointsToPush[k].index = points.length;
-                points.push(pointsToPush[k]);
-            }
-            onlyPlotNewPoints = false;
-            cleanParametricEdges(xFunc, yFunc, zFunc, function(){
-                recursiveMeshGeneration(xFunc, yFunc, zFunc, 1,function(){
-                    syncQuats();
-                    
-                    domain.coloring = color;
-                    if(draw){
-                        plotPoints(spread);
-                    }
-                    
-                    graphing = false;
-                    if(onFinish){
-                        onFinish();
-                    }
-                })
-            });
-        }
-    },10);
 }
 
 function formPolygons(colTotal){
@@ -1622,94 +1589,6 @@ function displayCanvasMessage(message){
     ctx.fillStyle = domain.backgroundColor == 'dark' ? '#dddddd' : 'black';
     ctx.fillText(message, 155, canvas.height - 12);
     
-}
-
-function recursiveMeshGeneration(xFunc, yFunc, zFunc,iteration,onfinish){
-    onfinish();
-    return;
-}
-
-function graphParametricRow(vJump, a, vTotal, xFunc, yFunc, zFunc,u, intervalXFunc, intervalYFunc, intervalZFunc, pointsToPush){
-    if(a === 0){
-        domain.rowLength = 0;
-    }
-    var vDensity = domain.rowLength;
-    for(var b = 0; b*vJump < vTotal; b++){
-        if(a === 0){
-            domain.rowLength ++;
-        }
-        var v = domain.v.min + b * vJump;
-        var newU = u + ((b % 2 === 0) ? 0 : 2/Math.sqrt(3)*vJump / 2);
-        var point = plot(xFunc, yFunc, zFunc, newU, v)
-        point.index = points.length;
-        
-        var drawingPt = pointToQuat(point);
-        drawingPt.neighbors = [];
-        
-        if(a > 0){
-            makeConnection(point, points[points.length - vDensity]);
-            makeConnection(drawingPt, pointQuats[pointQuats.length - vDensity])
-            if(b % 2 == 0){
-                if(b > 0){
-                    makeConnection(point, points[points.length - vDensity - 1])
-                    makeConnection(drawingPt, pointQuats[pointQuats.length - vDensity - 1]);
-                }
-                if(b < vDensity - 1){
-                    makeConnection(point, points[points.length - vDensity + 1])
-                    makeConnection(drawingPt, pointQuats[pointQuats.length - vDensity + 1]);
-                }
-            }
-        }
-        if(b > 0){
-            makeConnection(point, points[points.length - 1]);
-            makeConnection(drawingPt, pointQuats[pointQuats.length - 1]);
-        }
-        
-        var hasInfiniteDiscontinuity = false;
-        //deal with infinite stuff
-        for(var h = 0; h < point.neighbors.length && intervalFunctionSupported; h++){
-            var scope = {
-                u:[point.neighbors[h].pt.u, point.u], 
-                v:[point.neighbors[h].pt.v, point.v]
-            };
-            for(var j = 0; j < animationVars.length; j++){
-                scope[animationVars[j].name] = animationVars[j].value;
-            }
-            var intervalX = intervalXFunc.eval(scope);
-            var intervalY = intervalYFunc.eval(scope);
-            var intervalZ = intervalZFunc.eval(scope);
-            if(intervalZ.hi === Infinity || intervalZ.lo === -Infinity 
-                || intervalX.hi === Infinity || intervalX.lo === -Infinity
-                || intervalY.hi === Infinity || intervalY.lo === -Infinity){
-                
-                hasInfiniteDiscontinuity = true;
-                var otherPt = point.neighbors[h].pt;
-                
-                var range = isolateAsymptote(otherPt, point, point.v, intervalXFunc, intervalYFunc, intervalZFunc, 8);
-                
-                var newPoint = plot(xFunc, yFunc, zFunc, range[1].u, range[1].v);
-                //used to trigger edge finding algorithm
-                newPoint.z = null;
-                
-                var newOtherPt = plot(xFunc, yFunc, zFunc, range[0].u, range[0].v);
-                newOtherPt.z = null;
-                
-                removeConnection(point, otherPt);
-                makeConnection(otherPt, newOtherPt);
-                makeConnection(newOtherPt, newPoint);
-                makeConnection(newPoint, point);
-                
-                pointsToPush.push(newPoint);
-                pointsToPush.push(newOtherPt);
-            }
-        }
-        
-        //setTotalQuat();
-        rotate(drawingPt,totalQuat);
-        
-        pointQuats.push(drawingPt);
-        points.push(point);
-    }
 }
 
 function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
@@ -1831,7 +1710,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     });
     
     var pointFront = [initPoint, initPoint2, initPoint3];
-    var distFunc = p => Math.sqrt(p.u*p.u+p.v*p.v);
+    var middleU = (domain.u.min + domain.u.max) / 2;
+    var middleV = (domain.v.min + domain.v.max) / 2;
+    var distFunc = p => Math.sqrt((p.u-middleU)*(p.u-middleU)+(p.v-middleV)*(p.v-middleV));
     pointFront.sort(function(a,b){
         return distFunc(a) - distFunc(b);
     })
@@ -2058,7 +1939,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 currentAngle += angleDelta;
                 //if the end is close enough OR it's the edge and not a fault
             }else if((magnitude(sub(connectionPoint, n2)) < legLength / 3 || n2Fault) && (withinDomain || n2Fault) && sCount !== sections-1){
-                console.log('ENDING SNAP')
+                console.log('ENDING SNAP');
                 //this is an 'ending' snap, slightly more complicated
                 //this is garunteed to be the last section, so we'll break at the end
                 connectionPoint = n2;
@@ -2066,7 +1947,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 if(magnitude(sub(pt, connectionPoint)) > 1.2 * defaultXYZLength){
                     //split up this connection
                     console.log('END SPLIT')
-                    console.log('how big? '+magnitude(sub(pt, connectionPoint))/defaultXYZLength)
+                    console.log('how big? '+magnitude(sub(pt, connectionPoint))/defaultXYZLength);
                     var midP = plotPlus(xFunc, yFunc, zFunc, (pt.u + connectionPoint.u) / 2, (pt.v + connectionPoint.v) / 2);
                     points.push(midP);
                     midP.index = points.length - 1;
@@ -2076,7 +1957,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                     //make connections
                     makeConnection(midP, pt);
                     makeConnection(midP, connectionPoint);
-                    makeConnection(midP, pt.end)
+                    makeConnection(midP, pt.end);
                     makeConnection(genPoint, midP);
                     
                     midP.beginning = genPoint;
@@ -2498,10 +2379,34 @@ function plot(cX, cY, cZ, u,v){
         for(var j = 0; j < animationVars.length; j++){
             scope[animationVars[j].name] = animationVars[j].value;
         }
-        cX.eval(scope);
-        cY.eval(scope);
-        cZ.eval(scope);
-        var point = {u:u,v:v,x:getRealPart(scope.x),y:getRealPart(scope.y),z:getRealPart(scope.z)};
+        
+        var point;
+        
+        if(domain.currentSystem.indexOf('parametric') !== -1){
+            //the parametric body is stored in the cX function by convention
+            cX.eval(scope)
+            point = {
+                u:u,
+                v:v,
+            };
+            [0,1,2].forEach(i => 
+                point[domain.expressionInfo.expression.vars[i]] = getRealPart(math.subset(scope.x, math.index(i)))
+            );
+            if(domain.currentSystem.indexOf('cylindrical') !== -1){
+                point.x = point.rho * Math.cos(point.phi);
+                point.y = point.rho * Math.sin(point.phi)
+            }else if(domain.currentSystem.indexOf('spherical') !== -1){
+                point.x = point.r * Math.cos(point.theta) * Math.cos(point.phi);
+                point.y = point.r * Math.sin(point.theta) * Math.cos(point.phi);
+                point.z = point.r * Math.sin(point.phi);
+            }
+        }else{
+            cX.eval(scope);
+            cY.eval(scope);
+            cZ.eval(scope);
+            point = {u:u,v:v,
+            x:getRealPart(scope.x),y:getRealPart(scope.y),z:getRealPart(scope.z)};
+        }
         point.x = spreadCoord(point.x, domain.x.min, domain.x.max, domain.x.spread);
         point.y = spreadCoord(point.y, domain.y.min, domain.y.max, domain.y.spread);
         point.z = spreadCoord(point.z, domain.z.min, domain.z.max, domain.z.spread);
