@@ -169,7 +169,6 @@ function parseLatex(expression, vars){
             }
         }
     }
-    
     //fractions
     re = /\\frac/g;
     while((match=re.exec(expression)) !== null){
@@ -194,6 +193,10 @@ function parseLatex(expression, vars){
     expression = expression.replace(/@/g,'(');
     expression = expression.replace(/\?/g,')')
     
+    //get rid of superfluous parenthesis at beginning and end (important when we have things like (z = x/y))
+    while(expression.charAt(0) === '(' && matchingRightChar('(', ')', expression, 0) === expression.length - 1){
+        expression = expression.substring(1, expression.length - 1);
+    }
     //really, we have the best chance of parsing if we omit backslashes
     expression = expression.replace(/\\/g,'');
     
