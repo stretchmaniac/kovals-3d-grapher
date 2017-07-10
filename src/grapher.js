@@ -611,107 +611,14 @@ $('#cartesian-button').click(function(){
     }
 });
 
-$('#cylindrical-button').click(function(){
-    cartesian = false;
-    cylindrical = true;
-    spherical = false;
-    $('#cartesian-coordinates').hide();
-    $('#x-y-z-range-row').hide();
-    $('#spherical-coordinates').hide();
-    $('#r-theta-sphi-range-row').hide();
-    $('#rho-phi-height-range-row').show();
-    $('#cylindrical-coordinates').show();
-    if(isCylindricalParametric()){
-        $('#u-v-range-row').show();
-    }else{
-        $('#u-v-range-row').hide();
-    }
-    $('#x-plot-heading').html('\\(\\rho\\)');
-    $('#y-plot-heading').html('\\(\\phi\\)');
-    $('#z-plot-heading').html('\\(z\\)');
-    refreshMathJax();
-    
-    if(domain.pointsOnly){
-        $('#plot-row').show();
-        $('#cylindrical-coordinates').hide();
-        $('#density-row').hide();
-        $('#u-v-range-row').hide();
-        $('#color-row').hide();
-    }else{
-        $('#plot-row').hide();
-        $('#color-row').show();
-        $('#density-row').show();
-    }
-})
-
-$('#spherical-button').click(function(){
-    cartesian = false;
-    cylindrical = false;
-    spherical = true;
-    $('#cartesian-coordinates').hide();
-    $('#x-y-z-range-row').hide();
-    $('#cylindrical-coordinates').hide();
-    $('#rho-phi-height-range-row').hide();
-    $('#r-theta-sphi-range-row').show();
-    $('#spherical-coordinates').show();
-    if(isSphericalParametric()){
-        $('#u-v-range-row').show();
-    }else{
-        $('#u-v-range-row').hide();
-    }
-    $('#x-plot-heading').html('\\(r\\)');
-    $('#y-plot-heading').html('\\(\\theta\\)');
-    $('#z-plot-heading').html('\\(\\phi\\)');
-    refreshMathJax();
-    
-    if(domain.pointsOnly){
-        $('#plot-row').show();
-        $('#spherical-coordinates').hide();
-        $('#density-row').hide();
-        $('#u-v-range-row').hide();
-        $('#color-row').hide();
-    }else{
-        $('#plot-row').hide();
-        $('#color-row').show();
-        $('#density-row').show();
-    }
-});
-
-$('#plot-button').click(function(){
-    domain.pointsOnly = !domain.pointsOnly;
-    if(domain.pointsOnly){
-        $('#plot-button').css('background-color','rgb(34, 149, 84)')
-    }else{
-       $('#plot-button').css('background-color','')
-    }
-    
-    if(cartesian){
-        $('#cartesian-button').click();
-    }
-    if(cylindrical){
-        $('#cylindrical-button').click();
-    }
-    if(spherical){
-        $('#spherical-button').click();
-    }
-});
-
 $('#axes-checkbox').change(function(){
-    if($('#axes-checkbox').prop('checked') === true){
-        domain.showAxes = true;
-    }else{
-        domain.showAxes = false;
-    }
-    plotPoints()
+    domain.showAxes = $('#axes-checkbox').prop('checked');
+    plotPoints();
 })
 
 $('#color-checkbox').change(function(){
-    if($('#color-checkbox').prop('checked') === true){
-        domain.coloring = true;
-    }else{
-        domain.coloring = false;
-    }
-    plotPoints()
+    domain.coloring = $('#color-checkbox').prop('checked');
+    plotPoints();
 })
 
 $('#show-mesh-while-coloring-checkbox').change(function(){
@@ -1113,21 +1020,7 @@ function getRealDomainWidth(){
 
 //sets the value of domain to the respective inputs
 function changeDomainInputs(){
-    MQ = MathQuill.getInterface(2);
-    var newDomainCenter = getRealDomainCenter();
-    var newDomainWidth = getRealDomainWidth();
-    MQ($('#x-range-min-input')[0]).latex(newDomainCenter.x - newDomainWidth.x/2);
-    MQ($('#x-range-max-input')[0]).latex(newDomainCenter.x + newDomainWidth.x/2);
-    MQ($('#y-range-min-input')[0]).latex(newDomainCenter.y - newDomainWidth.y/2);
-    MQ($('#y-range-max-input')[0]).latex(newDomainCenter.y + newDomainWidth.y/2);
-    MQ($('#z-range-min-input')[0]).latex(newDomainCenter.z - newDomainWidth.z/2);
-    MQ($('#z-range-max-input')[0]).latex(newDomainCenter.z + newDomainWidth.z/2);
-    MQ($('#r-range-min-input')[0]).latex(domain.r.min);
-    MQ($('#r-range-max-input')[0]).latex(domain.r.max);
-    MQ($('#rho-range-min-input')[0]).latex(domain.rho.min);
-    MQ($('#rho-range-max-input')[0]).latex(domain.rho.max);
-    MQ($('#height-range-min-input')[0]).latex(domain.height.min);
-    MQ($('#height-range-max-input')[0]).latex(domain.height.max);
+    // TODO: change domain inputs in domain bar
 }
 
 function setUpDownload(){
@@ -1139,34 +1032,6 @@ function setUpDownload(){
     data = data.replace(/^data:application\/octet-stream/, 'data:application/octet-stream;headers=Content-Disposition%3A%20attachment%3B%20filename=Graph.'+type);
     document.getElementById('save-href').href = data;
     document.getElementById('save-href').download = 'Graph.'+type;
-}
-
-function isParametric(){
-    var xInput = $('#x-input').text();
-    var yInput = $('#y-input').text();
-    var zInput = $('#z-input').text();
-    
-    return (xInput.indexOf('u') !== -1 || xInput.indexOf('v') !== -1) ||
-        (yInput.indexOf('u') !== -1 || yInput.indexOf('v') !== -1) ||
-        (zInput.indexOf('u') !== -1 || zInput.indexOf('v') !== -1);
-}
-
-function isCylindricalParametric(){
-    var rhoInput = $('#rho-input').text();
-    var phiInput = $('#phi-input').text();
-    var heightInput = $('#height-input').text();
-    return (rhoInput.indexOf('u') !== -1 || rhoInput.indexOf('v') !== -1) ||
-        (phiInput.indexOf('u') !== -1 || phiInput.indexOf('v') !== -1) ||
-        (heightInput.indexOf('u') !== -1 || heightInput.indexOf('v') !== -1);
-}
-
-function isSphericalParametric(){
-    var rInput = $('#r-input').text();
-    var thetaInput = $('#theta-input').text();
-    var sphiInput = $('#sphi-input').text();
-    return (rInput.indexOf('u') !== -1 || rInput.indexOf('v') !== -1) ||
-        (thetaInput.indexOf('u') !== -1 || thetaInput.indexOf('v') !== -1) ||
-        (sphiInput.indexOf('u') !== -1 || sphiInput.indexOf('v') !== -1);
 }
 
 function evalDomain(string){
@@ -1509,26 +1374,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
     return;
 }
 
-function formPolygons(colTotal){
-    var toIndex = (x,y) => domain.rowLength*x + y;
-    var newPoly = inds => polygons.push({
-        indices:inds,
-        pts:[]
-    });
-    for(var x = 0; x < colTotal - 1; x++){
-        for(var y = 0; y < domain.rowLength; y++){
-            if(y % 2 === 0){
-                newPoly([toIndex(x,y),toIndex(x+1,y),toIndex(x,y+1)]);
-                newPoly([toIndex(x+1,y+1),toIndex(x+1,y),toIndex(x,y+1)]);
-            }else if(y < domain.rowLength - 1){
-                newPoly([toIndex(x,y),toIndex(x,y+1),toIndex(x+1,y+1)]);
-                newPoly([toIndex(x,y),toIndex(x+1,y),toIndex(x+1,y+1)]);
-            }
-        }
-    }
-}
-
-//plot the point, computes its 1st partial derivatives (dx/du, dx/dv etc) and its 2nd parial derivatives (dx^2/du, etc)
+// plot the point, computes its 1st partial derivatives (dx/du, dx/dv etc) and its 2nd parial derivatives (dx^2/du, etc)
 function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
     if(!delta){
         delta = Math.min((domain.u.max-domain.u.min)/1e6, (domain.v.max-domain.v.min)/1e6);
@@ -2190,55 +2036,6 @@ function copyPoint(point){
     return {x:point.x,y:point.y,z:point.z};
 }
 
-function cleanParametricEdges(xFunc, yFunc, zFunc, doneFunc){
-    var pointsToAdd = [];
-    var p = 0;
-    var previousPercent = 0;
-    intervalId2 = setInterval(function(){
-        if(p < points.length){
-            for(var t = 0; t < handleablePoints/10 && p < points.length; t++){
-                cleanNextPoint(xFunc, yFunc, zFunc, p, pointsToAdd);
-                p++;
-                var percentDone = p / points.length;
-                percentDone *= 100;
-                percentDone = parseFloat(percentDone.toFixed(2));
-                if(percentDone > previousPercent + 1){
-                    displayCanvasMessage('detecting edges... '+percentDone+'%');
-                    previousPercent = percentDone;
-                }
-            }
-        }else{
-            clearInterval(intervalId2);
-            var edges=[];
-            addEdgePoints(pointsToAdd, edges, function(){
-                removeNullPoints(function(){
-                    cleanPolygonEdges(edges, function(){
-                        doneFunc();
-                    });
-                });
-            });
-        }
-    },10);
-}
-
-function addEdgePoints(pointsToAdd,edges, doneFunc){
-    var k = 0;
-    intervalId4 = setInterval(function(){
-        if(k < pointsToAdd.length){
-            for(var p = 0; p < handleablePoints && k < pointsToAdd.length; p++){
-                points.push(pointsToAdd[k]);
-                edges.push(pointsToAdd[k]);
-                pointsToAdd[k].used = false;
-                pointsToAdd[k].sourced = false;
-                k++;
-            }
-            displayCanvasMessage('adding new edge points... '+(100*k/pointsToAdd.length).toFixed(2)+'%');
-        }else{
-            clearInterval(intervalId4);
-            doneFunc();
-        }
-    },10);
-}
 
 function removeNullPoints(doneFunc){
     var a = points.length-1;
@@ -2265,106 +2062,6 @@ function removeNullPoints(doneFunc){
             doneFunc();
         }
     },10)
-}
-
-function cleanNextPoint(xFunc, yFunc, zFunc, p, pointsToAdd){
-    var point = points[p];
-    for(var t = 0; t < point.neighbors.length; t++){
-        var otherPt = point.neighbors[t].pt;
-        var realInbetweenPt;
-        if(isNonReal(otherPt) && !isNonReal(point)){
-            //interpolate between points
-            realInbetweenPt = findParametricEdge(point, otherPt, xFunc, yFunc, zFunc, cleanDensity);
-            var toAddPt = plot(xFunc, yFunc, zFunc, realInbetweenPt.u, realInbetweenPt.v)
-            
-            removeConnection(point, otherPt);
-            makeConnection(point, toAddPt);
-            
-            toAddPt.cleaned = true;
-            
-            pointsToAdd.push(toAddPt)
-        }
-    }
-}
-
-function cleanPolygonEdges(edges, doneFunc){
-    //the idea is to find a string of endpoints and connect them together
-    var ptsUsed = 0;
-    var nextPt = edges[0];
-    if(nextPt){
-        nextPt.used = true;
-        var loopStarter = nextPt;
-        var pointsInLoop = 0;
-        var pt1;
-        intervalId3 = setInterval(function(){
-            if(ptsUsed < edges.length){
-                for(var h = 0; h < handleablePoints/10 && ptsUsed < edges.length; h++){
-                    if(pointsInLoop === 3 && pt1 !== loopStarter){
-                        loopStarter.used = false;
-                    }
-                    pt1 = nextPt;
-                    pt1.sourced = true;
-                    var minPt = null;
-                    var minLength = 1.5*(domain.u.max - domain.u.min)/ domain.density;
-                    for(var u = 0; u < edges.length; u++){
-                        var pt2 = edges[u];
-                        if(pt2.used === false){
-                            var length = uvDist(pt1, pt2);
-                            var xyzlen = xyzDist(pt1, pt2);
-                            if(xyzlen > Math.max(domain.z.max - domain.z.min, domain.x.max - domain.x.min, domain.y.max - domain.y.min)){
-                                length = minLength + 1;
-                            }
-                            if(length  < minLength){
-                                minLength = length;
-                                minPt = pt2;
-                            }
-                        }
-                    }
-                    
-                    if(minPt !== null){
-                        makeConnection(pt1, minPt)
-                        minPt.used = true;
-                        nextPt = minPt;
-                        pointsInLoop++;
-                        
-                        //all non-real points have already been removed, so the one left is the base
-                        var pt1Base = pt1.neighbors[0].pt;
-                            
-                        var minBase = minPt.neighbors[0].pt;
-                        
-                        //now make a polygon with the connecting point
-                        var pts = [pt1Base, pt1, minPt, minBase];
-                        //we need to make a path from minPt to pt1 using only left, right, up, down
-                        var currentPoint = minBase;
-                        //MAKE POLYGON LOGIC
-                        
-                        if(currentPoint && pt1Base){
-                            minPt.polygon = {};
-                            minPt.polygon.pts = pts;
-                        }
-                    }else{
-                        for(var j = 0; j < edges.length; j++){
-                            if(edges[j].sourced === false){
-                                nextPt = edges[j];
-                                break;
-                            }
-                        }
-                        nextPt.used = true;
-                        loopStarter = nextPt;
-                        pointsInLoop = 0;
-                    }
-                    ptsUsed++;
-                    var percent = (100*ptsUsed / edges.length).toFixed(2);
-                    displayCanvasMessage('cleaning edges... '+percent+'%');
-                }
-            }else{
-                clearInterval(intervalId3);
-                doneFunc();
-            }
-        },10)
-    }else{
-        doneFunc();
-    }
 }
 
 //compiled x,y,z functions
@@ -2879,8 +2576,8 @@ function rotate(point,rotQuat, rotCenter){
     point.z=quatOut.z + center.z;
 }
 
-//check it out: http://www.cprogramming.com/tutorial/3d/quaternions.html
-//remember that quaternions are not communative
+// check it out: http://www.cprogramming.com/tutorial/3d/quaternions.html
+// remember that quaternions are not communative
 function quatMult(q1,q2){
     return {
         w: q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z,
@@ -2946,8 +2643,9 @@ function quatNorm(q){
     return q;
 }
 
-//stackoverflow for the win again! http://gamedev.stackexchange.com/questions/8191/any-reliable-polygon-normal-calculation-code
+// stackoverflow for the win again! http://gamedev.stackexchange.com/questions/8191/any-reliable-polygon-normal-calculation-code
 //  Modified from http://www.fullonsoftware.co.uk/snippets/content/Math_-_Calculating_Face_Normals.pdf
+// EDIT: I know how to do this now :)
 function polyNormal(p1, p2, p3){
     var v1 = sub(p2,p1);
     var v2 = sub(p3,p1);
@@ -3011,3 +2709,6 @@ function HSVtoRGB(h, s, v,a) {
         a: a
     };
 }
+
+
+
