@@ -1419,7 +1419,7 @@ function displayCanvasError(){
     ctx.fillRect(0,0, width, height);
     
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(0,0,0,.3)'
+    ctx.fillStyle = 'rgba(255,255,255,.3)'
     ctx.font = '50px Arial';
     
     ctx.fillText('Whoops! There was an error :(', width/2, height/2, width);
@@ -1444,7 +1444,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     
     //sometimes I'm really thankful I stretched the function instead of the domain...
     var defaultXYZLength = (domain.x.max - domain.x.min) / domain.density;
-    var legLength = defaultXYZLength;
     
     points = [];
     pointQuats = [];
@@ -1454,16 +1453,14 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     // note that this is NOT always foolproff ==> z = rho, rho in [-10, 10]
     var uMiddle = (domain.u.max + domain.u.min) / 2,
         vMiddle = (domain.v.max + domain.v.min) / 2;
-        
-    var referencePt;
     
-    function generatingVecs(){
-        //we want (v1.u * |du|)^2 + (v1.v * |dv|)^2 == legLength^2, and the same for v2
+    function generatingVecs(refPt){
+        //we want (v1.u * |du|)^2 + (v1.v * |dv|)^2 == 1^2, and the same for v2
         //for v1, we just assume v = 0
-        var du = referencePt.deriv1.du,
-            dv = referencePt.deriv1.dv
+        var du = refPt.deriv1.du,
+            dv = refPt.deriv1.dv
         var v1 = {
-            u: legLength / magnitude(du),
+            u: 1 / magnitude(du),
             v:0
         };
         //this is essentially a projection
@@ -1473,18 +1470,18 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
             u:-dot(du, dv) / dot(du, du),
             v:1
         }
-        //now scale v2 to its length is legLength
-        var sc = legLength / magnitude( add( scalar(v2.u, du), scalar(v2.v, dv) ) );
+        //now scale v2 to its length is 1
+        var sc = 1 / magnitude( add( scalar(v2.u, du), scalar(v2.v, dv) ) );
         v2.u *= sc;
         v2.v *= sc;
         
         return [v1,v2];
     }
     
-    // returns the uv coordinates of a coordinate specified in perpendicular, normalized (via legLength)
+    // returns the uv coordinates of a coordinate specified in perpendicular, normalized
     //  coordinates, with the first coordinate parallel to the du vector
-    function dir(s,t){
-        var vecs = generatingVecs();
+    function dir(refPt, s,t){
+        var vecs = generatingVecs(refPt);
         var v1 = vecs[0];
         var v2 = vecs[1];
         
@@ -1506,8 +1503,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 	}
 	
     //inverse of dir function
-    function invDir(u,v){
-        var vecs = generatingVecs();
+    function invDir(refPt, u,v){
+        var vecs = generatingVecs(refPt);
         var v1 = vecs[0];
         var v2 = vecs[1];
         //just a linear system, no problem
@@ -1524,22 +1521,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         makeConnection(p1,p3);
     }
     
-    var initPoint = plotPlus(xFunc, yFunc, zFunc, uMiddle, vMiddle);
-    referencePt = initPoint;
+    let initPoint = plotPlus(xFunc, yFunc, zFunc, uMiddle, vMiddle);
     //we have (x(u,v), y(u,v), z(u,v)) ≈ u du + v dv, so a linear transformation (a plane)
     //in order for a parameterization (x(s,t), y(s,t), z(s,t)) such that a change in s and t corresponds to 
     //an equal change in x,y and z, we need s = u du, t = v dv, or (u(s,t), v(s,t)) = (s / |du|, t / |dv|)
-    var vec = dir(1, 0);
-    console.log('perp check!')
-    console.log(
-        dot(
-            add(scalar(dir(1,0).u,referencePt.deriv1.du), scalar(dir(1,0).v,referencePt.deriv1.dv)), 
-            add(scalar(dir(0,1).u,referencePt.deriv1.du), scalar(dir(0,1).v,referencePt.deriv1.dv))
-        )
-    )
-    var initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v);
-    vec = dir(.5, Math.sqrt(3)/2)
-    var initPoint3 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v)
+    let vec = dir(initPoint, 1, 0);
+	
+    let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v);
+    vec = dir(initPoint, .5, Math.sqrt(3)/2)
+    let initPoint3 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v)
     
     //the space that needs to be transversed goes counter-clockwise from beginning to end
     initPoint.beginning = initPoint3;
@@ -1565,10 +1555,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         pts:[]
     });
     
-    var pointFront = [initPoint, initPoint2, initPoint3];
-    var middleU = (domain.u.min + domain.u.max) / 2;
-    var middleV = (domain.v.min + domain.v.max) / 2;
-    var distFunc = p => Math.sqrt((p.u-middleU)*(p.u-middleU)+(p.v-middleV)*(p.v-middleV));
+    let pointFront = [initPoint, initPoint2, initPoint3];
+    let middleU = (domain.u.min + domain.u.max) / 2;
+    let middleV = (domain.v.min + domain.v.max) / 2;
+    let distFunc = p => Math.sqrt((p.u-middleU)*(p.u-middleU)+(p.v-middleV)*(p.v-middleV));
     pointFront.sort(function(a,b){
         return distFunc(a) - distFunc(b);
     })
@@ -1578,15 +1568,14 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var entirelyConvex = true;
     
     function calcAngle(pt){
-        referencePt = pt;
         //start point
         var sPoint = pt.beginning;
         //end point
         var ePoint = pt.end;
         
         //where the start and endPoints are in square coordinates
-        var sST = invDir(sPoint.u - pt.u, sPoint.v - pt.v);
-        var eST = invDir(ePoint.u - pt.u, ePoint.v - pt.v);
+        var sST = invDir(pt, sPoint.u - pt.u, sPoint.v - pt.v);
+        var eST = invDir(pt, ePoint.u - pt.u, ePoint.v - pt.v);
         
         //in square coordinates, we can do normal geometry (hurray!)
         var sAngle = Math.atan2(sST.t, sST.s);
@@ -1650,281 +1639,24 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     }
     
     function processPoint(pt, edgePoints){
-        referencePt = pt;
-        
-        var n1 = pt.beginning.beginning;
-        var n2 = pt.end.end;
-        
-        //if the length from connection point to the base point is less than the distance from the 
-        //base point to n1 or n2, then there is garunteed (I think) no overlap with 2nd or higher neighbors
-        var maxLength = Math.min(magnitude(sub(pt, n1)), magnitude(pt, n2));
-        legLength = maxLength < defaultXYZLength ? maxLength : defaultXYZLength;
-        
         //start point
-        var sPoint = pt.beginning;
+        const sPoint = pt.beginning;
         //end point
-        var ePoint = pt.end;
+        const ePoint = pt.end;
         
         //where the start and endPoints are in square coordinates
-        var sST = invDir(sPoint.u - pt.u, sPoint.v - pt.v);
-        var eST = invDir(ePoint.u - pt.u, ePoint.v - pt.v);
+        const sST = invDir(pt, sPoint.u - pt.u, sPoint.v - pt.v);
+        const eST = invDir(pt, ePoint.u - pt.u, ePoint.v - pt.v);
         
         //in square coordinates, we can do normal geometry (hurray!)
-        var sAngle = Math.atan2(sST.t, sST.s);
-        var eAngle = Math.atan2(eST.t, eST.s);
+        const sAngle = Math.atan2(sST.t, sST.s);
+        const eAngle = Math.atan2(eST.t, eST.s);
         
         //find counterclockwise difference between start and end angles
-        var angleDiff = eAngle >= sAngle ? eAngle - sAngle : 2*Math.PI - (sAngle - eAngle);
+        const angleDiff = eAngle >= sAngle ? eAngle - sAngle : 2*Math.PI - (sAngle - eAngle);
         
         //we're shooting for equillateral triangles, so our angles should be as close to Pi/3 as possible
-        var sections = Math.round(angleDiff / (Math.PI / 3)+0.4);
-        if(sections === 0){
-            sections = 1;
-        }
-        //console.log('total angle: '+angleDiff)
-        //console.log('sections: '+sections)
-        var angleDelta = angleDiff / sections;
-        
-        var currentAngle = sAngle+angleDelta;
-        
-        var genPoint = sPoint;
-        var connectionPoint;
-        
-        var lastAngleSplits = 0;
-        
-        for(var sCount = 0; sCount < sections; sCount++){
-            //make connectionPoint as if it was the end of the loop
-            let vec = dir(Math.cos(currentAngle), Math.sin(currentAngle));
-			
-			let dA = dAngle(genPoint, vec.u, vec.v);
-			
-			// TODO: put this in domain, if it works
-			const targetDelta = .1;
-			
-			let scaleF = targetDelta / dA;
-			if(scaleF > 1.33){
-				scaleF = 1.33;
-			}else if(scaleF < .75){
-				scaleF = .75;
-			}
-			
-			vec.u *= scaleF;
-			vec.v *= scaleF;
-			
-			legLength = defaultXYZLength * scaleF;
-            
-            //stop at edge of domain
-            var withinDomain = true;
-            if(pt.u + vec.u > domain.u.max){
-                withinDomain = false;
-            }
-            if(pt.u + vec.u < domain.u.min){
-                withinDomain = false;
-            }
-            if(pt.v + vec.v > domain.v.max){
-                withinDomain = false;
-            }
-            if(pt.v + vec.v < domain.v.min){
-                withinDomain = false;
-            }
-            
-            connectionPoint = plotPlus(xFunc, yFunc, zFunc, pt.u + vec.u, pt.v + vec.v);
-            
-            if(!withinDomain){
-                edgePoints.push(connectionPoint);
-            }
-            
-            //If a point crosses the line caused by pt.beginning and n1, it allows for interior line segments 
-            //(e.g. pointing inward instead of outward),
-            //This is bad
-            var n1Fault = false;
-            var n2Fault = false;
-            //is the new segment pointing in the same direction as the neighbor segment?
-            //is the new segment on the wrong side of the neighbor segment?
-            //is the neighbor segment in the right position for such an overlap to be possible?
-            if(uvDot(connectionPoint, pt.beginning, n1) > 0 && isClockwise(connectionPoint, pt.beginning, n1) && isClockwise(n1, pt.beginning, pt)){
-                n1Fault = true;
-                console.log('n1 (beginning) fault');
-            }
-            if(uvDot(connectionPoint, pt.end, n2) > 0 && !isClockwise(connectionPoint, pt.end, n2) && !isClockwise(n2, pt.end, pt)){
-                n2Fault = true;
-                console.log('n2 (end) fault');
-            }
-            
-            if((magnitude(sub(connectionPoint, n1)) < legLength / 3 || n1Fault) && (withinDomain || n1Fault) && sCount !== sections-1){
-                console.log('BEGINNING SNAP')
-                //this is a 'beginning' snap
-                connectionPoint = n1;
-                
-                if(magnitude(sub(connectionPoint, pt)) > 1.2 * defaultXYZLength){
-                    console.log('BEGINNING SPLIT')
-                    console.log('how big? '+magnitude(sub(pt, connectionPoint))/defaultXYZLength)
-                    //split up this connection
-                    var midP = plotPlus(xFunc, yFunc, zFunc, (n1.u + pt.u) / 2, (n1.v + pt.v) / 2);
-                    points.push(midP);
-                    midP.index = points.length - 1;
-                    
-                    pushToPointFront(midP);
-                    
-                    //insert in between points
-                    makeConnection(pt, midP);
-                    makeConnection(midP, connectionPoint);
-                    makeConnection(midP, genPoint);
-                    
-                    //remove genPoint as proceeding sequence
-                    pointFront.splice(pointFront.indexOf(genPoint), 1);
-                    
-                    connectionPoint.end = midP;
-                    midP.beginning = connectionPoint;
-                    midP.end = pt;
-                    
-                    //there's 2 polygons, since we're making a quadrillateral here
-                    polygons.push({
-                        indices:[pt.index, midP.index, genPoint.index],
-                        pts:[]
-                    });
-                    polygons.push({
-                        indices:[midP.index, genPoint.index, connectionPoint.index],
-                        pts:[]
-                    });
-                    
-                    genPoint = midP;
-                }else{
-                    makeConnection(pt, connectionPoint);
-                    
-                    //remove genPoint
-                    pointFront.splice(pointFront.indexOf(genPoint), 1);
-                    
-                    //fix beginnings/endings (there is no new point)
-                    connectionPoint.end = pt;
-                    
-                    //make polygon
-                    polygons.push({
-                        indices:[pt.index, connectionPoint.index, genPoint.index],
-                        pts:[]
-                    });
-                    
-                    genPoint = connectionPoint;
-                }
-                //technically this should be changed so that the current angle is angleDelta + (connectionPoint Angle)
-                //I expect a moderate smoothing effect (e.g. less sharp angles), but it is probably optional
-                //I'll do it later
-                currentAngle += angleDelta;
-                //if the end is close enough OR it's the edge and not a fault
-            }else if((magnitude(sub(connectionPoint, n2)) < legLength / 3 || n2Fault) && (withinDomain || n2Fault) && sCount !== sections-1){
-                console.log('ENDING SNAP');
-                //this is an 'ending' snap, slightly more complicated
-                //this is garunteed to be the last section, so we'll break at the end
-                connectionPoint = n2;
-                
-                if(magnitude(sub(pt, connectionPoint)) > 1.2 * defaultXYZLength){
-                    //split up this connection
-                    console.log('END SPLIT')
-                    console.log('how big? '+magnitude(sub(pt, connectionPoint))/defaultXYZLength);
-                    var midP = plotPlus(xFunc, yFunc, zFunc, (pt.u + connectionPoint.u) / 2, (pt.v + connectionPoint.v) / 2);
-                    points.push(midP);
-                    midP.index = points.length - 1;
-                    
-                    pushToPointFront(midP);
-                    
-                    //make connections
-                    makeConnection(midP, pt);
-                    makeConnection(midP, connectionPoint);
-                    makeConnection(midP, pt.end);
-                    makeConnection(genPoint, midP);
-                    
-                    midP.beginning = genPoint;
-                    genPoint.end = midP;
-                    midP.end = connectionPoint;
-                    connectionPoint.beginning = midP;
-                    
-                    pointFront.splice(pointFront.indexOf(pt.end),1);
-                    
-                    //3 polygons now!
-                    polygons.push({
-                        indices:[pt.index, midP.index, genPoint.index],
-                        pts:[]
-                    });
-                    polygons.push({
-                        indices:[pt.index, midP.index, pt.end.index],
-                        pts:[]
-                    });
-                    polygons.push({
-                        indices:[midP.index, pt.end.index, connectionPoint.index],
-                        pts:[]
-                    });
-                    
-                }else{
-                    makeConnection(connectionPoint, genPoint);
-                    makeConnection(connectionPoint, pt);
-                    
-                    //remove the excess point
-                    pointFront.splice(pointFront.indexOf(pt.end),1);
-                    
-                    //fix beginnings/ends
-                    connectionPoint.beginning = genPoint;
-                    genPoint.end = connectionPoint;
-                    
-                    //now there are two polygons to add
-                    polygons.push({
-                        indices:[pt.index, connectionPoint.index, genPoint.index],
-                        pts:[]
-                    });
-                    polygons.push({
-                        indices:[pt.index, connectionPoint.index, pt.end.index],
-                        pts:[]
-                    });
-                }
-                
-                break;
-            }else{
-                //there is no snap, continue as normal
-                if(sCount === sections - 1){
-                    connectionPoint = ePoint;
-                    //if the jump is too big (this jump can accumulate over time and lead to major bugs)
-					// TODO: resolve this
-                    if(magnitude(sub(connectionPoint, genPoint)) > 1.2*defaultXYZLength && lastAngleSplits < 2 && false){
-                        //just redo the current section with a smaller angle
-                        currentAngle -= angleDelta/2;
-                        sCount-=2;
-                        console.log('ANGLE SPLIT')
-                        console.log('(dist) '+magnitude(sub(connectionPoint, genPoint))/defaultXYZLength)
-                        lastAngleSplits++;
-                        continue;
-                    }
-                }else{
-                    connectionPoint.end = pt;
-                    makeConnection(connectionPoint, pt);
-                    points.push(connectionPoint);
-                    connectionPoint.index = points.length - 1;
-                    
-                    if(withinDomain){
-                        pushToPointFront(connectionPoint);
-                    }
-                }
-                
-                //console.log('section made')
-                
-                //first connect the genPoint and connectionPoint
-                makeConnection(genPoint, connectionPoint);
-                
-                //now reassign beginning and end assignments
-                connectionPoint.beginning = genPoint;
-                genPoint.end = connectionPoint;
-                
-                //now make the polygon
-                polygons.push({
-                    indices:[pt.index, connectionPoint.index, genPoint.index],
-                    pts:[]
-                });
-                
-                //cleanup
-                genPoint = connectionPoint;
-                currentAngle += angleDelta;
-            }
-        }
-        pointFront.splice(pointFront.indexOf(pt),1);
-        console.log('pf')
+        const sections = Math.round(angleDiff / (Math.PI / 3)+0.4);
     }
     
     //in order not to mess up the mesh as its graphing, we'll squish the 
