@@ -1377,7 +1377,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 // plot the point, computes its 1st partial derivatives (dx/du, dx/dv etc) and its 2nd parial derivatives (dx^2/du, etc)
 function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
     if(!delta){
-        delta = Math.min((domain.u.max-domain.u.min)/1e6, (domain.v.max-domain.v.min)/1e6);
+        delta = Math.min((domain.u.max-domain.u.min)/1e8, (domain.v.max-domain.v.min)/1e8);
     }
     var p1 = plot(xfunc, yfunc, zfunc, u, v);
     var pu = plot(xfunc, yfunc, zfunc, u-delta, v);
@@ -1450,8 +1450,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     pointQuats = [];
     polygons = [];
     
-    //center of domain, the seed point
-    //note that this is NOT always foolproff ==> z = rho, rho in [-10, 10]
+    // center of domain, the seed point
+    // note that this is NOT always foolproff ==> z = rho, rho in [-10, 10]
     var uMiddle = (domain.u.max + domain.u.min) / 2,
         vMiddle = (domain.v.max + domain.v.min) / 2;
         
@@ -1466,7 +1466,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
             u: legLength / magnitude(du),
             v:0
         };
-        console.log(v1)
         //this is essentially a projection
         //for future reference, think of du and dv embedded in xyz space, need new vector
         //pointing "toward" dv but perpendicular to du, in uv coordinates
@@ -1482,7 +1481,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         return [v1,v2];
     }
     
-    //returns the uv coordinates of a coordinate specified in perpendicular, normalized (via legLength)
+    // returns the uv coordinates of a coordinate specified in perpendicular, normalized (via legLength)
     //  coordinates, with the first coordinate parallel to the du vector
     function dir(s,t){
         var vecs = generatingVecs();
@@ -1495,6 +1494,17 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         };
     }
     
+	// finds change in angle per unit (xyz) vector (uDir, vDir)
+	function dAngle(pt, uDir, vDir){
+		const delta = Math.min((domain.u.max-domain.u.min)/1e6, (domain.v.max-domain.v.min)/1e6);
+		const pt2 = plotPlus(xFunc, yFunc, zFunc, pt.u + uDir*delta, pt.v + vDir*delta);
+		
+		const ptVec = add(scalar(uDir, pt.deriv1.du), scalar(vDir, pt.deriv1.dv));
+		const pt2Vec = add(scalar(uDir, pt2.deriv1.du), scalar(vDir, pt2.deriv1.dv));
+		
+		return angleBetween(ptVec, pt2Vec) / delta;
+	}
+	
     //inverse of dir function
     function invDir(u,v){
         var vecs = generatingVecs();
@@ -1684,7 +1694,24 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         
         for(var sCount = 0; sCount < sections; sCount++){
             //make connectionPoint as if it was the end of the loop
-            vec = dir(Math.cos(currentAngle), Math.sin(currentAngle));
+            let vec = dir(Math.cos(currentAngle), Math.sin(currentAngle));
+			
+			let dA = dAngle(genPoint, vec.u, vec.v);
+			
+			// TODO: put this in domain, if it works
+			const targetDelta = .1;
+			
+			let scaleF = targetDelta / dA;
+			if(scaleF > 1.33){
+				scaleF = 1.33;
+			}else if(scaleF < .75){
+				scaleF = .75;
+			}
+			
+			vec.u *= scaleF;
+			vec.v *= scaleF;
+			
+			legLength = defaultXYZLength * scaleF;
             
             //stop at edge of domain
             var withinDomain = true;
@@ -1855,7 +1882,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
                 if(sCount === sections - 1){
                     connectionPoint = ePoint;
                     //if the jump is too big (this jump can accumulate over time and lead to major bugs)
-                    if(magnitude(sub(connectionPoint, genPoint)) > 1.2*defaultXYZLength && lastAngleSplits < 2){
+					// TODO: resolve this
+                    if(magnitude(sub(connectionPoint, genPoint)) > 1.2*defaultXYZLength && lastAngleSplits < 2 && false){
                         //just redo the current section with a smaller angle
                         currentAngle -= angleDelta/2;
                         sCount-=2;
@@ -1904,7 +1932,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 100){
+    while(pointFront.length > 0 && c < 1000){
         c++;
         processPoint(pointFront[0], edgePoints);
     }
