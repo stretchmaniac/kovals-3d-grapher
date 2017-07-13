@@ -1525,10 +1525,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     //we have (x(u,v), y(u,v), z(u,v)) ≈ u du + v dv, so a linear transformation (a plane)
     //in order for a parameterization (x(s,t), y(s,t), z(s,t)) such that a change in s and t corresponds to 
     //an equal change in x,y and z, we need s = u du, t = v dv, or (u(s,t), v(s,t)) = (s / |du|, t / |dv|)
-    let vec = dir(initPoint, 1, 0);
+    let vec = dir(initPoint, defaultXYZLength, 0);
 	
     let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v);
-    vec = dir(initPoint, .5, Math.sqrt(3)/2)
+    vec = dir(initPoint, defaultXYZLength*.5, defaultXYZLength*Math.sqrt(3)/2)
     let initPoint3 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v)
     
     //the space that needs to be transversed goes counter-clockwise from beginning to end
@@ -1663,9 +1663,11 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 		
 		let pointList = [];
 		
-		// ...but that's for a euclidean plane. Let's add sections as needed
+		// ...but that's for a euclidean plane. Let's add or remove sections as needed
 		let adequateNodeNumber = false;
-		while(!adequateNodeNumber){
+		let count = 0;
+		while(!adequateNodeNumber && count < 3){
+			count++;
 			let arcLength = 0;
 			pointList = [sPoint];
 			
@@ -1675,6 +1677,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 				
 				let point = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
 				point.angle = angle;
+				point.nodeDistFactor = 1;
 				
 				pointList.push(point);
 				arcLength += xyzDist(pointList[pointList.length-1], pointList[pointList.length-2]);
@@ -1683,18 +1686,25 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 			pointList.push(ePoint);
 			arcLength += xyzDist(pointList[pointList.length-1], pointList[pointList.length-2]);
 			
-			// 1.25 is somewhat arbitrary
-			adequateNodeNumber = arcLength / sections < nodeDist * 1.25;
-			
-			sections++;
+			if(arcLength / sections > nodeDist * 1.25){
+				sections++;
+				adequateNodeNumber = false;
+			}else if(arcLength / sections < nodeDist * 1){
+				sections--;
+				adequateNodeNumber = false;
+			}else{
+				adequateNodeNumber = true;
+			}
 		}
 		
 		// now space out pointList so that eash point has close to equal sub-arc lengths to 
 		// the right and to the left
 		// we'll do this for a set number of iterations, since it's possible for for points 
 		// to experience arbitrary movement under arbitrary distances
-		const PADDING_ITERATIONS = 6;
+		console.log('new set');
+		const PADDING_ITERATIONS = 10;
 		for(let k = 0; k < PADDING_ITERATIONS; k++){
+			console.log('new iter');
 			// every element except the first and last are able to move
 			for(let i = 1; i < pointList.length - 1; i++){
 				let arcBefore = xyzDist(pointList[i-1], pointList[i]),
@@ -1705,7 +1715,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 				
 				// move the node in the direction that arcBefore and arcAfter stipulate
 				const newAngle = ang1 + (ang2 - ang0) * 0.5 * (arcAfter - arcBefore) / (arcAfter + arcBefore);
-				let loc = dir(pt, nodeDist * Math.cos(newAngle), nodeDist * Math.sin(newAngle));
+				
+				// and while we're here, we might as well fix the nodeDist as well
+				// we have to be careful, though, since the whole arbitary movement thing applies here too, except 
+				// worse. We'll do a weighted average.
+				const nodeDistFactor = .95 * pointList[i].nodeDistFactor + .05 * pointList[i].nodeDistFactor * nodeDist / xyzDist(pt, pointList[i]);
+				
+				console.log(xyzDist(pt, pointList[i]));
+				
+				let loc = dir(pt, nodeDistFactor * nodeDist * Math.cos(newAngle), nodeDistFactor * nodeDist * Math.sin(newAngle));
 				
 				let newPt = null;
 				if(k == PADDING_ITERATIONS - 1){
@@ -1715,6 +1733,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 				}
 				
 				newPt.angle = newAngle;
+				newPt.nodeDistFactor = nodeDistFactor;
 				
 				pointList[i] = newPt;
 			}
@@ -1758,7 +1777,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 95){
+    while(pointFront.length > 0 && c < 595){
         c++;
 		const ptToProcess = pointFront[0];
         processPoint(ptToProcess, edgePoints);
