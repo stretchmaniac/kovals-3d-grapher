@@ -1451,7 +1451,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     
     // center of domain, the seed point
     // note that this is NOT always foolproff ==> z = rho, rho in [-10, 10]
-    var uMiddle = (domain.u.max + domain.u.min) / 2,
+    const uMiddle = (domain.u.max + domain.u.min) / 2,
         vMiddle = (domain.v.max + domain.v.min) / 2;
     
     function generatingVecs(refPt){
@@ -1556,9 +1556,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     });
     
     let pointFront = [initPoint, initPoint2, initPoint3];
-    let middleU = (domain.u.min + domain.u.max) / 2;
-    let middleV = (domain.v.min + domain.v.max) / 2;
-    let distFunc = p => Math.sqrt((p.u-middleU)*(p.u-middleU)+(p.v-middleV)*(p.v-middleV));
+    let distFunc = p => Math.sqrt((p.u-uMiddle)*(p.u-uMiddle)+(p.v-vMiddle)*(p.v-vMiddle));
     pointFront.sort(function(a,b){
         return distFunc(a) - distFunc(b);
     })
@@ -1639,24 +1637,120 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     }
     
     function processPoint(pt, edgePoints){
-        //start point
+        // start point
         const sPoint = pt.beginning;
-        //end point
+        // end point
         const ePoint = pt.end;
         
-        //where the start and endPoints are in square coordinates
+        // where the start and endPoints are in square coordinates
         const sST = invDir(pt, sPoint.u - pt.u, sPoint.v - pt.v);
         const eST = invDir(pt, ePoint.u - pt.u, ePoint.v - pt.v);
         
-        //in square coordinates, we can do normal geometry (hurray!)
+        // in square coordinates, we can do normal geometry (hurray!)
         const sAngle = Math.atan2(sST.t, sST.s);
+		sPoint.angle = sAngle;
+		
         const eAngle = Math.atan2(eST.t, eST.s);
         
-        //find counterclockwise difference between start and end angles
+        // find counterclockwise difference between start and end angles
         const angleDiff = eAngle >= sAngle ? eAngle - sAngle : 2*Math.PI - (sAngle - eAngle);
+		ePoint.angle = sAngle + angleDiff;
         
-        //we're shooting for equillateral triangles, so our angles should be as close to Pi/3 as possible
-        const sections = Math.round(angleDiff / (Math.PI / 3)+0.4);
+        // we're shooting for equillateral triangles, so our angles should be as close to Pi/3 as possible
+        let sections = Math.round(angleDiff / (Math.PI / 3)+0.4);
+		
+		let nodeDist = defaultXYZLength;
+		
+		let pointList = [];
+		
+		// ...but that's for a euclidean plane. Let's add sections as needed
+		let adequateNodeNumber = false;
+		while(!adequateNodeNumber){
+			let arcLength = 0;
+			pointList = [sPoint];
+			
+			for(let nodeCount = 1; nodeCount < sections; nodeCount ++){
+				let angle = sAngle + nodeCount * angleDiff/(sections + 1)
+				let loc = dir(pt, nodeDist * Math.cos(angle), nodeDist * Math.sin(angle));
+				
+				let point = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
+				point.angle = angle;
+				
+				pointList.push(point);
+				arcLength += xyzDist(pointList[pointList.length-1], pointList[pointList.length-2]);
+			}
+			
+			pointList.push(ePoint);
+			arcLength += xyzDist(pointList[pointList.length-1], pointList[pointList.length-2]);
+			
+			// 1.25 is somewhat arbitrary
+			adequateNodeNumber = arcLength / sections < nodeDist * 1.25;
+			
+			sections++;
+		}
+		
+		// now space out pointList so that eash point has close to equal sub-arc lengths to 
+		// the right and to the left
+		// we'll do this for a set number of iterations, since it's possible for for points 
+		// to experience arbitrary movement under arbitrary distances
+		const PADDING_ITERATIONS = 6;
+		for(let k = 0; k < PADDING_ITERATIONS; k++){
+			// every element except the first and last are able to move
+			for(let i = 1; i < pointList.length - 1; i++){
+				let arcBefore = xyzDist(pointList[i-1], pointList[i]),
+					arcAfter = xyzDist(pointList[i+1], pointList[i]),
+					ang0 = pointList[i-1].angle,
+					ang2 = pointList[i+1].angle,
+					ang1 = pointList[i].angle;
+				
+				// move the node in the direction that arcBefore and arcAfter stipulate
+				const newAngle = ang1 + (ang2 - ang0) * 0.5 * (arcAfter - arcBefore) / (arcAfter + arcBefore);
+				let loc = dir(pt, nodeDist * Math.cos(newAngle), nodeDist * Math.sin(newAngle));
+				
+				let newPt = null;
+				if(k == PADDING_ITERATIONS - 1){
+					newPt = plotPlus(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
+				}else{
+					newPt = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
+				}
+				
+				newPt.angle = newAngle;
+				
+				pointList[i] = newPt;
+			}
+		}
+		
+		sPoint.end = pointList[1];
+		
+		// now join pointList into a a set of polygons 
+		for(let i = 1; i < pointList.length - 1; i++){
+			let p = pointList[i];
+			
+			points.push(p);
+			p.index = points.length - 1;
+			
+			makeConnection(p, pointList[i-1]);
+			makeConnection(p, pt);
+			
+			p.beginning = pointList[i-1];
+			p.end = pointList[i+1];
+			
+			pushToPointFront(p);
+			
+			polygons.push({
+				indices:[pt.index, p.index, pointList[i-1].index],
+				pts:[]
+			});
+		}
+		
+		ePoint.beginning = pointList[pointList.length - 2];
+		
+		makeConnection(ePoint, pointList[pointList.length-2]);
+		polygons.push({
+			indices:[pt.index, ePoint.index, pointList[pointList.length-2].index],
+			pts:[]
+		});
+		
     }
     
     //in order not to mess up the mesh as its graphing, we'll squish the 
@@ -1664,9 +1758,22 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 1000){
+    while(pointFront.length > 0 && c < 95){
         c++;
-        processPoint(pointFront[0], edgePoints);
+		const ptToProcess = pointFront[0];
+        processPoint(ptToProcess, edgePoints);
+		// since more points may be added before ptToProcess, we'll search for the right one
+		// in this case, a max of 8 (ish) points can be added before, but it's usually zero 
+		// so we'll do a linear search 
+		let k = 0;
+		while(k < pointFront.length && k >= 0){
+			if(pointFront[k] === ptToProcess){
+				pointFront.splice(k,1);
+				k = -1;
+			}else{
+				k++;
+			}
+		}
     }
     
     //move all the edge points back into the domain
@@ -1918,7 +2025,7 @@ function uvDist(a,b){
 }
 
 function xyzDist(a,b){
-    return Math.sqrt(Math.pow(a.x-b.x,2) + Math.pow(a.y-b.y,2) + Math.pow(a.z-b.z,2));
+    return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2);
 }
 
 function isNonReal(pt){
