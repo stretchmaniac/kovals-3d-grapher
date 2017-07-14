@@ -1686,6 +1686,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 			pointList.push(ePoint);
 			arcLength += xyzDist(pointList[pointList.length-1], pointList[pointList.length-2]);
 			
+			// 1.25 and 1 are "empiracly chosen" (aka arbitrary :))
 			if(arcLength / sections > nodeDist * 1.25){
 				sections++;
 				adequateNodeNumber = false;
@@ -1701,10 +1702,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 		// the right and to the left
 		// we'll do this for a set number of iterations, since it's possible for for points 
 		// to experience arbitrary movement under arbitrary distances
-		console.log('new set');
 		const PADDING_ITERATIONS = 10;
 		for(let k = 0; k < PADDING_ITERATIONS; k++){
-			console.log('new iter');
 			// every element except the first and last are able to move
 			for(let i = 1; i < pointList.length - 1; i++){
 				let arcBefore = xyzDist(pointList[i-1], pointList[i]),
@@ -1721,8 +1720,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 				// worse. We'll do a weighted average.
 				const nodeDistFactor = .95 * pointList[i].nodeDistFactor + .05 * pointList[i].nodeDistFactor * nodeDist / xyzDist(pt, pointList[i]);
 				
-				console.log(xyzDist(pt, pointList[i]));
-				
 				let loc = dir(pt, nodeDistFactor * nodeDist * Math.cos(newAngle), nodeDistFactor * nodeDist * Math.sin(newAngle));
 				
 				let newPt = null;
@@ -1731,6 +1728,33 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 				}else{
 					newPt = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
 				}
+				
+				// check if newPt is on the interior of pointFront. If so, remove the point.
+				// we'll make use of a simple scanline algorithm for if a point is in a polygon
+				const v0 = newPt.v, u0 = newPt.u;
+				let crossCount = 0;
+				for(const testPt of pointFront){
+					// for segment {{a,b}, {c,d}}, intersection with v = v0:
+					// segment: {x(t), y(t)} = {a, b} + t( {c,d} - {a,b} ) = {*, v0}
+					// {t(c-a), t(d-b)} = {*, v0-b}
+					// t = (v0-b)/(d-b)
+					// u pos @ t: a + t (c - a) = a+((v0-b)/(d-b))(c-a)
+					const a = testPt.u, b = testPt.v,
+						c = testPt.end.u, d = testPt.end.v;
+					const t = (v0-b)/(d-b);
+					const u = a+(v0-b)*(c-a)/(d-b);
+					if(u > u0 && t >= 0 && t <= 1){
+						crossCount++;
+					}
+				}
+				
+				if(crossCount % 2 === 1){
+					// it's on the interior (not allowed)
+					pointList.splice(i, 1);
+					i--;
+					continue;
+				}
+				
 				
 				newPt.angle = newAngle;
 				newPt.nodeDistFactor = nodeDistFactor;
@@ -1777,7 +1801,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 595){
+    while(pointFront.length > 0 && c < 3595){
         c++;
 		const ptToProcess = pointFront[0];
         processPoint(ptToProcess, edgePoints);
