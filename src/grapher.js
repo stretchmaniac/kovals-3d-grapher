@@ -1561,9 +1561,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         return distFunc(a) - distFunc(b);
     })
     
-    //we want to take care of concave angles before ALL the convex angles
-    //as to prevent overlap
-    var entirelyConvex = true;
+    // we want to take care of concave angles before ALL the convex angles
+    // as to prevent overlap
+    let entirelyConvex = true;
     
     function calcAngle(pt){
         //start point
@@ -1846,8 +1846,90 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 			}
 		}
     }
+	
+	// now a little post processing
+	
+	// elements cannot be repeated, since removing an index twice deletes the 
+	// next one as well
+	let polyIndicesToRemove = new Set([]);
+	let polysToAdd = [];
+	
+	// A bit of semi-delauney triangulation
+	// find triangles in which the circumcenter lies outside the polygon, 
+	// find corresponding diamond then see if switching diagonals is a worthy decision
+	for(let k = polygons.length - 1; k >= 0; k--){
+		let poly = polygons[k];
+		// The circumcenter lies outside the triangle if there is an obtuse angle 
+		// (Hey, wikipedia agrees with me)
+		// a triangle is obtuse if the sum of the squares two of the sides is less than 
+		// the square of the third side
+		let obtuse = false,
+			obtusePair = [];
+		let inds = [[0,1,2],[0,2,1],[1,2,0]];
+		for(let triCase of inds){
+			let [a,b,c] = triCase.map(x => points[poly.indices[x]]);
+			let [s3, s2, s1] = [xyzDist(a,b), xyzDist(b,c), xyzDist(a,c)];
+			if(s3**2 > s2**2 + s1**2){
+				obtuse = true;
+				obtusePair = [a,b];
+				break;
+			}
+		}
+		
+		if(obtuse){
+			let [p1, p2] = obtusePair;
+			// search for common connections (there should be 2 of them)
+			let set1 = p1.neighbors.map(x => x.pt),
+				set2 = new Set(p2.neighbors.map(x => x.pt));
+			
+			let common = set1.filter(x => set2.has(x));
+			
+			// it really should only be two, since the whole thing is triangles. 
+			// if it isn't 2, then something really weird happened, so we won't mess 
+			// with it
+			if(common.length === 2){
+				// if the other diagonal is shorter than the one currently there...
+				if(xyzDist(...common) < xyzDist(p1, p2)){
+					// remove current connection
+					removeConnection(p1, p2);
+					// add the new one
+					removeConnection(...common);
+					makeConnection(...common);
+					
+					// remove the offending polygons and add new ones
+					for(let i = 0; i < polygons.length; i++){
+						let indices = polygons[i].indices;
+						if(indices.indexOf(p1.index) !== -1 && indices.indexOf(p2.index) !== -1){
+							polyIndicesToRemove.add(i);
+						}
+					}
+					
+					polysToAdd.push({
+						indices:[p1.index, ...common.map(x=>x.index)],
+						pts:[]
+					});
+					
+					polysToAdd.push({
+						indices:[p2.index, ...common.map(x=>x.index)],
+						pts:[]
+					});
+				}
+			}
+		}
+	}
+	
+	polyIndicesToRemove = [...polyIndicesToRemove];
+	polyIndicesToRemove.sort((a,b) => a-b);
+	
+	for(let k = polyIndicesToRemove.length-1; k >= 0; k--){
+		polygons.splice(polyIndicesToRemove[k], 1);
+	}
+	
+	for(let poly of polysToAdd){
+		polygons.push(poly);
+	}
     
-    //move all the edge points back into the domain
+    // move all the edge points back into the domain
     for(var k = 0; k < edgePoints.length; k++){
         const pt = edgePoints[k];
         let u = pt.u, v = pt.v;
