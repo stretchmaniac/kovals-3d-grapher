@@ -521,11 +521,12 @@ $(function(){
         domain.z.min = spreadCoord(min, min, max, magnification*domain.z.spread);
         domain.z.max = spreadCoord(max, min, max, magnification*domain.z.spread);
         
-        if(cartesian){
-        }else if(spherical){
+        if(domain.currentSystem.indexOf('cartesian') !== -1){
+			
+        }else if(domain.currentSystem.indexOf('spherical') !== -1){
             domain.r.min *= magnification;
             domain.r.max *= magnification;
-        }else if(cylindrical){
+        }else if(domain.currentSystem.indexOf('cylindrical') !== -1){
             domain.rho.min *= magnification;
             domain.rho.max *= magnification;
             min = domain.height.min;
@@ -1812,7 +1813,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 3500){
+    while(pointFront.length > 0 && c < 10000){
         c++;
 		let ptToProcess = pointFront[0];
 		
