@@ -1637,6 +1637,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     }
     
     function processPoint(pt, edgePoints){
+		if(pt.doNotExec){
+			return 1;
+		}
+		
         // start point
         const sPoint = pt.beginning;
         // end point
@@ -1697,7 +1701,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 				adequateNodeNumber = true;
 			}
 		}
-		
 		// now space out pointList so that eash point has close to equal sub-arc lengths to 
 		// the right and to the left
 		// we'll do this for a set number of iterations, since it's possible for for points 
@@ -1778,7 +1781,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 			p.beginning = pointList[i-1];
 			p.end = pointList[i+1];
 			
-			pushToPointFront(p);
+			// check if it's inside the domain
+			if(p.u >= domain.u.min && p.u <= domain.u.max && p.v >= domain.v.min && p.v <= domain.v.max){
+				pushToPointFront(p);
+			}else{
+				// we need p in pointFront for use in interior intersection, since a concave point shrinks the acceptable region
+				p.doNotExec = true;
+				pushToPointFront(p);
+				edgePoints.push(p);
+			}		
 			
 			polygons.push({
 				indices:[pt.index, p.index, pointList[i-1].index],
@@ -1801,15 +1812,32 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 3595){
+    while(pointFront.length > 0 && c < 3500){
         c++;
-		const ptToProcess = pointFront[0];
-        processPoint(ptToProcess, edgePoints);
+		let ptToProcess = pointFront[0];
+		
+		// this is a slightly clumsy way to skip points that are edgepoints. 
+		let i = 0;
+		while(ptToProcess.doNotExec){
+			i++;
+			if(i === pointFront.length){
+				pointFront = [];
+				break;
+			}
+			ptToProcess = pointFront[i];
+		}
+		
+        const res = processPoint(ptToProcess, edgePoints);
+		
+		// res: 1 is the code for "do not delete"
+		// it is important to not delete edge points while they 
+		// are inactive but still part of the border
+		
 		// since more points may be added before ptToProcess, we'll search for the right one
 		// in this case, a max of 8 (ish) points can be added before, but it's usually zero 
 		// so we'll do a linear search 
 		let k = 0;
-		while(k < pointFront.length && k >= 0){
+		while(k < pointFront.length && k >= 0 && res !== 1){
 			if(pointFront[k] === ptToProcess){
 				pointFront.splice(k,1);
 				k = -1;
@@ -1821,8 +1849,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     
     //move all the edge points back into the domain
     for(var k = 0; k < edgePoints.length; k++){
-        var pt = edgePoints[k];
-        var u = pt.u, v = pt.v;
+        const pt = edgePoints[k];
+        let u = pt.u, v = pt.v;
         u = u > domain.u.max ? domain.u.max : u;
         u = u < domain.u.min ? domain.u.min : u;
         v = v > domain.v.max ? domain.v.max : v;
@@ -1831,7 +1859,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         pt.u = u;
         pt.v = v;
         
-        var newPt = plot(xFunc, yFunc, zFunc, pt.u, pt.v);
+        const newPt = plot(xFunc, yFunc, zFunc, pt.u, pt.v);
         pt.x = newPt.x;
         pt.y = newPt.y;
         pt.z = newPt.z;
