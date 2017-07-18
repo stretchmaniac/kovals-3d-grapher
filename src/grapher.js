@@ -37,7 +37,8 @@ var domain = {
     fullscreen:false,
     rowLength:null,
     currentSystem:'cartesian',
-    expressionInfo:null
+    expressionInfo:null,
+	maxColoringTime:0
 }
 
 var compile = require('interval-arithmetic-eval');
@@ -476,7 +477,8 @@ $(function(){
             //leftMouseClicked = true;
         }
         mousePosition = {x:event.clientX,y:event.clientY};
-        if(domain.coloring && domain.coloringTime && domain.coloringTime > 100){
+		console.log(domain.coloringTime);
+        if(domain.coloring && domain.coloringTime && domain.coloringTime > domain.maxColoringTime){
             domain.wasColoring = true;
             domain.coloring = false;
         }else{
@@ -540,7 +542,7 @@ $(function(){
         if(timeID){
             clearTimeout(timeID);
         }
-        if(domain.coloringTime && domain.coloringTime > 100 && domain.coloring){
+        if(domain.coloringTime && domain.coloringTime > domain.maxColoringTime && domain.coloring){
             domain.wasColoring = true;
             domain.coloring = false;
         }
