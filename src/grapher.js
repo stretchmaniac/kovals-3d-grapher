@@ -477,7 +477,6 @@ $(function(){
             //leftMouseClicked = true;
         }
         mousePosition = {x:event.clientX,y:event.clientY};
-		console.log(domain.coloringTime);
         if(domain.coloring && domain.coloringTime && domain.coloringTime > domain.maxColoringTime){
             domain.wasColoring = true;
             domain.coloring = false;
@@ -1787,11 +1786,13 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 			// check if it's inside the domain
 			if(p.u >= domain.u.min && p.u <= domain.u.max && p.v >= domain.v.min && p.v <= domain.v.max){
 				pushToPointFront(p);
+				p.edgePoint = false;
 			}else{
 				// we need p in pointFront for use in interior intersection, since a concave point shrinks the acceptable region
 				p.doNotExec = true;
 				pushToPointFront(p);
 				edgePoints.push(p);
+				p.edgePoint = true;
 			}		
 			
 			polygons.push({
@@ -1815,7 +1816,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 10000){
+    while(pointFront.length > 0 && c < 15000){
         c++;
 		let ptToProcess = pointFront[0];
 		
@@ -1944,11 +1945,41 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
         pt.u = u;
         pt.v = v;
         
-        const newPt = plot(xFunc, yFunc, zFunc, pt.u, pt.v);
+        const newPt = plotPlus(xFunc, yFunc, zFunc, pt.u, pt.v);
         pt.x = newPt.x;
         pt.y = newPt.y;
         pt.z = newPt.z;
+		pt.deriv1 = newPt.deriv1;
+		pt.deriv2 = newPt.deriv2;
     }
+	
+	// we also need to fix the edge point control points
+	for(let edge of edgePoints){
+		// This is not a for ... of loop to avoid concurrent modification bugs
+		for(let k = edge.neighbors.length - 1; k >= 0; k--){
+			// remaking the connection resets the control point
+			let otherPt = edge.neighbors[k].pt;
+			removeConnection(edge, otherPt);
+			makeConnection(edge, otherPt);
+		}
+	}
+	
+	// for drawing speed purposes, let's have controlPt accessable 
+	// from the polygon object
+	for(let poly of polygons){
+		poly.neighborIndices = [];
+		for(let i = 0; i < poly.indices.length; i++){
+			let nextPtIndex = i === poly.indices.length - 1 ? poly.indices[0] : poly.indices[i+1];
+			
+			let neighborObject = points[poly.indices[i]].neighbors.filter(x => x.pt.index === nextPtIndex)[0];
+			
+			if(!neighborObject){
+				console.log('ERROR, polygon not associated with connection');
+			}
+			
+			poly.neighborIndices.push(points[poly.indices[i]].neighbors.indexOf(neighborObject));
+		}
+	}
     
     onfinish();
 }
@@ -1957,13 +1988,51 @@ function makeConnection(pt1, pt2){
     if(!pt2 || !pt1){
         throw new Error('pt1 or pt2 is null')
     }
+	// for a quadratic bezier curve, the control point should be 
+	// the intersection of the first degree linear approximations 
+	// for the two points in the direction of the other (since bezier 
+	// curves are tangent to the control lines at the end points)
+	
+	// for a parameterized surface of u and v, grad(f(u,v)) is perpendicular 
+	// to the tangent line, so from the tangent plane, project (pt2 - pt1)
+	// then normalize
+	
+	const p1Grad = cross(pt1.deriv1.du, pt1.deriv1.dv),
+		p2Grad = cross(pt2.deriv1.du, pt2.deriv1.dv);
+	
+	const p1Dir = sub(pt2, pt1);
+	const p1Vec = sub(p1Dir, project(p1Dir, p1Grad));
+	
+	// we need ((pt1 + p1Vec) - pt2) . pt2_grad == 0
+	// so given p1Vec = k (a, b, c), we have 
+	// pt2_gradx * (pt1.x + k a - pt2.x) + pt2_grady * (pt1.y + k b - pt2.y) ... == 0
+	// k == ( pt2_gradx(pt2.x - pt1.x) + pt2_grady(pt2.y - pt1.y) ...) / ( a pt2_gradx + b pt2_grady ... )
+	// k == pt2_grad . (pt2 - pt1) / (p1Vec . pt2_grad) (curious...)
+	
+	const k = dot(p2Grad, sub(pt2, pt1)) / dot(p1Vec, p2Grad);
+	
+	let controlPt = null;
+	
+	// there are some cases where the only way to do a quadratic bezier is to go past the point and come back
+	// it the angle between pt1, pt2 and controlPt > 90, go with a straight line
+	if(k !== null && !isNaN(k)){
+		controlPt = add(pt1, scalar(k, p1Vec));
+	}
+	
+	if(k === null || isNaN(k) || dot(sub(pt1,pt2), sub(controlPt, pt2)) < 0 || dot(sub(pt2,pt1), sub(controlPt, pt1)) < 0){
+		// default to a straight line
+		controlPt = scalar(.5, add(pt1, pt2));
+	}
+	
     pt1.neighbors.push({
         draw:true,
-        pt:pt2
+        pt:pt2,
+		controlPt:controlPt
     });
     pt2.neighbors.push({
         draw:false,
-        pt:pt1
+        pt:pt1,
+		controlPt:controlPt
     });
 }
 
@@ -2340,9 +2409,15 @@ function syncQuats(){
                 console.log(p)
                 //throw new Error('point quat is null :(')
             }
+			
+			// rotate the control point too
+			let ctlPt = pointToQuat(p.neighbors[k].controlPt);
+			rotate(ctlPt, totalQuat);
+			
             q.neighbors.push({
                 draw: p.neighbors[k].draw,
-                pt:pointQuats[p.neighbors[k].pt.id]
+                pt:pointQuats[p.neighbors[k].pt.id],
+				controlPt: ctlPt
             });
         }
     }
@@ -2419,9 +2494,14 @@ function plotPoints(){
             for(var h = 0; h < point.neighbors.length; h++){
                 var n = point.neighbors[h];
                 if(n.draw && n.pt){
-                    var rPoint2 = transform(n.pt.x, n.pt.y, n.pt.z, canvas);
+                    let rPoint2 = transform(n.pt.x, n.pt.y, n.pt.z, canvas);
+					let ctlPt = transform(n.controlPt.x, n.controlPt.y, n.controlPt.z, canvas); 
                     ctx.moveTo(rPoint.x + xTranslate, rPoint.y + yTranslate);
-                    ctx.lineTo(rPoint2.x + xTranslate, rPoint2.y + yTranslate);
+					if(ctlPt !== null){
+						ctx.quadraticCurveTo(ctlPt.x + xTranslate, ctlPt.y + yTranslate, rPoint2.x + xTranslate, rPoint2.y + yTranslate);
+					}else{
+						ctx.lineTo(rPoint2.x + xTranslate, rPoint2.y + yTranslate);
+					}
                 }
             }
         }
@@ -2479,14 +2559,31 @@ function plotPoints(){
                 var origin = transform(poly.pts[0].x,poly.pts[0].y,poly.pts[0].z,canvas)
                 if(origin){
                     ctx.moveTo(origin.x + xTranslate, origin.y + yTranslate)
-                    for(var u = 1; u < poly.pts.length; u++){
+                    for(let u = 1; u < poly.pts.length; u++){
                         if(!poly.pts[u]){break;}
-                        var transformed = transform(poly.pts[u].x,poly.pts[u].y,poly.pts[u].z,canvas)
+                        let transformed = transform(poly.pts[u].x,poly.pts[u].y,poly.pts[u].z,canvas);
+						
+						let neighbor = poly.pts[u-1].neighbors[poly.neighborIndices[u - 1]];
+						let ctl = neighbor.controlPt;
+						let ctlPt = transform(ctl.x, ctl.y, ctl.z, canvas);
+						
                         if(transformed){
-                            ctx.lineTo(transformed.x + xTranslate, transformed.y + yTranslate);
+							if(!ctlPt){
+								ctx.lineTo(transformed.x + xTranslate, transformed.y + yTranslate);
+							}else{
+								ctx.quadraticCurveTo(ctlPt.x + xTranslate, ctlPt.y + yTranslate, transformed.x + xTranslate, transformed.y + yTranslate);
+							}
                         }
                     }
-                    ctx.lineTo(origin.x + xTranslate, origin.y + yTranslate)
+					
+					let neighbor = poly.pts[poly.pts.length - 1].neighbors[poly.neighborIndices[poly.pts.length - 1]];
+					let ctl = neighbor.controlPt;
+					let ctlPt = transform(ctl.x, ctl.y, ctl.z, canvas);
+					if(!ctlPt){
+						ctx.lineTo(origin.x + xTranslate, origin.y + yTranslate);
+					}else{
+						ctx.quadraticCurveTo(ctlPt.x + xTranslate, ctlPt.y + yTranslate, origin.x + xTranslate, origin.y + yTranslate);
+					}
                 }
                 
                 ctx.fill();
@@ -2590,13 +2687,35 @@ function rotatePoints(pQuats, rot){
 }
 
 function rotate(point,rotQuat, rotCenter){
-    var center = rotCenter ? rotCenter : domain.center;
-    var quat = {w:0,x:point.x-center.x,y:point.y-center.y,z:point.z-center.z}
-    var quatOut = quatMult(quatMult(rotQuat,quat),quatConj(rotQuat));
+    const center = rotCenter ? rotCenter : domain.center;
+    const quat = {w:0,x:point.x-center.x,y:point.y-center.y,z:point.z-center.z}
+	
+	// rotate the point
+    const quatOut = quatMult(quatMult(rotQuat,quat),quatConj(rotQuat));
     
     point.x=quatOut.x + center.x;
     point.y=quatOut.y + center.y;
     point.z=quatOut.z + center.z;
+	
+	if(!point.neighbors){
+		return;
+	}
+	
+	// now rotate all the control points of its neighbors
+	for(let n of point.neighbors){
+		const q = {
+			w: 0,
+			x: n.controlPt.x - center.x,
+			y: n.controlPt.y - center.y,
+			z: n.controlPt.z - center.z
+		};
+		
+		const result = quatMult(quatMult(rotQuat, q), quatConj(rotQuat));
+		
+		n.controlPt.x = result.x + center.x;
+		n.controlPt.y = result.y + center.y;
+		n.controlPt.z = result.z + center.z;
+	}
 }
 
 // check it out: http://www.cprogramming.com/tutorial/3d/quaternions.html
@@ -2700,6 +2819,11 @@ function add(a,b){
 
 function scalar(s, vec){
     return {x: vec.x*s, y: vec.y*s, z: vec.z*s};
+}
+
+// v1 onto v2
+function project(v1,v2){
+	return scalar(dot(v1,v2)/dot(v2,v2), v2);
 }
 
 function magnitude(v){
