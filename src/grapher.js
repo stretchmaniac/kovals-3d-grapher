@@ -1853,9 +1853,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 	
 	// now a little post processing
 	
-	// elements cannot be repeated, since removing an index twice deletes the 
-	// next one as well
-	let polyIndicesToRemove = new Set([]);
+	let polyIndicesToRemove = [];
 	let polysToAdd = [];
 	
 	// A bit of semi-delauney triangulation
@@ -1884,29 +1882,25 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 			let [p1, p2] = obtusePair;
 			// search for common connections (there should be 2 of them)
 			let set1 = p1.neighbors.map(x => x.pt),
-				set2 = new Set(p2.neighbors.map(x => x.pt));
+				set2 = p2.neighbors.map(x => x.pt);
 			
-			let common = set1.filter(x => set2.has(x));
+			let common = set1.filter(x => set2.indexOf(x) !== -1);
 			
-			// it really should only be two, since the whole thing is triangles. 
-			// if it isn't 2, then something really weird happened, so we won't mess 
+			// it is usually two, since the whole thing is triangles. 
+			// if it isn't 2, then something weird happened (but it is possible), so we won't mess 
 			// with it
 			if(common.length === 2){
 				// if the other diagonal is shorter than the one currently there...
 				if(xyzDist(...common) < xyzDist(p1, p2)){
 					// remove current connection
 					removeConnection(p1, p2);
+					
 					// add the new one
 					removeConnection(...common);
 					makeConnection(...common);
 					
 					// remove the offending polygons and add new ones
-					for(let i = 0; i < polygons.length; i++){
-						let indices = polygons[i].indices;
-						if(indices.indexOf(p1.index) !== -1 && indices.indexOf(p2.index) !== -1){
-							polyIndicesToRemove.add(i);
-						}
-					}
+					polyIndicesToRemove.push([p1.index,  p2.index]);
 					
 					polysToAdd.push({
 						indices:[p1.index, ...common.map(x=>x.index)],
@@ -1922,15 +1916,19 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 		}
 	}
 	
-	polyIndicesToRemove = [...polyIndicesToRemove];
-	polyIndicesToRemove.sort((a,b) => a-b);
-	
-	for(let k = polyIndicesToRemove.length-1; k >= 0; k--){
-		polygons.splice(polyIndicesToRemove[k], 1);
-	}
-	
 	for(let poly of polysToAdd){
 		polygons.push(poly);
+	}
+	
+	// it is very important that the appropriate polygons be removed AFTER the other polygons 
+	// have been added. This way, the order of polyIndices can be preserved while getting rid of 
+	// polygons that were created at a previous step in the above logic
+	for(let [index1, index2] of polyIndicesToRemove){
+		for(var k = polygons.length - 1; k >= 0; k--){
+			if(polygons[k].indices.indexOf(index1) !== -1 && polygons[k].indices.indexOf(index2) !== -1){
+				polygons.splice(k, 1);
+			}
+		}
 	}
     
     // move all the edge points back into the domain
@@ -1975,6 +1973,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 			
 			if(!neighborObject){
 				console.log('ERROR, polygon not associated with connection');
+				console.log(poly);
+				console.log(nextPtIndex);
+				console.log(points[poly.indices[i]]);
 			}
 			
 			poly.neighborIndices.push(points[poly.indices[i]].neighbors.indexOf(neighborObject));
