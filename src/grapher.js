@@ -1667,6 +1667,20 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 		
 		let nodeDist = defaultXYZLength;
 		
+		// sample a bunch of angles to see how the concavity looks in this part of town
+		let samples = [];
+		for(let a = 0; a < Math.PI * 2; a += Math.PI/8 + .0001){
+			let direction = dir(pt, Math.cos(a), Math.sin(a));
+			samples.push(dAngle(pt, direction.u, direction.v));
+		}
+		// take the maximum angle 
+		let defactoAngle = Math.max(...samples);
+		nodeDist *= 1/(1 + defactoAngle**2);
+		
+		// but there needs to be a limit...
+		nodeDist = nodeDist < defaultXYZLength / 2 ? defaultXYZLength / 2 : nodeDist;
+		console.log(nodeDist);
+		
 		let pointList = [];
 		
 		// ...but that's for a euclidean plane. Let's add or remove sections as needed
@@ -2803,7 +2817,10 @@ function polyNormal(p1, p2, p3){
 function angleBetween(v1, v2){
     var dotP = dot(v1,v2);
     var angle = Math.acos(dotP/(magnitude(v1)*magnitude(v2)));
-    if(angle > Math.PI){
+	// dotP/magnitu... can sometimes be a little more than one due to floating point error
+	if(isNaN(angle)){
+		return 0;
+	}else if(angle > Math.PI){
         return Math.PI*2 - angle;
     }else{
         return angle;
