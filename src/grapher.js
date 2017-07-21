@@ -46,7 +46,6 @@ var compile = require('interval-arithmetic-eval');
 var handleablePoints = 5000;
 var xQuat = quatNorm({w:1,x:0,y:0,z:0});
 var yQuat = quatNorm({w:1,x:0,y:0,z:0});
-var totalQuat = {w:1,x:0,y:0,z:0};
 var cleanDensity = 15;
 var graphing = false;
 
@@ -55,7 +54,6 @@ let webGLInfo = {
 };
 
 var points = [];
-var pointQuats = [];
 //holds indeces to points
 var polygons = [];
 var MQ;
@@ -388,7 +386,6 @@ $(function(){
     //     input.blur();
     // },500)
     domain.coloring = true;
-    totalQuat = {w: 0.7946319801955918, x: 0.04116688544469564, y: -0.5886375904216452, z: -0.14272733002412488}
     //graph();
     
     var mouseClicked = false;
@@ -406,61 +403,14 @@ $(function(){
             quatNorm(xQuat);
             quatNorm(yQuat);
             
-            totalQuat = quatMult(quatMult(xQuat,yQuat),totalQuat);
-            
-            quatNorm(totalQuat)
-            
             rotatePoints(axes, yQuat);
             rotatePoints(axes, xQuat);
             
-            plotPoints()
+            plotPointsWebGL()
         }
         if(leftMouseClicked){
-            if(!domain.panCenter){
-                domain.panCenter = {x: domain.center.x, y: domain.center.y, z: domain.center.z};
-            }
-            deltaY = event.clientX - mousePosition.x;
-            deltaX = event.clientY - mousePosition.y;
-            
-            //figure out what direction we should change the domain
-            var px = pointToQuat({x:-1,y:0,z:0});
-            var py = pointToQuat({x:0,y:-1,z:0});
-            rotate(px, quatConj(totalQuat), {x:0,y:0,z:0});
-            rotate(py, quatConj(totalQuat), {x:0,y:0,z:0});
-            
-            //now we need to know the magnitude of the change
-            var xWidth = (domain.x.max - domain.x.min);
-            var yWidth = (domain.y.max - domain.y.min);
-            var zWidth = (domain.z.max - domain.z.min);
-            
-            px.x *= (xWidth * translateConst);
-            px.y *= (yWidth * translateConst);
-            px.z *= (zWidth * translateConst)
-            
-            px = quatScalar(px, deltaX);
-            
-            py.x *= (xWidth * translateConst);
-            py.y *= (yWidth * translateConst);
-            py.z *= (zWidth * translateConst);
-            
-            py = quatScalar(py, deltaY);
-            
-            domain.center.x += (px.x + py.x);
-            domain.center.y += (px.y + py.y);
-            domain.center.z += (px.z + py.z);
-            
-            domain.x.min = domain.center.x - xWidth/2;
-            domain.x.max = domain.center.x + xWidth/2;
-            domain.y.min = domain.center.y - yWidth/2;
-            domain.y.max = domain.center.y + yWidth/2;
-            domain.z.min = domain.center.z - zWidth/2;
-            domain.z.max = domain.center.z + zWidth/2;
-            
-            changeDomainInputs()
-            
-            syncQuats()
-    
-            plotPoints()
+			// possibly implement pan here
+            plotPointsWebGL()
         }
         mousePosition = {x:event.clientX,y:event.clientY};
     })
@@ -491,7 +441,7 @@ $(function(){
         if(domain.wasColoring){
             domain.coloring = true;
         }
-        plotPoints()
+        plotPointsWebGL()
         leftMouseClicked = false;
     })
     var timeID;
@@ -539,7 +489,7 @@ $(function(){
             domain.wasColoring = true;
             domain.coloring = false;
         }
-        plotPoints()
+        plotPointsWebGL()
         if(domain.wasColoring){
             domain.coloring = true;
         }
@@ -565,7 +515,7 @@ $(window).resize(function(){
         $("#canvas").prop('width',$(window).width())
         $('#canvas').prop('height',$(window).height())
     }    
-    plotPoints();
+    plotPointsWebGL();
 });
 
 $('#cartesian-button').click(function(){
@@ -604,32 +554,32 @@ $('#cartesian-button').click(function(){
 
 $('#axes-checkbox').change(function(){
     domain.showAxes = $('#axes-checkbox').prop('checked');
-    plotPoints();
+    plotPointsWebGL();
 })
 
 $('#color-checkbox').change(function(){
     domain.coloring = $('#color-checkbox').prop('checked');
-    plotPoints();
+    plotPointsWebGL();
 })
 
 $('#show-mesh-while-coloring-checkbox').change(function(){
     domain.showMeshWhileColoring = $('#show-mesh-while-coloring-checkbox').prop('checked');
-    plotPoints();
+    plotPointsWebGL();
 })
 
 $('#directional-lighting-checkbox').change(function(){
     domain.directionalLighting = $('#directional-lighting-checkbox').prop('checked');
-    plotPoints();
+    plotPointsWebGL();
 })
 
 $('#show-axes-labels-checkbox').change(function(){
     domain.showAxesLabels = $('#show-axes-labels-checkbox').prop('checked');
-    plotPoints();
+    plotPointsWebGL();
 })
 
 $('#perspective-checkbox').change(function(){
     domain.perspective = $('#perspective-checkbox').prop('checked');
-    plotPoints();
+    plotPointsWebGL();
 })
 
 $('#color-scheme-select').change(function(){
@@ -664,7 +614,7 @@ $('#color-scheme-select').change(function(){
         domain.minHue = 50;
         domain.maxHue = 170;
     }
-    plotPoints();
+    plotPointsWebGL();
 })
 
 $('#full-screen-button').click(function(){
@@ -1089,17 +1039,12 @@ function graph(onFinish){
     domain.coloring = $('#color-checkbox').prop('checked');
     
     points = [];
-    pointQuats = [];
     
     var density = parseInt($('#mesh-quality-input').val(),10);
     domain.density = density;
     
     //reset domain
     if(domain.pointsOnly === true){
-        //rotatePoints(axes[0], totalQuat);
-        //rotatePoints(axes[1], totalQuat);
-        //rotatePoints(axes[2], totalQuat);
-        pointQuats = [];
         points = [];
         domain.coloring = true;
         var table = $('#plot-table-body');
@@ -1163,11 +1108,6 @@ function graph(onFinish){
                 var nPoints = [p1, p2, p3, p4, p5, p6, p7, p8];
                 var dPoints = [pD1, pD2, pD3, pD4, pD5, pD6, pD7, pD8];
                 
-                for(var v = 0; v < nPoints.length; v++){
-                    rotate(nPoints[v],totalQuat);
-                    rotate(dPoints[v],totalQuat);
-                }
-                
                 //connections
                 p1.polygon = {pts:[p1,p2,p5]}
                 p2.polygon = {pts:[p2,p3,p5]}
@@ -1192,12 +1132,9 @@ function graph(onFinish){
                 pD7.polygon = {pts:[pD7,pD4,pD1]}
                 pD8.polygon = {pts:[pD8,pD2,pD3]}
                 
-                for(b = 0; b < dPoints.length; b++){
-                    pointQuats.push(dPoints[b]);
-                }
             }
         }
-        plotPoints();
+        plotPointsWebGL();
         
     }else{
         var inputs = {
@@ -1285,8 +1222,6 @@ function refreshMathJax(){
 }
 
 function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
-    pointQuats = [];
-    
     var uTotal = domain.u.max - domain.u.min;
     var vTotal = domain.v.max - domain.v.min;
     
@@ -1337,7 +1272,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
     }
     domain.coloring = false;
     
-    plotPoints();
+    plotPointsWebGL();
     
     if(graphing === false){
         graphing = true;
@@ -1350,9 +1285,8 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
     }
     
     graphParametricFunction2(xFunc, yFunc, zFunc, function(){
-        syncQuats();
         domain.coloring = color;
-        plotPoints();
+        plotPointsWebGL();
     });
     onFinish();
     return;
@@ -1430,7 +1364,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var defaultXYZLength = (domain.x.max - domain.x.min) / domain.density;
     
     points = [];
-    pointQuats = [];
     polygons = [];
     
     // center of domain, the seed point
@@ -2064,20 +1997,6 @@ function getRealPart(val){
     return val.im ? undefined : val;
 }
 
-function setTotalQuat(){
-    var originalQuat = {w:0,x:1,y:0,z:0};
-    var finalQuat = unitQuat;
-    //thanks to http://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another
-    var a = cross(originalQuat, finalQuat)
-    totalQuat.x = a.x;
-    totalQuat.y = a.y;
-    totalQuat.z = a.z;
-    totalQuat.w = 1 + dot(originalQuat, finalQuat);
-    quatNorm(totalQuat);
-    
-    rotate(originalQuat, totalQuat);
-}
-
 function dot(a,b){
     return a.x*b.x+a.y*b.y+a.z*b.z;
 }
@@ -2124,34 +2043,6 @@ function det(matrix){
 
 function copyPoint(point){
     return {x:point.x,y:point.y,z:point.z};
-}
-
-
-function removeNullPoints(doneFunc){
-    var a = points.length-1;
-    var newPoints = [];
-    intervalId5 = setInterval(function(){
-        if(a>=0){
-            for(var j = 0 ; j < 5000 && a >=0; j++){
-                var pt = points[a];
-                //if the point is real
-                if(!isNonReal(pt)){
-                    newPoints.push(pt);
-                }else{
-                    //remove any extraneous connections
-                    for(var k = pt.neighbors.length - 1; k >= 0; k--){
-                        removeConnection(pt, pt.neighbors[k].pt);
-                    }
-                }
-                a--;
-            }
-            displayCanvasMessage('removing non-real points... '+(100*(points.length-a)/points.length).toFixed(2)+'%');
-        }else{
-            points = newPoints;
-            clearInterval(intervalId5);
-            doneFunc();
-        }
-    },10)
 }
 
 //compiled x,y,z functions
@@ -2331,292 +2222,8 @@ function spreadCoord(val, min, max, spread){
     return valRel*spread + center;
 }
 
-function axisEdge(axis){
-    var origin = {x:0,y:0,z:0};
-    
-    for(var k = 0 ; k < axis.length; k++){
-        axis[k].x = domain.x.min > origin.x ? domain.x.min : domain.x.max < origin.x ? domain.x.max : origin.x;
-        axis[k].y = domain.y.min > origin.y ? domain.y.min : domain.y.max < origin.y ? domain.y.max : origin.y;
-        axis[k].z = domain.z.min > origin.z ? domain.z.min : domain.z.max < origin.z ? domain.z.max : origin.z;
-    }
-}
-
-function syncQuats(){
-    var q,p;
-    pointQuats = []
-    
-    for(var v = 0; v < points.length; v++){
-        q = pointToQuat(points[v]);
-        q.neighbors = [];
-        points[v].id = v;
-        q.id = v;
-        rotate(q, totalQuat);
-        pointQuats.push(q);
-    }
-    for(var w = 0; w < points.length; w++){
-        p = points[w];
-        q = pointQuats[w];
-        for(var k = 0; k < p.neighbors.length; k++){
-            if(!pointQuats[p.neighbors[k].pt.id]){
-                console.log(p)
-                //throw new Error('point quat is null :(')
-            }
-			
-			// rotate the control point too
-			let ctlPt = pointToQuat(p.neighbors[k].controlPt);
-			rotate(ctlPt, totalQuat);
-			
-            q.neighbors.push({
-                draw: p.neighbors[k].draw,
-                pt:pointQuats[p.neighbors[k].pt.id],
-				controlPt: ctlPt
-            });
-        }
-    }
-    
-}
-
 function pointToQuat(p){
     return {w:0,x:p.x,y:p.y,z:p.z};
-}
-
-function sortPolygonsByZ(polygons){
-    polygons.sort(function(a,b){
-        if(a.averageVal.z > b.averageVal.z){
-            return -1;
-        }
-        return 1;
-    });
-}
-
-function plotPoints(){
-	
-	plotPointsWebGL();
-	return;
-	
-    var canvas = document.getElementById('canvas');
-    var ctx = canvas.getContext('2d');
-    
-    if(graphingError === true){
-        displayCanvasError()
-        return;
-    }
-    
-    ctx.fillStyle=domain.backgroundColor == 'dark' ? '#222222' : '#ffffff';
-    if(onlyPlotNewPoints === false){
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-    }
-    
-    var strokeColor = domain.backgroundColor == 'dark' ? '#aaaaaa' : '#222222';
-    
-    ctx.strokeStyle = strokeColor;
-    
-    ctx.lineWidth = getLineWidth()
-    
-    ctx.setLineDash([])
-    
-    if(domain.coloring){
-        for(var g = 0; g < polygons.length; g++){
-            polygons[g].pts = [];
-            for(var h = 0; h < polygons[g].indices.length; h++){
-                polygons[g].pts.push(pointQuats[polygons[g].indices[h]]);
-            }
-            polygons[g].averageVal = averageValue(polygons[g].pts)
-        }
-        sortPolygonsByZ(polygons);
-    }
-    
-    var width = canvas.width;
-    var height = canvas.height;
-    var xTranslate = (width - height)/2;
-    if(xTranslate < 0){xTranslate = 0;}
-    xTranslate += translation.x;
-    var yTranslate = translation.y;
-    
-    var min = 0;
-    if(onlyPlotNewPoints === true){
-        min = pointQuats.length - pointsToPlot;
-    }
-    var k;
-    ctx.beginPath();
-    ctx.lineWidth = getLineWidth()
-    if(domain.coloring){
-        ctx.strokeStyle = strokeColor
-    }else{
-        for(k = min; k < pointQuats.length; k++){
-            var point = pointQuats[k];
-            var rPoint = transform(point.x, point.y, point.z, canvas);
-            
-            for(var h = 0; h < point.neighbors.length; h++){
-                var n = point.neighbors[h];
-                if(n.draw && n.pt){
-                    let rPoint2 = transform(n.pt.x, n.pt.y, n.pt.z, canvas);
-					let ctlPt = transform(n.controlPt.x, n.controlPt.y, n.controlPt.z, canvas); 
-                    ctx.moveTo(rPoint.x + xTranslate, rPoint.y + yTranslate);
-					if(ctlPt !== null){
-						ctx.quadraticCurveTo(ctlPt.x + xTranslate, ctlPt.y + yTranslate, rPoint2.x + xTranslate, rPoint2.y + yTranslate);
-					}else{
-						ctx.lineTo(rPoint2.x + xTranslate, rPoint2.y + yTranslate);
-					}
-                }
-            }
-        }
-        ctx.stroke();
-    }
-    
-    if(domain.coloring){
-        var time = (new Date()).getTime();
-        var maxHue = domain.minHue/256;
-        var minHue = domain.maxHue/256;
-        var middle = (maxHue + minHue) / 2;
-        for(k = 0; k < polygons.length; k++){
-         
-            var poly = polygons[k];
-            if(poly.pts.length > 2){
-                var polyVal = poly.averageVal;
-                var realZ;
-                var center=domain.center;
-                rotate(polyVal, quatConj(totalQuat), center);
-                var value;
-                if(domain.currentSystem.indexOf('cartesian') !== -1){
-                    realZ = polyVal.z;
-                    value = (realZ - domain.z.min) / (domain.z.max - domain.z.min) - .5;
-                }
-                if(domain.currentSystem.indexOf('spherical') !== -1){
-                    var dist = Math.sqrt(polyVal.x*polyVal.x + polyVal.y*polyVal.y + polyVal.z*polyVal.z);
-                    value = dist / (domain.r.max) -.5;
-                }
-                if(domain.currentSystem.indexOf('cylindrical') !== -1){
-                    dist = Math.sqrt(polyVal.x*polyVal.x + polyVal.y*polyVal.y);
-                    value = dist / domain.rho.max - .5;
-                }
-                
-                //sigmoid function to bound color
-                value = 2/(1+Math.pow(Math.E,-4*value))  - 1;
-                
-                dist = maxHue - middle;
-                var hue = middle + value * dist;
-                
-                var normal = polyNormal(poly.pts[0],poly.pts[1],poly.pts[2]);
-                
-                var lightness = 0;
-                var ql = domain.lightDirections.length
-                for(var q = 0; q < ql; q++){
-                    var angle = Math.min(angleBetween(normal, domain.lightDirections[q]), angleBetween(normal, scalar(-1,domain.lightDirections[q])));
-                    lightness += domain.directionalLighting ? .65*Math.cos(angle)/ql+.35/ql : .74/ql;
-                }
-                
-                var color = HSVtoRGB(hue, .5, lightness, 1);
-                ctx.beginPath();
-                ctx.lineWidth=1;
-                ctx.fillStyle = 'rgba('+color.r+','+color.g+','+color.b+','+domain.opacity+')';
-                ctx.strokeStyle = 'rgba('+color.r+','+color.g+','+color.b+','+domain.opacity+')';
-                
-                var origin = transform(poly.pts[0].x,poly.pts[0].y,poly.pts[0].z,canvas)
-                if(origin){
-                    ctx.moveTo(origin.x + xTranslate, origin.y + yTranslate)
-                    for(let u = 1; u < poly.pts.length; u++){
-                        if(!poly.pts[u]){break;}
-                        let transformed = transform(poly.pts[u].x,poly.pts[u].y,poly.pts[u].z,canvas);
-						
-						let neighbor = poly.pts[u-1].neighbors[poly.neighborIndices[u - 1]];
-						let ctl = neighbor.controlPt;
-						let ctlPt = transform(ctl.x, ctl.y, ctl.z, canvas);
-						
-                        if(transformed){
-							if(!ctlPt){
-								ctx.lineTo(transformed.x + xTranslate, transformed.y + yTranslate);
-							}else{
-								ctx.quadraticCurveTo(ctlPt.x + xTranslate, ctlPt.y + yTranslate, transformed.x + xTranslate, transformed.y + yTranslate);
-							}
-                        }
-                    }
-					
-					let neighbor = poly.pts[poly.pts.length - 1].neighbors[poly.neighborIndices[poly.pts.length - 1]];
-					let ctl = neighbor.controlPt;
-					let ctlPt = transform(ctl.x, ctl.y, ctl.z, canvas);
-					if(!ctlPt){
-						ctx.lineTo(origin.x + xTranslate, origin.y + yTranslate);
-					}else{
-						ctx.quadraticCurveTo(ctlPt.x + xTranslate, ctlPt.y + yTranslate, origin.x + xTranslate, origin.y + yTranslate);
-					}
-                }
-                
-                ctx.fill();
-                ctx.stroke();
-                if(domain.showMeshWhileColoring){
-                    ctx.strokeStyle = 'rgba(0,0,0,1)'
-                    ctx.lineWidth = getLineWidth();
-                    ctx.stroke();
-                }
-            }
-        }
-        var elapsed = (new Date()).getTime() - time;
-        domain.coloringTime = elapsed;
-    }
-    
-    if(domain.showAxes && onlyPlotNewPoints == false){
-        var xAxisMax = transform(axes[0][0].x,axes[0][0].y,axes[0][0].z,canvas);
-        var yAxisMax = transform(axes[1][0].x,axes[1][0].y,axes[1][0].z,canvas);
-        var zAxisMax = transform(axes[2][0].x,axes[2][0].y,axes[2][0].z,canvas);
-        var xAxisMin = transform(axes[0][1].x,axes[0][1].y,axes[0][1].z,canvas);
-        var yAxisMin = transform(axes[1][1].x,axes[1][1].y,axes[1][1].z,canvas);
-        var zAxisMin = transform(axes[2][1].x,axes[2][1].y,axes[2][1].z,canvas);
-        
-        var xMaxTitle = transform(axes[0][2].x,axes[0][2].y,axes[0][2].z,canvas);
-        var xMinTitle = transform(axes[0][3].x,axes[0][3].y,axes[0][3].z,canvas);
-        var yMaxTitle = transform(axes[1][2].x,axes[1][2].y,axes[1][2].z,canvas);
-        var yMinTitle = transform(axes[1][3].x,axes[1][3].y,axes[1][3].z,canvas);
-        var zMaxTitle = transform(axes[2][2].x,axes[2][2].y,axes[2][2].z,canvas);
-        var zMinTitle = transform(axes[2][3].x,axes[2][3].y,axes[2][3].z,canvas);
-        
-        var axesColor = domain.backgroundColor == 'dark' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.5)';
-        
-        ctx.strokeStyle = axesColor;
-        ctx.lineWidth = .5;
-        
-        if(xAxisMax && xAxisMin){
-            ctx.beginPath()
-            if(axes[0].dashed){ctx.setLineDash([10,10]);}else{ctx.setLineDash([]);}
-            ctx.moveTo(xAxisMin.x + xTranslate,xAxisMin.y + yTranslate);
-            ctx.lineTo(xAxisMax.x + xTranslate,xAxisMax.y + yTranslate);
-            ctx.stroke();
-        }
-        
-        if(yAxisMax && yAxisMin){
-            ctx.beginPath()
-            if(axes[1].dashed){ctx.setLineDash([10,10]);}else{ctx.setLineDash([]);}
-            ctx.moveTo(yAxisMin.x + xTranslate,yAxisMin.y + yTranslate);
-            ctx.lineTo(yAxisMax.x + xTranslate,yAxisMax.y + yTranslate);
-            ctx.stroke();
-        }
-        
-        if(zAxisMax && zAxisMin){
-            ctx.beginPath()
-            if(axes[2].dashed){ctx.setLineDash([10,10]);}else{ctx.setLineDash([]);}
-            ctx.moveTo(zAxisMin.x + xTranslate,zAxisMin.y + yTranslate);
-            ctx.lineTo(zAxisMax.x + xTranslate,zAxisMax.y + yTranslate);
-            ctx.stroke();
-        }
-        
-        ctx.font = "15px Arial";
-        ctx.fillStyle = axesColor;
-        ctx.textAlign = 'center';
-        var c = getRealDomainCenter()
-        var w = getRealDomainWidth()
-        if(xMaxTitle && xMinTitle && domain.showAxesLabels){
-            ctx.fillText('x: '+(c.x+w.x/2),xMaxTitle.x + xTranslate, xMaxTitle.y + yTranslate);
-            ctx.fillText('x: '+(c.x-w.x/2),xMinTitle.x + xTranslate, xMinTitle.y + yTranslate);
-        }
-        if(yMaxTitle && yMinTitle && domain.showAxesLabels){
-            ctx.fillText('y: '+(c.y+w.y/2),yMaxTitle.x + xTranslate, yMaxTitle.y + yTranslate);
-            ctx.fillText('y: '+(c.y-w.y/2),yMinTitle.x + xTranslate, yMinTitle.y + yTranslate);
-        }
-        if(zMaxTitle && zMinTitle && domain.showAxesLabels){
-            ctx.fillText('z: '+(c.z+w.z/2),zMaxTitle.x + xTranslate, zMaxTitle.y + yTranslate);
-            ctx.fillText('z: '+(c.z-w.z/2),zMinTitle.x + xTranslate, zMinTitle.y + yTranslate);
-        }
-    }
 }
 
 // assumes that all points and polygons have been created
