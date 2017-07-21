@@ -1811,7 +1811,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
     var edgePoints = [];
     
     var c = 0;
-    while(pointFront.length > 0 && c < 15000){
+    while(pointFront.length > 0 && c < 40000){
         c++;
 		let ptToProcess = pointFront[0];
 		
