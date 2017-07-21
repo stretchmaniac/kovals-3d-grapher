@@ -55,9 +55,12 @@
 			return rgb;
 		}
 	
-	
+		precision highp float;
+		
 		attribute vec4 a_position;
 		attribute highp vec3 a_normal;
+		attribute vec3 a_bari_coord;
+		
 		uniform vec3 u_orientation_x;
 		uniform vec3 u_orientation_y;
 		uniform vec3 u_orientation_z;
@@ -67,7 +70,11 @@
 		// ratio of canvas width to canvas height
 		uniform float u_aspect_ratio;
 		
+		uniform float u_transparency;
+		
 		varying vec4 color;
+		// fun with barimetric coordinates!
+		varying vec3 v_bari_coord;
 		
 		void main(){
 			vec3 rotated = a_position.x * u_orientation_x + a_position.y * u_orientation_y + a_position.z * u_orientation_z;
@@ -97,7 +104,6 @@
 			float aConst = 8.0;
 			float imConst = 1.0;
 			
-			
 			vec3 LVec = light;
 			vec3 NVec = newNormal;
 			vec3 RVec = 2.0 * dot(LVec, NVec) * NVec - LVec;
@@ -106,16 +112,37 @@
 			float luminosity = kaConst * imConst + kdConst * max(dot(LVec, NVec), 0.0) * imConst + ksConst * pow(max(dot(RVec, VVec), 0.0), aConst) * imConst;
 			
 			float h = 1.0 / (1.0 + pow(2.0, -1.0 * (a_position.z / u_domain_halfwidth)));
-			color = vec4(hsl2rgb(vec3(h, 1, luminosity)), 1);
+			
+			color = vec4(hsl2rgb(vec3(h, 1, luminosity)), u_transparency);
+			
+			v_bari_coord = a_bari_coord;
 		}
 	</script>
 	<script id='fragment-shader' type='notjs'>
-		precision mediump float;
+		precision highp float;
 		
 		varying vec4 color;
+		varying vec3 v_bari_coord;
+		
+		// > 0 is true, <= 0 is false
+		uniform float u_draw_borders;
+		uniform float u_transparency;
 		
 		void main(){
 			gl_FragColor = color;
+			float bariMin = min( min(v_bari_coord.x, v_bari_coord.y) , v_bari_coord.z);
+			
+			if(bariMin < 0.1 && u_draw_borders > 0.0){
+			
+				float multiplier = 1.0 / (1.0 + pow(2.0, -100.0 * (bariMin - 0.03)));
+				
+				if(u_transparency > 0.0){
+					gl_FragColor = vec4(color.rgb * multiplier, 1.0*(1.0 - multiplier) + multiplier*color.a);
+				}else{
+					float val = (1.0 - multiplier) / 2.0;
+					gl_FragColor = vec4(val);
+				}
+			}
 		}
 	</script>
 </head>

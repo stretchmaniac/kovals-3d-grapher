@@ -2247,21 +2247,29 @@ function initWebGL(){
 	gl.shaderSource(fragmentShader, document.getElementById('fragment-shader').text);
 	gl.compileShader(fragmentShader);
 	
+	console.log(gl.getShaderInfoLog(fragmentShader));
+	
 	// create our program
 	let program = gl.createProgram();
 	gl.attachShader(program, vertexShader);
 	gl.attachShader(program, fragmentShader);
 	gl.linkProgram(program);
 	
+	console.log(gl.getProgramInfoLog(program));
+	
 	// get attribute/uniform locations
 	webGLInfo.positionLocation = gl.getAttribLocation(program, 'a_position');
 	webGLInfo.normalLocation = gl.getAttribLocation(program, 'a_normal');
+	webGLInfo.bariLocation = gl.getAttribLocation(program, 'a_bari_coord');
+	
 	webGLInfo.orientationXLocation = gl.getUniformLocation(program, 'u_orientation_x');
 	webGLInfo.orientationYLocation = gl.getUniformLocation(program, 'u_orientation_y');
 	webGLInfo.orientationZLocation = gl.getUniformLocation(program, 'u_orientation_z');
 	webGLInfo.domainCenterLocation = gl.getUniformLocation(program, 'u_domain_center');
 	webGLInfo.aspectRatioLocation = gl.getUniformLocation(program, 'u_aspect_ratio');
 	webGLInfo.domainHalfWidthLocation = gl.getUniformLocation(program, 'u_domain_halfwidth');
+	webGLInfo.transparencyLocation = gl.getUniformLocation(program, 'u_transparency');
+	webGLInfo.borderLocation = gl.getUniformLocation(program, 'u_draw_borders');
 	
 	// make our buffer
 	let buffer = gl.createBuffer();
@@ -2270,6 +2278,7 @@ function initWebGL(){
 	// put the data in polygons into an array
 	let polyData = [];
 	for(let poly of polygons){
+		let c = 0;
 		for(let p of poly.indices){
 			polyData.push(points[p].x);
 			polyData.push(points[p].y);
@@ -2283,14 +2292,25 @@ function initWebGL(){
 			polyData.push(normal.x);
 			polyData.push(normal.y);
 			polyData.push(normal.z);
+			
+			let arr = [1.0, 0.0, 0.0];
+			// barimetric data
+			if(c === 1){
+				arr = [0.0, 1.0, 0.0];
+			}else if(c === 2){
+				arr = [0.0, 0.0, 1.0];
+			}
+			
+			for(let el of arr){
+				polyData.push(el);
+			}
+			
+			c++;
 		}
 	}
 	
 	// put the data into the buffer
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(polyData), gl.STATIC_DRAW);
-	
-	gl.enable(gl.DEPTH_TEST);
-	gl.depthFunc(gl.LEQUAL);
 	
 	webGLInfo.gl = gl;
 	webGLInfo.program = program;
@@ -2314,11 +2334,14 @@ function plotPointsWebGL(){
 	gl.useProgram(webGLInfo.program);
 	
 	// location, size, type, normalize, stride, offset
-	gl.vertexAttribPointer(webGLInfo.positionLocation, 3, gl.FLOAT, false, 24, 0);
+	gl.vertexAttribPointer(webGLInfo.positionLocation, 3, gl.FLOAT, false, 36, 0);
 	gl.enableVertexAttribArray(webGLInfo.positionLocation);
 	
-	gl.vertexAttribPointer(webGLInfo.normalLocation, 3, gl.FLOAT, false, 24, 12);
+	gl.vertexAttribPointer(webGLInfo.normalLocation, 3, gl.FLOAT, false, 36, 12);
 	gl.enableVertexAttribArray(webGLInfo.normalLocation);
+	
+	gl.vertexAttribPointer(webGLInfo.bariLocation, 3, gl.FLOAT, false, 36, 24);
+	gl.enableVertexAttribArray(webGLInfo.bariLocation);
 	
 	// set uniforms
 	gl.uniform3fv(webGLInfo.orientationXLocation, [axes[0].x, axes[0].y, axes[0].z]);
@@ -2328,6 +2351,22 @@ function plotPointsWebGL(){
 	gl.uniform3fv(webGLInfo.domainCenterLocation, [(domain.x.max+domain.x.min)/2, (domain.y.max+domain.y.min)/2, (domain.z.max+domain.z.min)/2]);
 	gl.uniform1f(webGLInfo.domainHalfWidthLocation, (domain.x.max - domain.x.min) / 2);
 	gl.uniform1f(webGLInfo.aspectRatioLocation, canvas.width / canvas.height);
+	
+	let transparency = domain.coloring ? 1 : 0;
+	let showBorder = !domain.coloring || domain.showMeshWhileColoring;
+	
+	if(domain.coloring){
+		gl.disable(gl.BLEND);
+		gl.enable(gl.DEPTH_TEST);
+		gl.depthFunc(gl.LEQUAL);
+	}else{
+		gl.disable(gl.DEPTH_TEST);
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	}
+	
+	gl.uniform1f(webGLInfo.transparencyLocation, transparency);
+	gl.uniform1f(webGLInfo.borderLocation, showBorder);
 	
 	// primitive type, offset, count
 	gl.drawArrays(gl.TRIANGLES, 0, polygons.length * 3);
