@@ -71,6 +71,9 @@
 		uniform float u_aspect_ratio;
 		
 		uniform float u_transparency;
+		// effectively booleans, true iff > 0
+		uniform float u_perspective;
+		uniform float u_directional_lighting;
 		
 		varying vec4 color;
 		// fun with barimetric coordinates!
@@ -83,7 +86,7 @@
 			
 			float shrinkFactor = (clipspace.z + 1.0) / 2.0 + 0.10; 
 			
-			gl_Position = vec4(clipspace.xyz, shrinkFactor);
+			gl_Position = vec4(clipspace.xyz, u_perspective > 0.0 ? shrinkFactor : 0.6);
 			
 			// compute the darkness based on the normal, assuming the scene is lit from 
 			// (1, 1, -5)
@@ -113,7 +116,7 @@
 			
 			float h = 1.0 / (1.0 + pow(2.0, -1.0 * (a_position.z / u_domain_halfwidth)));
 			
-			color = vec4(hsl2rgb(vec3(h, 1, luminosity)), u_transparency);
+			color = vec4(hsl2rgb(vec3(h, 1, u_directional_lighting > 0.0 ? luminosity : 0.5)), u_transparency);
 			
 			v_bari_coord = a_bari_coord;
 		}

@@ -2270,6 +2270,8 @@ function initWebGL(){
 	webGLInfo.domainHalfWidthLocation = gl.getUniformLocation(program, 'u_domain_halfwidth');
 	webGLInfo.transparencyLocation = gl.getUniformLocation(program, 'u_transparency');
 	webGLInfo.borderLocation = gl.getUniformLocation(program, 'u_draw_borders');
+	webGLInfo.perspectiveLocation = gl.getUniformLocation(program, 'u_perspective');
+	webGLInfo.directionalLightingLocation = gl.getUniformLocation(program, 'u_directional_lighting');
 	
 	// make our buffer
 	let buffer = gl.createBuffer();
@@ -2367,6 +2369,9 @@ function plotPointsWebGL(){
 	
 	gl.uniform1f(webGLInfo.transparencyLocation, transparency);
 	gl.uniform1f(webGLInfo.borderLocation, showBorder);
+	
+	gl.uniform1f(webGLInfo.perspectiveLocation, domain.perspective ? 1 : -1);
+	gl.uniform1f(webGLInfo.directionalLightingLocation, domain.directionalLighting ? 1 : -1);
 	
 	// primitive type, offset, count
 	gl.drawArrays(gl.TRIANGLES, 0, polygons.length * 3);
