@@ -50,6 +50,10 @@ var totalQuat = {w:1,x:0,y:0,z:0};
 var cleanDensity = 15;
 var graphing = false;
 
+let webGLInfo = {
+	initialized:false
+};
+
 var points = [];
 var pointQuats = [];
 //holds indeces to points
@@ -64,6 +68,11 @@ var unitQuat = {w:0,x:1,y:0,z:0};
 
 var animationVars = [];
 var animationImgs = [];
+
+var skipDomain = false;
+
+var intervalId, intervalId2, intervalId3, intervalId4, intervalId5;
+var intervalFunctionSupported = true;
 
 //[xFunc,yFunc,zFunc]
 var cartGallery = [
@@ -98,10 +107,10 @@ var sphereFuncGallery = [
 var graphingError = false;
 
 var axes = [
-    [{w:0,x:1,y:0,z:0},{w:0,x:-1,y:0,z:0},{w:0,x:1,y:0,z:0},{w:0,x:-1,y:0,z:0}],
-    [{w:0,x:0,y:1,z:0},{w:0,x:0,y:-1,z:0},{w:0,x:0,y:1,z:0},{w:0,x:0,y:-1,z:0}],
-    [{w:0,x:0,y:0,z:1},{w:0,x:0,y:0,z:-1},{w:0,x:0,y:0,z:1},{w:0,x:0,y:0,z:-1}]
-    ];
+	{x:1,y:0,z:0},
+	{x:0,y:1,z:0},
+	{x:0,y:0,z:1}
+];
 
 $(function(){
     var width = $('#content-graph').width();
@@ -371,10 +380,6 @@ $(function(){
         setDomainVisibility();
     },1500)
     
-    
-    
-    syncAxes()
-    
     //randomGraph();
     // setTimeout(function(){
     //     var input = MQ.MathField($('#equation-input'));
@@ -396,24 +401,17 @@ $(function(){
             deltaY = event.clientY - mousePosition.y;
             
             xQuat.y = -deltaX / 500;
-            yQuat.x = deltaY / 500;
+            yQuat.x = -deltaY / 500;
             
             quatNorm(xQuat);
             quatNorm(yQuat);
-            
-            rotatePoints(pointQuats,yQuat)
-            rotatePoints(pointQuats,xQuat)
             
             totalQuat = quatMult(quatMult(xQuat,yQuat),totalQuat);
             
             quatNorm(totalQuat)
             
-            rotatePoints(axes[0], yQuat);
-            rotatePoints(axes[1], yQuat);
-            rotatePoints(axes[2], yQuat);
-            rotatePoints(axes[0], xQuat);
-            rotatePoints(axes[1], xQuat);
-            rotatePoints(axes[2], xQuat);
+            rotatePoints(axes, yQuat);
+            rotatePoints(axes, xQuat);
             
             plotPoints()
         }
@@ -459,8 +457,6 @@ $(function(){
             domain.z.max = domain.center.z + zWidth/2;
             
             changeDomainInputs()
-            
-            syncAxes();
             
             syncQuats()
     
@@ -536,8 +532,6 @@ $(function(){
             domain.height.max = spreadCoord(max, min, max, magnification);
         }
         
-        syncAxes()
-        
         if(timeID){
             clearTimeout(timeID);
         }
@@ -573,11 +567,6 @@ $(window).resize(function(){
     }    
     plotPoints();
 });
-
-var skipDomain = false;
-
-var intervalId, intervalId2, intervalId3, intervalId4, intervalId5;
-var intervalFunctionSupported = true;
 
 $('#cartesian-button').click(function(){
     cartesian = true;
@@ -1101,15 +1090,9 @@ function graph(onFinish){
     
     points = [];
     pointQuats = [];
-    axes = [
-        [{w:0,x:1,y:0,z:0},{w:0,x:-1,y:0,z:0},{w:0,x:1,y:0,z:0},{w:0,x:-1,y:0,z:0}],
-        [{w:0,x:0,y:1,z:0},{w:0,x:0,y:-1,z:0},{w:0,x:0,y:1,z:0},{w:0,x:0,y:-1,z:0}],
-        [{w:0,x:0,y:0,z:1},{w:0,x:0,y:0,z:-1},{w:0,x:0,y:0,z:1},{w:0,x:0,y:0,z:-1}]
-    ];
     
     var density = parseInt($('#mesh-quality-input').val(),10);
     domain.density = density;
-    syncAxes();
     
     //reset domain
     if(domain.pointsOnly === true){
@@ -1302,7 +1285,6 @@ function refreshMathJax(){
 }
 
 function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
-    syncAxes();
     pointQuats = [];
     
     var uTotal = domain.u.max - domain.u.min;
@@ -1679,7 +1661,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 		
 		// but there needs to be a limit...
 		nodeDist = nodeDist < defaultXYZLength / 2 ? defaultXYZLength / 2 : nodeDist;
-		console.log(nodeDist);
 		
 		let pointList = [];
 		
@@ -1996,7 +1977,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
 		}
 	}
     
-    onfinish();
+    initWebGL();
+	
+	onfinish();
 }
 
 function makeConnection(pt1, pt2){
@@ -2348,52 +2331,6 @@ function spreadCoord(val, min, max, spread){
     return valRel*spread + center;
 }
 
-function syncAxes(){
-    axisEdge(axes[0]);
-    axisEdge(axes[1]);
-    axisEdge(axes[2]);
-    
-    var f = (domain.x.max - domain.x.min)/50;
-    axes[0][0].x = domain.x.max;
-    axes[0][1].x = domain.x.min;
-    axes[0][2].x = domain.x.max + f;
-    axes[0][3].x = domain.x.min - f;
-    
-    axes[1][0].y = domain.y.max;
-    axes[1][1].y = domain.y.min;
-    axes[1][2].y = domain.y.max + f;
-    axes[1][3].y = domain.y.min - f;
-    
-    axes[2][0].z = domain.z.max;
-    axes[2][1].z = domain.z.min;
-    axes[2][2].z = domain.z.max + f;
-    axes[2][3].z = domain.z.min - f;
-    
-    axes[0].dashed = false;
-    axes[1].dashed = false;
-    axes[2].dashed = false;
-    
-    if(domain.x.min > 0 || domain.x.max < 0){
-        axes[1].dashed = true;
-        axes[2].dashed = true;
-    }
-    if(domain.y.min > 0 || domain.y.max < 0){
-        axes[0].dashed = true;
-        axes[2].dashed = true;
-    }
-    if(domain.z.min > 0 || domain.z.max < 0){
-        axes[0].dashed = true;
-        axes[1].dashed = true;
-    }
-    
-    if(!domain.center){
-        domain.center = {x:(domain.x.max+domain.x.min)/2, y:(domain.y.max+domain.y.min)/2, z:(domain.z.max+domain.z.min)/2};
-    }
-    rotatePoints(axes[0], totalQuat);
-    rotatePoints(axes[1], totalQuat);
-    rotatePoints(axes[2], totalQuat);
-}
-
 function axisEdge(axis){
     var origin = {x:0,y:0,z:0};
     
@@ -2453,6 +2390,10 @@ function sortPolygonsByZ(polygons){
 }
 
 function plotPoints(){
+	
+	plotPointsWebGL();
+	return;
+	
     var canvas = document.getElementById('canvas');
     var ctx = canvas.getContext('2d');
     
@@ -2676,6 +2617,111 @@ function plotPoints(){
             ctx.fillText('z: '+(c.z-w.z/2),zMinTitle.x + xTranslate, zMinTitle.y + yTranslate);
         }
     }
+}
+
+// assumes that all points and polygons have been created
+function initWebGL(){
+	let gl = document.getElementById('canvas').getContext('webgl');
+	
+	if(!gl){
+		alert('Your browser does not support webgl. I\'m really not sure what browser you could possibly be using, but I suggest you update, or better yet, download Chrome.');
+		return;
+	}
+	
+	// create vertex shader
+	let vertexShader = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(vertexShader, document.getElementById('vertex-shader').text);
+	gl.compileShader(vertexShader);
+	
+	console.log(gl.getShaderInfoLog(vertexShader));
+	
+	// create fragment shader
+	let fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+	gl.shaderSource(fragmentShader, document.getElementById('fragment-shader').text);
+	gl.compileShader(fragmentShader);
+	
+	// create our program
+	let program = gl.createProgram();
+	gl.attachShader(program, vertexShader);
+	gl.attachShader(program, fragmentShader);
+	gl.linkProgram(program);
+	
+	// get attribute/uniform locations
+	webGLInfo.positionLocation = gl.getAttribLocation(program, 'a_position');
+	webGLInfo.normalLocation = gl.getAttribLocation(program, 'a_normal');
+	webGLInfo.orientationXLocation = gl.getUniformLocation(program, 'u_orientation_x');
+	webGLInfo.orientationYLocation = gl.getUniformLocation(program, 'u_orientation_y');
+	webGLInfo.orientationZLocation = gl.getUniformLocation(program, 'u_orientation_z');
+	webGLInfo.domainCenterLocation = gl.getUniformLocation(program, 'u_domain_center');
+	webGLInfo.domainHalfWidth = gl.getUniformLocation(program, 'u_domain_halfwidth');
+	
+	// make our buffer
+	let buffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+	
+	// put the data in polygons into an array
+	let polyData = [];
+	for(let poly of polygons){
+		for(let p of poly.indices){
+			polyData.push(points[p].x);
+			polyData.push(points[p].y);
+			polyData.push(points[p].z);
+			
+			// compute normal to point
+			// (this is simly the cross product of p.deriv1.du and p.deriv1.dv)
+			let normal = cross(points[p].deriv1.du, points[p].deriv1.dv);
+			normal = scalar(1/magnitude(normal), normal);
+			
+			polyData.push(normal.x);
+			polyData.push(normal.y);
+			polyData.push(normal.z);
+		}
+	}
+	
+	// put the data into the buffer
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(polyData), gl.STATIC_DRAW);
+	
+	gl.enable(gl.DEPTH_TEST);
+	gl.depthFunc(gl.LEQUAL);
+	
+	webGLInfo.gl = gl;
+	webGLInfo.program = program;
+	webGLInfo.initialized = true;
+}
+
+function plotPointsWebGL(){
+	if(!webGLInfo.initialized){
+		return;
+	}
+	
+	gl = webGLInfo.gl;
+	
+	// set the viewport
+	gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+	
+	// clear canvas
+	gl.clearColor(0, 0, 0, 1);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	
+	gl.useProgram(webGLInfo.program);
+	
+	// location, size, type, normalize, stride, offset
+	gl.vertexAttribPointer(webGLInfo.positionLocation, 3, gl.FLOAT, false, 24, 0);
+	gl.enableVertexAttribArray(webGLInfo.positionLocation);
+	
+	gl.vertexAttribPointer(webGLInfo.normalLocation, 3, gl.FLOAT, false, 24, 12);
+	gl.enableVertexAttribArray(webGLInfo.normalLocation);
+	
+	// set uniforms
+	gl.uniform3fv(webGLInfo.orientationXLocation, [axes[0].x, axes[0].y, axes[0].z]);
+	gl.uniform3fv(webGLInfo.orientationYLocation, [axes[1].x, axes[1].y, axes[1].z]);
+	gl.uniform3fv(webGLInfo.orientationZLocation, [axes[2].x, axes[2].y, axes[2].z]);
+	
+	gl.uniform3fv(webGLInfo.domainCenterLocation, [(domain.x.max+domain.x.min)/2, (domain.y.max+domain.y.min)/2, (domain.z.max+domain.z.min)/2]);
+	gl.uniform1f(webGLInfo.domainHalfWidth, (domain.x.max - domain.x.min) / 2);
+	
+	// primitive type, offset, count
+	gl.drawArrays(gl.TRIANGLES, 0, polygons.length * 3);
 }
 
 function copyPoly(poly){
