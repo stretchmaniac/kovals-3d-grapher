@@ -2653,7 +2653,8 @@ function initWebGL(){
 	webGLInfo.orientationYLocation = gl.getUniformLocation(program, 'u_orientation_y');
 	webGLInfo.orientationZLocation = gl.getUniformLocation(program, 'u_orientation_z');
 	webGLInfo.domainCenterLocation = gl.getUniformLocation(program, 'u_domain_center');
-	webGLInfo.domainHalfWidth = gl.getUniformLocation(program, 'u_domain_halfwidth');
+	webGLInfo.aspectRatioLocation = gl.getUniformLocation(program, 'u_aspect_ratio');
+	webGLInfo.domainHalfWidthLocation = gl.getUniformLocation(program, 'u_domain_halfwidth');
 	
 	// make our buffer
 	let buffer = gl.createBuffer();
@@ -2718,7 +2719,8 @@ function plotPointsWebGL(){
 	gl.uniform3fv(webGLInfo.orientationZLocation, [axes[2].x, axes[2].y, axes[2].z]);
 	
 	gl.uniform3fv(webGLInfo.domainCenterLocation, [(domain.x.max+domain.x.min)/2, (domain.y.max+domain.y.min)/2, (domain.z.max+domain.z.min)/2]);
-	gl.uniform1f(webGLInfo.domainHalfWidth, (domain.x.max - domain.x.min) / 2);
+	gl.uniform1f(webGLInfo.domainHalfWidthLocation, (domain.x.max - domain.x.min) / 2);
+	gl.uniform1f(webGLInfo.aspectRatioLocation, canvas.width / canvas.height);
 	
 	// primitive type, offset, count
 	gl.drawArrays(gl.TRIANGLES, 0, polygons.length * 3);
