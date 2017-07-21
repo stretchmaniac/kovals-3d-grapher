@@ -38,7 +38,8 @@ var domain = {
     rowLength:null,
     currentSystem:'cartesian',
     expressionInfo:null,
-	maxColoringTime:0
+	maxColoringTime:0,
+	normalMultiplier:1
 }
 
 var compile = require('interval-arithmetic-eval');
@@ -226,9 +227,7 @@ $(function(){
             }
         });
     })
-    $('#help-popup').click(function(event){
-        
-    })
+    $('#help-popup').click(function(event){})
     $('#export-button').click(function(){
         $('#export-popup').removeClass('hidden');
         setUpDownload();
@@ -297,7 +296,12 @@ $(function(){
                 $("#settings-content").unbind( 'click', document);
             }
         });
-    })
+    });
+	
+	$('#invert-normal-icon').click(function(){
+		domain.normalMultiplier *= -1;
+		plotPointsWebGL();
+	});
     
     MQ = MathQuill.getInterface(2);
     var autoCommands = 'pi theta rho phi sqrt sum';
@@ -580,7 +584,7 @@ $('#show-axes-labels-checkbox').change(function(){
 $('#perspective-checkbox').change(function(){
     domain.perspective = $('#perspective-checkbox').prop('checked');
     plotPointsWebGL();
-})
+});
 
 $('#color-scheme-select').change(function(){
     var value = $(this).val();
@@ -2272,6 +2276,7 @@ function initWebGL(){
 	webGLInfo.borderLocation = gl.getUniformLocation(program, 'u_draw_borders');
 	webGLInfo.perspectiveLocation = gl.getUniformLocation(program, 'u_perspective');
 	webGLInfo.directionalLightingLocation = gl.getUniformLocation(program, 'u_directional_lighting');
+	webGLInfo.normalMultiplierLocation = gl.getUniformLocation(program, 'u_normal_multiplier');
 	
 	// make our buffer
 	let buffer = gl.createBuffer();
@@ -2372,6 +2377,8 @@ function plotPointsWebGL(){
 	
 	gl.uniform1f(webGLInfo.perspectiveLocation, domain.perspective ? 1 : -1);
 	gl.uniform1f(webGLInfo.directionalLightingLocation, domain.directionalLighting ? 1 : -1);
+	
+	gl.uniform1f(webGLInfo.normalMultiplierLocation, domain.normalMultiplier);
 	
 	// primitive type, offset, count
 	gl.drawArrays(gl.TRIANGLES, 0, polygons.length * 3);
