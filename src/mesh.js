@@ -80,7 +80,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	
 	// update every 30 ms or so (we'll see how much that slows things down)
 	let lastUpdateTime = Date.now();
-	let updateDelta = 1000;
+	let updateDelta = 100;
 	
 	domain = d;
 	for(var k = 0; k < 2; k++){

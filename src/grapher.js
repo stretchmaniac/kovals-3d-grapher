@@ -104,7 +104,7 @@ var sphereFuncGallery = [
     
 var graphingError = false;
 
-let graphWorker = null;
+let graphWorkers = [];
 
 var axes = [
 	{x:1,y:0,z:0},
@@ -114,8 +114,6 @@ var axes = [
 
 $(function(){
 	// start a web worker to graph the function 
-	
-	graphWorker =  new Worker('mesh.js');
 	initWebGL();
 	
     var width = $('#content-graph').width();
@@ -1231,37 +1229,140 @@ function refreshMathJax(){
 }
 
 function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){    
-	// give our webworker some work to do 
+	// give our webworker(s) some work to do 
 	domain.polyData = [];
 	domain.polyNumber = 0;
 	updateBuffer([]);
 	
-	graphWorker.postMessage(['GRAPH', xFunc, yFunc, zFunc, domain]);
+	let lastUpdateTime = Date.now();
 	
-	graphWorker.onmessage = function(e){
-		let [responseType, ...args] = e.data;
-		if(responseType === 'POLYGON_UPDATE'){
+	// 3 cores is a pretty good guess for a modern computer... maybe? (average of 2 and 4?)
+	let workerIndex = 0;
+	while(graphWorkers.length < (navigator.hardwareConcurrency - 1 | 2)){
+		console.log('creating worker '+workerIndex);
+		// create a worker
+		graphWorkers.push({
+			worker: new Worker('mesh.js'),
+			idle: true,
+			index: workerIndex,
+			subdivisionIndex:null
+		});
+		workerIndex++;
+	}
+	
+	// the domain will be divided into 16 zones, each a square
+	let subdivisions = [];
+	let subSideCount = 3;
+	
+	let uGap = (domain.u.max - domain.u.min) / subSideCount;
+	let vGap = (domain.v.max - domain.v.min) / subSideCount;
+	let subdivisionCount = 0;
+	
+	for(let x = 0; x < subSideCount; x++){
+		for(let y = 0; y < subSideCount; y++){
+			subdivisions.push({
+				completed:false,
+				// if a worker is currently working on it
+				tagged:false,
+				index:subdivisionCount,
+				region:{
+					u:{
+						min: domain.u.min + x * uGap,
+						max: domain.u.min + (x + 1) * uGap
+					},
+					v:{
+						min: domain.v.min + y * vGap,
+						max: domain.v.min + (y + 1) * vGap
+					}
+				}
+			});
+			subdivisionCount++;
 			
-			console.log('recieving update from web worker...');
-			
-			// draw the updates
-			// expected args: [polydata, polygons.length]
-			
-			domain.polyData = domain.polyData.concat(args[0]);
-			
-			updateBuffer(domain.polyData);
-			domain.polyNumber = args[1];
-			plotPointsWebGL();
-			
-		}else if(responseType === 'FINISHED'){
-			
-			domain.polyData = args[0];
-			domain.polyNumber = args[1];
-			updateBuffer(domain.polyData);
-			
-			plotPointsWebGL();
-			onFinish();
+			// create a spot for the polyData 
+			domain.polyData.push([]);
 		}
+	}
+	
+	// while there are still regions to finish, assign idle workers to regions
+	let onIdleWorker = graphWorker => {
+		// find the next not-completed subdivision 
+		let subIndex = -1;
+		let allCompleted = true;
+		for(let i = 0; i < subdivisions.length; i++){
+			if(subdivisions[i].tagged === false){
+				subIndex = i;
+				allCompleted = false;
+				break;
+			}else if(subdivisions[i].completed === false){
+				allCompleted = false;
+			}
+		}
+		
+		if(allCompleted === true){
+			// all sections have been completed
+			console.log('mesh complete');
+			graphWorker.worker.terminate();
+			graphWorkers = [];
+			
+			updateBuffer(domain.polyData);
+			plotPointsWebGL();
+			
+			onFinish();
+		}else if(subIndex === -1){
+			// nothing more for this web worker to do, terminate it
+			graphWorker.worker.terminate();
+			graphWorkers.splice(graphWorker.index, 1);
+		}else{
+			// assign the worker to the subdivision 
+			let workerSubdivision = subdivisions[subIndex];
+			
+			// copy domain to change it for the worker
+			let workerDomain = JSON.parse(JSON.stringify(domain));
+			workerDomain.u = workerSubdivision.region.u;
+			workerDomain.v = workerSubdivision.region.v;
+			
+			graphWorker.subdivisionIndex = workerSubdivision.index;
+			workerSubdivision.tagged = true;
+			
+			console.log('worker '+graphWorker.index+' has been assigned');
+			
+			// trigger the worker
+			graphWorker.worker.postMessage(['GRAPH', xFunc, yFunc, zFunc, workerDomain]);
+			
+			// handle responses
+			graphWorker.worker.onmessage = function(e){
+				let [responseType, ...args] = e.data;
+				if(responseType === 'POLYGON_UPDATE'){
+					// draw the updates
+					// expected args: [polydata, polygons.length]
+					domain.polyData[graphWorker.subdivisionIndex] = domain.polyData[graphWorker.subdivisionIndex].concat(args[0]);
+					
+					// since there are many webworkers about, there will be at least one update every 500ms, 
+					// (or however long it is), but probably many more. Thus we'll time actual redraws ourselves
+					if(Date.now() - lastUpdateTime > 1000){
+						updateBuffer(domain.polyData);
+						plotPointsWebGL();
+						lastUpdateTime = Date.now();
+					}
+					
+				}else if(responseType === 'FINISHED'){
+					console.log('worker '+graphWorker.index+' has finished');
+					
+					domain.polyData[graphWorker.subdivisionIndex] = args[0];
+					updateBuffer(domain.polyData);
+					
+					workerSubdivision.completed = true;
+					
+					// reassign this worker
+					onIdleWorker(graphWorker);
+				}
+			}
+		}
+	}
+	
+	// all of the workers are initially idle
+	for(let graphWorker of graphWorkers){
+		onIdleWorker(graphWorker);
 	}
 }
 
@@ -1487,7 +1588,16 @@ function initWebGL(){
 	webGLInfo.initialized = true;
 }
 
-function updateBuffer(polyData){
+function updateBuffer(polyDatas){
+	let polyData = [];
+	for(let polyD of polyDatas){
+		polyData = polyData.concat(polyD);
+	}
+	
+	// 3 for position, 3 for normal, 3 for barimetric data, per each point (of which 
+	// there are 3 per triangle)
+	domain.polyNumber = polyData.length / 27;
+	
 	let gl = webGLInfo.gl;
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(polyData), gl.STATIC_DRAW);
 }
@@ -1549,7 +1659,6 @@ function plotPointsWebGL(){
 	gl.uniform1f(webGLInfo.normalMultiplierLocation, domain.normalMultiplier);
 	
 	// primitive type, offset, count
-	console.log(domain.polyNumber);
 	gl.drawArrays(gl.TRIANGLES, 0, domain.polyNumber * 3);
 }
 
