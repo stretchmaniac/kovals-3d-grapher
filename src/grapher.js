@@ -1337,7 +1337,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 					// expected args: [polydata, polygons.length]
 					domain.polyData[graphWorker.subdivisionIndex] = domain.polyData[graphWorker.subdivisionIndex].concat(args[0]);
 					
-					// since there are many webworkers about, there will be at least one update every 500ms, 
+					// since there are many webworkers about, there will be at least one update every 500ms,  
 					// (or however long it is), but probably many more. Thus we'll time actual redraws ourselves
 					if(Date.now() - lastUpdateTime > 1000){
 						updateBuffer(domain.polyData);

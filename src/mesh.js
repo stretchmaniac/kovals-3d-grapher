@@ -259,26 +259,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					newPt = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
 				}
 				
-				// check if newPt is on the interior of pointFront. If so, remove the point.
-				// we'll make use of a simple scanline algorithm for if a point is in a polygon
-				const v0 = newPt.v, u0 = newPt.u;
-				let crossCount = 0;
-				for(const testPt of pointFront){
-					// for segment {{a,b}, {c,d}}, intersection with v = v0:
-					// segment: {x(t), y(t)} = {a, b} + t( {c,d} - {a,b} ) = {*, v0}
-					// {t(c-a), t(d-b)} = {*, v0-b}
-					// t = (v0-b)/(d-b)
-					// u pos @ t: a + t (c - a) = a+((v0-b)/(d-b))(c-a)
-					const a = testPt.u, b = testPt.v,
-						c = testPt.end.u, d = testPt.end.v;
-					const t = (v0-b)/(d-b);
-					const u = a+(v0-b)*(c-a)/(d-b);
-					if(u > u0 && t >= 0 && t <= 1){
-						crossCount++;
-					}
-				}
-				
-				if(crossCount % 2 === 1){
+				if(withinPolygon(newPt, pointFront)){
 					// it's on the interior (not allowed)
 					pointList.splice(i, 1);
 					i--;
@@ -334,6 +315,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
     //in order not to mess up the mesh as its graphing, we'll squish the 
     //necessary edge points after the fact
     var edgePoints = [];
+	let postPointFront = [];
     
     var c = 0;
     while(pointFront.length > 0 && c < 40000){
@@ -345,6 +327,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		while(ptToProcess.doNotExec){
 			i++;
 			if(i === pointFront.length){
+				postPointFront = pointFront;
 				pointFront = [];
 				break;
 			}
@@ -455,7 +438,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			}
 		}
 	}
-    
+    console.log('moving back to middle');
     // move all the edge points back into the domain
     for(var k = 0; k < edgePoints.length; k++){
         const pt = edgePoints[k];
@@ -475,7 +458,76 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		pt.deriv1 = newPt.deriv1;
     }
 	
+	// there were some issues with the corners not being filled in. 
+	// this solution checks each corner to see if it is in pointFront, 
+	// and if not, adds it and connects it to the nearest u axis edge point
+	// and v axis edge point (to form a triangle)
+	
+	const corners = [
+		[domain.u.min, domain.v.min],
+		[domain.u.min, domain.v.max],
+		[domain.u.max, domain.v.min],
+		[domain.u.max, domain.v.max]
+	];
+	
+	for(let corner of corners){
+		// check if corner is in pointFront
+		let [cornerU, cornerV] = corner;
+		if(!withinPolygon({u: cornerU, v: cornerV}, postPointFront)){
+			// find the nearest edge point in the u and v direction 
+			let wiggleFudgeU = (domain.u.max - domain.u.min) / 1e8;
+			let wiggleFudgeV = (domain.v.max - domain.v.min) / 1e8;
+			let bestU = null,
+				bestV = null;
+			
+			for(let edge of edgePoints){
+				if(Math.abs(edge.u - cornerU) < wiggleFudgeU && (bestV === null || Math.abs(edge.v - cornerV) < Math.abs(bestV.v - cornerV))){
+					bestV = edge;
+				}
+				if(Math.abs(edge.v - cornerV) < wiggleFudgeV && (bestU === null || Math.abs(edge.u - cornerU) < Math.abs(bestU.u - cornerU))){
+					bestU = edge;
+				}
+			}
+			
+			if(bestV && bestU){
+				const cornerPoint = plotPlus(xFunc, yFunc, zFunc, cornerU, cornerV);
+				makeConnection(cornerPoint, bestV);
+				makeConnection(cornerPoint, bestU);
+				// in case they're already connected
+				removeConnection(bestV, bestU);
+				makeConnection(bestV, bestU);
+				
+				polygons.push({
+					pts:[bestU, bestV, cornerPoint]
+				});
+			}
+		}
+	}
+	
 	onFinish();
+}
+
+function withinPolygon(pt, poly){
+	// check if newPt is on the interior of pointFront. If so, remove the point.
+	// we'll make use of a simple scanline algorithm for if a point is in a polygon
+	const v0 = pt.v, u0 = pt.u;
+	let crossCount = 0;
+	for(const testPt of poly){
+		// for segment {{a,b}, {c,d}}, intersection with v = v0:
+		// segment: {x(t), y(t)} = {a, b} + t( {c,d} - {a,b} ) = {*, v0}
+		// {t(c-a), t(d-b)} = {*, v0-b}
+		// t = (v0-b)/(d-b)
+		// u pos @ t: a + t (c - a) = a+((v0-b)/(d-b))(c-a)
+		const a = testPt.u, b = testPt.v,
+			c = testPt.end.u, d = testPt.end.v;
+		const t = (v0-b)/(d-b);
+		const u = a+(v0-b)*(c-a)/(d-b);
+		if(u > u0 && t >= 0 && t <= 1){
+			crossCount++;
+		}
+	}
+	
+	return crossCount % 2 === 1;
 }
 
 function generatingVecs(refPt){
@@ -664,7 +716,7 @@ function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
         neighbors:[],
         deriv1:{
             du:ud1,
-            dv:udv1
+            dv:uv1
         },
     };
 }
