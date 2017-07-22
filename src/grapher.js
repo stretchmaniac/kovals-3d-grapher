@@ -39,7 +39,9 @@ var domain = {
     currentSystem:'cartesian',
     expressionInfo:null,
 	maxColoringTime:0,
-	normalMultiplier:1
+	normalMultiplier:1,
+	polyNumber:0,
+	polyData:[]
 }
 
 var compile = require('interval-arithmetic-eval');
@@ -48,14 +50,11 @@ var handleablePoints = 5000;
 var xQuat = quatNorm({w:1,x:0,y:0,z:0});
 var yQuat = quatNorm({w:1,x:0,y:0,z:0});
 var cleanDensity = 15;
-var graphing = false;
 
 let webGLInfo = {
 	initialized:false
 };
 
-var points = [];
-//holds indeces to points
 var polygons = [];
 var MQ;
 var translation = {x:0,y:0};
@@ -105,6 +104,8 @@ var sphereFuncGallery = [
     
 var graphingError = false;
 
+let graphWorker = null;
+
 var axes = [
 	{x:1,y:0,z:0},
 	{x:0,y:1,z:0},
@@ -112,6 +113,11 @@ var axes = [
 ];
 
 $(function(){
+	// start a web worker to graph the function 
+	
+	graphWorker =  new Worker('mesh.js');
+	initWebGL();
+	
     var width = $('#content-graph').width();
     var height = $('#content-graph').height();
     $("#canvas").prop('width',width)
@@ -1042,14 +1048,11 @@ function graph(onFinish){
     domain.showAxes = $('#axes-checkbox').prop('checked');
     domain.coloring = $('#color-checkbox').prop('checked');
     
-    points = [];
-    
     var density = parseInt($('#mesh-quality-input').val(),10);
     domain.density = density;
     
     //reset domain
     if(domain.pointsOnly === true){
-        points = [];
         domain.coloring = true;
         var table = $('#plot-table-body');
         var rows = table.children('tr');
@@ -1205,7 +1208,9 @@ function graph(onFinish){
             
             console.log(inputs)
         }
-        graphParametricFunction(inputs.x, inputs.y, inputs.z, spread, onFinish);
+        
+		
+		graphParametricFunction(inputs.x, inputs.y, inputs.z, spread, onFinish);
     }
 }
 
@@ -1225,109 +1230,39 @@ function refreshMathJax(){
     MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
 }
 
-function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
-    var uTotal = domain.u.max - domain.u.min;
-    var vTotal = domain.v.max - domain.v.min;
-    
-    var uJump = uTotal / domain.density;
-    var vJump = Math.sqrt(3)/2 * vTotal / domain.density;
-    var a = 0;
-    
-    for(var k = 0; k < 2; k++){
-        xFunc = xFunc.replace(/\(y\)/g,'('+yFunc+')');
-        xFunc = xFunc.replace(/\(z\)/g,'('+zFunc+')');
-        
-        yFunc = yFunc.replace(/\(x\)/g,'('+xFunc+')');
-        yFunc = yFunc.replace(/\(z\)/g,'('+zFunc+')');
-        
-        zFunc = zFunc.replace(/\(x\)/g,'('+xFunc+')');
-        zFunc = zFunc.replace(/\(y\)/g,'('+yFunc+')');
-    }
-    
-    var intervalXFunc = compile(xFunc);
-    var intervalYFunc = compile(yFunc);
-    var intervalZFunc = compile(zFunc);
-    intervalFunctionSupported = true;
-    try{
-        intervalXFunc.eval({u:0,v:0});
-        intervalYFunc.eval({u:0,v:0});
-        intervalZFunc.eval({u:0,v:0});
-    }catch(err){
-        intervalFunctionSupported = false;
-    }
-    
-    xFunc = math.compile('x='+xFunc);
-    yFunc = math.compile('y='+yFunc);
-    zFunc = math.compile('z='+zFunc);
-    
-    try{
-        plot(xFunc, yFunc, zFunc, 0, 0)
-    }catch(err){
-        console.log('error caught!'+err.stack)
-        displayCanvasError()
-        graphingError = true;
-        return;
-    }
-    graphingError = false;
-    
-    var color = false;
-    if(domain.coloring){
-        color = true;
-    }
-    domain.coloring = false;
-    
-    plotPointsWebGL();
-    
-    if(graphing === false){
-        graphing = true;
-    }else{
-        clearInterval(intervalId);
-        clearInterval(intervalId2);
-        clearInterval(intervalId3);
-        clearInterval(intervalId4);
-        clearInterval(intervalId5);
-    }
-    
-    graphParametricFunction2(xFunc, yFunc, zFunc, function(){
-        domain.coloring = color;
-        plotPointsWebGL();
-    });
-    onFinish();
-    return;
-}
-
-// plot the point, computes its 1st partial derivatives (dx/du, dx/dv etc) and its 2nd parial derivatives (dx^2/du, etc)
-function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
-    if(!delta){
-        delta = Math.min((domain.u.max-domain.u.min)/1e8, (domain.v.max-domain.v.min)/1e8);
-    }
-    var p1 = plot(xfunc, yfunc, zfunc, u, v);
-    var pu = plot(xfunc, yfunc, zfunc, u-delta, v);
-    var pu2 =plot(xfunc, yfunc, zfunc, u+delta, v);
-    var pv = plot(xfunc, yfunc, zfunc, u, v-delta);
-    var pv2 =plot(xfunc, yfunc, zfunc, u, v+delta);
-    var ud1 = scalar(1/delta,sub(p1,pu));
-    var ud2 = scalar(1/delta,sub(pu2,p1));
-    var vd1 = scalar(1/delta,sub(p1,pv));
-    var vd2 = scalar(1/delta,sub(pv2,p1));
-    
-    return {
-        x:p1.x,
-        y:p1.y,
-        z:p1.z,
-        u:p1.u,
-        v:p1.v,
-        neighbors:[],
-        deriv1:{
-            //average the two 1st derivative measurements
-            du:scalar(1/2, add(ud1,ud2)),
-            dv:scalar(1/2, add(vd1,vd2))
-        },
-        deriv2:{
-            du:scalar(1/delta, sub(ud2,ud1)), 
-            dv:scalar(1/delta, sub(vd2,vd1))
-        }
-    };
+function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){    
+	// give our webworker some work to do 
+	domain.polyData = [];
+	domain.polyNumber = 0;
+	updateBuffer([]);
+	
+	graphWorker.postMessage(['GRAPH', xFunc, yFunc, zFunc, domain]);
+	
+	graphWorker.onmessage = function(e){
+		let [responseType, ...args] = e.data;
+		if(responseType === 'POLYGON_UPDATE'){
+			
+			console.log('recieving update from web worker...');
+			
+			// draw the updates
+			// expected args: [polydata, polygons.length]
+			
+			domain.polyData = domain.polyData.concat(args[0]);
+			
+			updateBuffer(domain.polyData);
+			domain.polyNumber = args[1];
+			plotPointsWebGL();
+			
+		}else if(responseType === 'FINISHED'){
+			
+			domain.polyData = args[0];
+			domain.polyNumber = args[1];
+			updateBuffer(domain.polyData);
+			
+			plotPointsWebGL();
+			onFinish();
+		}
+	}
 }
 
 function displayCanvasError(){
@@ -1357,644 +1292,6 @@ function displayCanvasMessage(message){
     ctx.fillStyle = domain.backgroundColor == 'dark' ? '#dddddd' : 'black';
     ctx.fillText(message, 155, canvas.height - 12);
     
-}
-
-function graphParametricFunction2(xFunc, yFunc, zFunc, onfinish){
-    //for non-real points, how far to go
-    var defaultDeltaU = (domain.u.max - domain.u.min) / domain.density, 
-        defaultDeltaV = (domain.v.max - domain.v.min) / domain.density;
-    
-    //sometimes I'm really thankful I stretched the function instead of the domain...
-    var defaultXYZLength = (domain.x.max - domain.x.min) / domain.density;
-    
-    points = [];
-    polygons = [];
-    
-    // center of domain, the seed point
-    // note that this is NOT always foolproff ==> z = rho, rho in [-10, 10]
-    const uMiddle = (domain.u.max + domain.u.min) / 2,
-        vMiddle = (domain.v.max + domain.v.min) / 2;
-    
-    function generatingVecs(refPt){
-        //we want (v1.u * |du|)^2 + (v1.v * |dv|)^2 == 1^2, and the same for v2
-        //for v1, we just assume v = 0
-        var du = refPt.deriv1.du,
-            dv = refPt.deriv1.dv
-        var v1 = {
-            u: 1 / magnitude(du),
-            v:0
-        };
-        //this is essentially a projection
-        //for future reference, think of du and dv embedded in xyz space, need new vector
-        //pointing "toward" dv but perpendicular to du, in uv coordinates
-        var v2 = {
-            u:-dot(du, dv) / dot(du, du),
-            v:1
-        }
-        //now scale v2 to its length is 1
-        var sc = 1 / magnitude( add( scalar(v2.u, du), scalar(v2.v, dv) ) );
-        v2.u *= sc;
-        v2.v *= sc;
-        
-        return [v1,v2];
-    }
-    
-    // returns the uv coordinates of a coordinate specified in perpendicular, normalized
-    //  coordinates, with the first coordinate parallel to the du vector
-    function dir(refPt, s,t){
-        var vecs = generatingVecs(refPt);
-        var v1 = vecs[0];
-        var v2 = vecs[1];
-        
-        return {
-            u: v1.u * s + v2.u * t,
-            v: v1.v * s + v2.v * t
-        };
-    }
-    
-	// finds change in angle per unit (xyz) vector (uDir, vDir)
-	function dAngle(pt, uDir, vDir){
-		const delta = Math.min((domain.u.max-domain.u.min)/1e6, (domain.v.max-domain.v.min)/1e6);
-		const pt2 = plotPlus(xFunc, yFunc, zFunc, pt.u + uDir*delta, pt.v + vDir*delta);
-		
-		const ptVec = add(scalar(uDir, pt.deriv1.du), scalar(vDir, pt.deriv1.dv));
-		const pt2Vec = add(scalar(uDir, pt2.deriv1.du), scalar(vDir, pt2.deriv1.dv));
-		
-		return angleBetween(ptVec, pt2Vec) / delta;
-	}
-	
-    //inverse of dir function
-    function invDir(refPt, u,v){
-        var vecs = generatingVecs(refPt);
-        var v1 = vecs[0];
-        var v2 = vecs[1];
-        //just a linear system, no problem
-        var den = v2.u*v1.v - v1.u*v2.v;
-        return {
-            s: -(u*v2.v - v2.u*v)/den,
-            t: -(v1.u*v-u*v1.v)/den
-        };
-    }
-    
-    function connectLoop(p1,p2,p3){
-        makeConnection(p1,p2);
-        makeConnection(p2,p3);
-        makeConnection(p1,p3);
-    }
-    
-    let initPoint = plotPlus(xFunc, yFunc, zFunc, uMiddle, vMiddle);
-    //we have (x(u,v), y(u,v), z(u,v)) ≈ u du + v dv, so a linear transformation (a plane)
-    //in order for a parameterization (x(s,t), y(s,t), z(s,t)) such that a change in s and t corresponds to 
-    //an equal change in x,y and z, we need s = u du, t = v dv, or (u(s,t), v(s,t)) = (s / |du|, t / |dv|)
-    let vec = dir(initPoint, defaultXYZLength, 0);
-	
-    let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v);
-    vec = dir(initPoint, defaultXYZLength*.5, defaultXYZLength*Math.sqrt(3)/2)
-    let initPoint3 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v)
-    
-    //the space that needs to be transversed goes counter-clockwise from beginning to end
-    initPoint.beginning = initPoint3;
-    initPoint.end = initPoint2;
-    
-    initPoint2.beginning = initPoint;
-    initPoint2.end = initPoint3;
-    
-    initPoint3.beginning = initPoint2;
-    initPoint3.end = initPoint;
-    
-    connectLoop(initPoint, initPoint2, initPoint3);
-    
-    points.push(initPoint);
-    initPoint.index = 0;
-    points.push(initPoint2);
-    initPoint2.index = 1;
-    points.push(initPoint3);
-    initPoint3.index = 2;
-    
-    polygons.push({
-        indices:[0,1,2],
-        pts:[]
-    });
-    
-    let pointFront = [initPoint, initPoint2, initPoint3];
-    let distFunc = p => Math.sqrt((p.u-uMiddle)*(p.u-uMiddle)+(p.v-vMiddle)*(p.v-vMiddle));
-    pointFront.sort(function(a,b){
-        return distFunc(a) - distFunc(b);
-    })
-    
-    // we want to take care of concave angles before ALL the convex angles
-    // as to prevent overlap
-    let entirelyConvex = true;
-    
-    function calcAngle(pt){
-        //start point
-        var sPoint = pt.beginning;
-        //end point
-        var ePoint = pt.end;
-        
-        //where the start and endPoints are in square coordinates
-        var sST = invDir(pt, sPoint.u - pt.u, sPoint.v - pt.v);
-        var eST = invDir(pt, ePoint.u - pt.u, ePoint.v - pt.v);
-        
-        //in square coordinates, we can do normal geometry (hurray!)
-        var sAngle = Math.atan2(sST.t, sST.s);
-        var eAngle = Math.atan2(eST.t, eST.s);
-        
-        //find counterclockwise difference between start and end angles
-        var angleDiff = eAngle >= sAngle ? eAngle - sAngle : 2*Math.PI - (sAngle - eAngle);
-        return angleDiff;
-    }
-    
-    //determines if the line segment (base, pt) is in a clockwise direction to (base, pt2) in uv coordinates
-    //this is determined by the direction of the cross product (right hand rule)
-    function isClockwise(pt, base, pt2){
-        //since the "z" (w?) component of all of our vectors is zero, the cross product is simply
-        //det({{i,j,k},{a,b,0},{c,d,0}}) = ad - bc (the so-called "2d cross product")
-        var a = pt.u - base.u,
-            b = pt.v - base.v,
-            c = pt2.u - base.u,
-            d = pt2.v - base.v;
-        return a*d - b*c > 0;
-    }
-    
-    //returns the dot product of the vectors formed by (base, pt) and (base, pt2)
-    function uvDot(pt,base, pt2){
-        var a = pt.u - base.u,
-            b = pt.v - base.v,
-            c = pt2.u - base.u,
-            d = pt2.v - base.v;
-        return a*c+b*d;
-    }
-    
-    function pushToPointFront(pt){
-        //do a binary search to find where the pt should go
-        var d = distFunc(pt);
-        //bounds of index, low and high (inclusive on both)
-        var low = 0;
-        var high = pointFront.length-1;
-        if(d < distFunc(pointFront[low])){
-            pointFront.splice(0,0,pt);
-            return;
-        }else if(d > distFunc(pointFront[high])){
-            pointFront.push(pt);
-            return;
-        }
-        
-        while(high - low > 1){
-            var mid = Math.floor((low + high) / 2);
-            var val = distFunc(pointFront[mid]);
-            if(val > d){
-                high = mid;
-            }else if(val < d){
-                low = mid;
-            }else{
-                low = mid-1;
-                high = mid;
-            }
-        }
-        
-        //splice inserts before the index
-        pointFront.splice(high,0,pt);
-    }
-    
-    function processPoint(pt, edgePoints){
-		if(pt.doNotExec){
-			return 1;
-		}
-		
-        // start point
-        const sPoint = pt.beginning;
-        // end point
-        const ePoint = pt.end;
-        
-        // where the start and endPoints are in square coordinates
-        const sST = invDir(pt, sPoint.u - pt.u, sPoint.v - pt.v);
-        const eST = invDir(pt, ePoint.u - pt.u, ePoint.v - pt.v);
-        
-        // in square coordinates, we can do normal geometry (hurray!)
-        const sAngle = Math.atan2(sST.t, sST.s);
-		sPoint.angle = sAngle;
-		
-        const eAngle = Math.atan2(eST.t, eST.s);
-        
-        // find counterclockwise difference between start and end angles
-        const angleDiff = eAngle >= sAngle ? eAngle - sAngle : 2*Math.PI - (sAngle - eAngle);
-		ePoint.angle = sAngle + angleDiff;
-        
-        // we're shooting for equillateral triangles, so our angles should be as close to Pi/3 as possible
-        let sections = Math.round(angleDiff / (Math.PI / 3)+0.4);
-		
-		let nodeDist = defaultXYZLength;
-		
-		// sample a bunch of angles to see how the concavity looks in this part of town
-		let samples = [];
-		for(let a = 0; a < Math.PI * 2; a += Math.PI/8 + .0001){
-			let direction = dir(pt, Math.cos(a), Math.sin(a));
-			samples.push(dAngle(pt, direction.u, direction.v));
-		}
-		// take the maximum angle 
-		let defactoAngle = Math.max(...samples);
-		nodeDist *= 1/(1 + defactoAngle**2);
-		
-		// but there needs to be a limit...
-		nodeDist = nodeDist < defaultXYZLength / 2 ? defaultXYZLength / 2 : nodeDist;
-		
-		let pointList = [];
-		
-		// ...but that's for a euclidean plane. Let's add or remove sections as needed
-		let adequateNodeNumber = false;
-		let count = 0;
-		while(!adequateNodeNumber && count < 3){
-			count++;
-			let arcLength = 0;
-			pointList = [sPoint];
-			
-			for(let nodeCount = 1; nodeCount < sections; nodeCount ++){
-				let angle = sAngle + nodeCount * angleDiff/(sections + 1)
-				let loc = dir(pt, nodeDist * Math.cos(angle), nodeDist * Math.sin(angle));
-				
-				let point = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
-				point.angle = angle;
-				point.nodeDistFactor = 1;
-				
-				pointList.push(point);
-				arcLength += xyzDist(pointList[pointList.length-1], pointList[pointList.length-2]);
-			}
-			
-			pointList.push(ePoint);
-			arcLength += xyzDist(pointList[pointList.length-1], pointList[pointList.length-2]);
-			
-			// 1.25 and 1 are "empiracly chosen" (aka arbitrary :))
-			if(arcLength / sections > nodeDist * 1.25){
-				sections++;
-				adequateNodeNumber = false;
-			}else if(arcLength / sections < nodeDist * 1){
-				sections--;
-				adequateNodeNumber = false;
-			}else{
-				adequateNodeNumber = true;
-			}
-		}
-		// now space out pointList so that eash point has close to equal sub-arc lengths to 
-		// the right and to the left
-		// we'll do this for a set number of iterations, since it's possible for for points 
-		// to experience arbitrary movement under arbitrary distances
-		const PADDING_ITERATIONS = 10;
-		for(let k = 0; k < PADDING_ITERATIONS; k++){
-			// every element except the first and last are able to move
-			for(let i = 1; i < pointList.length - 1; i++){
-				let arcBefore = xyzDist(pointList[i-1], pointList[i]),
-					arcAfter = xyzDist(pointList[i+1], pointList[i]),
-					ang0 = pointList[i-1].angle,
-					ang2 = pointList[i+1].angle,
-					ang1 = pointList[i].angle;
-				
-				// move the node in the direction that arcBefore and arcAfter stipulate
-				const newAngle = ang1 + (ang2 - ang0) * 0.5 * (arcAfter - arcBefore) / (arcAfter + arcBefore);
-				
-				// and while we're here, we might as well fix the nodeDist as well
-				// we have to be careful, though, since the whole arbitary movement thing applies here too, except 
-				// worse. We'll do a weighted average.
-				const nodeDistFactor = .95 * pointList[i].nodeDistFactor + .05 * pointList[i].nodeDistFactor * nodeDist / xyzDist(pt, pointList[i]);
-				
-				let loc = dir(pt, nodeDistFactor * nodeDist * Math.cos(newAngle), nodeDistFactor * nodeDist * Math.sin(newAngle));
-				
-				let newPt = null;
-				if(k == PADDING_ITERATIONS - 1){
-					newPt = plotPlus(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
-				}else{
-					newPt = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
-				}
-				
-				// check if newPt is on the interior of pointFront. If so, remove the point.
-				// we'll make use of a simple scanline algorithm for if a point is in a polygon
-				const v0 = newPt.v, u0 = newPt.u;
-				let crossCount = 0;
-				for(const testPt of pointFront){
-					// for segment {{a,b}, {c,d}}, intersection with v = v0:
-					// segment: {x(t), y(t)} = {a, b} + t( {c,d} - {a,b} ) = {*, v0}
-					// {t(c-a), t(d-b)} = {*, v0-b}
-					// t = (v0-b)/(d-b)
-					// u pos @ t: a + t (c - a) = a+((v0-b)/(d-b))(c-a)
-					const a = testPt.u, b = testPt.v,
-						c = testPt.end.u, d = testPt.end.v;
-					const t = (v0-b)/(d-b);
-					const u = a+(v0-b)*(c-a)/(d-b);
-					if(u > u0 && t >= 0 && t <= 1){
-						crossCount++;
-					}
-				}
-				
-				if(crossCount % 2 === 1){
-					// it's on the interior (not allowed)
-					pointList.splice(i, 1);
-					i--;
-					continue;
-				}
-				
-				
-				newPt.angle = newAngle;
-				newPt.nodeDistFactor = nodeDistFactor;
-				
-				pointList[i] = newPt;
-			}
-		}
-		
-		sPoint.end = pointList[1];
-		
-		// now join pointList into a a set of polygons 
-		for(let i = 1; i < pointList.length - 1; i++){
-			let p = pointList[i];
-			
-			points.push(p);
-			p.index = points.length - 1;
-			
-			makeConnection(p, pointList[i-1]);
-			makeConnection(p, pt);
-			
-			p.beginning = pointList[i-1];
-			p.end = pointList[i+1];
-			
-			// check if it's inside the domain
-			if(p.u >= domain.u.min && p.u <= domain.u.max && p.v >= domain.v.min && p.v <= domain.v.max){
-				pushToPointFront(p);
-				p.edgePoint = false;
-			}else{
-				// we need p in pointFront for use in interior intersection, since a concave point shrinks the acceptable region
-				p.doNotExec = true;
-				pushToPointFront(p);
-				edgePoints.push(p);
-				p.edgePoint = true;
-			}		
-			
-			polygons.push({
-				indices:[pt.index, p.index, pointList[i-1].index],
-				pts:[]
-			});
-		}
-		
-		ePoint.beginning = pointList[pointList.length - 2];
-		
-		makeConnection(ePoint, pointList[pointList.length-2]);
-		polygons.push({
-			indices:[pt.index, ePoint.index, pointList[pointList.length-2].index],
-			pts:[]
-		});
-		
-    }
-    
-    //in order not to mess up the mesh as its graphing, we'll squish the 
-    //necessary edge points after the fact
-    var edgePoints = [];
-    
-    var c = 0;
-    while(pointFront.length > 0 && c < 40000){
-        c++;
-		let ptToProcess = pointFront[0];
-		
-		// this is a slightly clumsy way to skip points that are edgepoints. 
-		let i = 0;
-		while(ptToProcess.doNotExec){
-			i++;
-			if(i === pointFront.length){
-				pointFront = [];
-				break;
-			}
-			ptToProcess = pointFront[i];
-		}
-		
-        const res = processPoint(ptToProcess, edgePoints);
-		
-		// res: 1 is the code for "do not delete"
-		// it is important to not delete edge points while they 
-		// are inactive but still part of the border
-		
-		// since more points may be added before ptToProcess, we'll search for the right one
-		// in this case, a max of 8 (ish) points can be added before, but it's usually zero 
-		// so we'll do a linear search 
-		let k = 0;
-		while(k < pointFront.length && k >= 0 && res !== 1){
-			if(pointFront[k] === ptToProcess){
-				pointFront.splice(k,1);
-				k = -1;
-			}else{
-				k++;
-			}
-		}
-    }
-	
-	// now a little post processing
-	
-	let polyIndicesToRemove = [];
-	let polysToAdd = [];
-	
-	// A bit of semi-delauney triangulation
-	// find triangles in which the circumcenter lies outside the polygon, 
-	// find corresponding diamond then see if switching diagonals is a worthy decision
-	for(let k = polygons.length - 1; k >= 0; k--){
-		let poly = polygons[k];
-		// The circumcenter lies outside the triangle if there is an obtuse angle 
-		// (Hey, wikipedia agrees with me)
-		// a triangle is obtuse if the sum of the squares two of the sides is less than 
-		// the square of the third side
-		let obtuse = false,
-			obtusePair = [];
-		let inds = [[0,1,2],[0,2,1],[1,2,0]];
-		for(let triCase of inds){
-			let [a,b,c] = triCase.map(x => points[poly.indices[x]]);
-			let [s3, s2, s1] = [xyzDist(a,b), xyzDist(b,c), xyzDist(a,c)];
-			if(s3**2 > s2**2 + s1**2){
-				obtuse = true;
-				obtusePair = [a,b];
-				break;
-			}
-		}
-		
-		if(obtuse){
-			let [p1, p2] = obtusePair;
-			// search for common connections (there should be 2 of them)
-			let set1 = p1.neighbors.map(x => x.pt),
-				set2 = p2.neighbors.map(x => x.pt);
-			
-			let common = set1.filter(x => set2.indexOf(x) !== -1);
-			
-			// it is usually two, since the whole thing is triangles. 
-			// if it isn't 2, then something weird happened (but it is possible), so we won't mess 
-			// with it
-			if(common.length === 2){
-				// if the other diagonal is shorter than the one currently there...
-				if(xyzDist(...common) < xyzDist(p1, p2)){
-					// remove current connection
-					removeConnection(p1, p2);
-					
-					// add the new one
-					removeConnection(...common);
-					makeConnection(...common);
-					
-					// remove the offending polygons and add new ones
-					polyIndicesToRemove.push([p1.index,  p2.index]);
-					
-					polysToAdd.push({
-						indices:[p1.index, ...common.map(x=>x.index)],
-						pts:[]
-					});
-					
-					polysToAdd.push({
-						indices:[p2.index, ...common.map(x=>x.index)],
-						pts:[]
-					});
-				}
-			}
-		}
-	}
-	
-	for(let poly of polysToAdd){
-		polygons.push(poly);
-	}
-	
-	// it is very important that the appropriate polygons be removed AFTER the other polygons 
-	// have been added. This way, the order of polyIndices can be preserved while getting rid of 
-	// polygons that were created at a previous step in the above logic
-	for(let [index1, index2] of polyIndicesToRemove){
-		for(var k = polygons.length - 1; k >= 0; k--){
-			if(polygons[k].indices.indexOf(index1) !== -1 && polygons[k].indices.indexOf(index2) !== -1){
-				polygons.splice(k, 1);
-			}
-		}
-	}
-    
-    // move all the edge points back into the domain
-    for(var k = 0; k < edgePoints.length; k++){
-        const pt = edgePoints[k];
-        let u = pt.u, v = pt.v;
-        u = u > domain.u.max ? domain.u.max : u;
-        u = u < domain.u.min ? domain.u.min : u;
-        v = v > domain.v.max ? domain.v.max : v;
-        v = v < domain.v.min ? domain.v.min : v;
-        
-        pt.u = u;
-        pt.v = v;
-        
-        const newPt = plotPlus(xFunc, yFunc, zFunc, pt.u, pt.v);
-        pt.x = newPt.x;
-        pt.y = newPt.y;
-        pt.z = newPt.z;
-		pt.deriv1 = newPt.deriv1;
-		pt.deriv2 = newPt.deriv2;
-    }
-	
-	// we also need to fix the edge point control points
-	for(let edge of edgePoints){
-		// This is not a for ... of loop to avoid concurrent modification bugs
-		for(let k = edge.neighbors.length - 1; k >= 0; k--){
-			// remaking the connection resets the control point
-			let otherPt = edge.neighbors[k].pt;
-			removeConnection(edge, otherPt);
-			makeConnection(edge, otherPt);
-		}
-	}
-	
-	// for drawing speed purposes, let's have controlPt accessable 
-	// from the polygon object
-	for(let poly of polygons){
-		poly.neighborIndices = [];
-		for(let i = 0; i < poly.indices.length; i++){
-			let nextPtIndex = i === poly.indices.length - 1 ? poly.indices[0] : poly.indices[i+1];
-			
-			let neighborObject = points[poly.indices[i]].neighbors.filter(x => x.pt.index === nextPtIndex)[0];
-			
-			if(!neighborObject){
-				console.log('ERROR, polygon not associated with connection');
-				console.log(poly);
-				console.log(nextPtIndex);
-				console.log(points[poly.indices[i]]);
-			}
-			
-			poly.neighborIndices.push(points[poly.indices[i]].neighbors.indexOf(neighborObject));
-		}
-	}
-    
-    initWebGL();
-	
-	onfinish();
-}
-
-function makeConnection(pt1, pt2){
-    if(!pt2 || !pt1){
-        throw new Error('pt1 or pt2 is null')
-    }
-	// for a quadratic bezier curve, the control point should be 
-	// the intersection of the first degree linear approximations 
-	// for the two points in the direction of the other (since bezier 
-	// curves are tangent to the control lines at the end points)
-	
-	// for a parameterized surface of u and v, grad(f(u,v)) is perpendicular 
-	// to the tangent line, so from the tangent plane, project (pt2 - pt1)
-	// then normalize
-	
-	const p1Grad = cross(pt1.deriv1.du, pt1.deriv1.dv),
-		p2Grad = cross(pt2.deriv1.du, pt2.deriv1.dv);
-	
-	const p1Dir = sub(pt2, pt1);
-	const p1Vec = sub(p1Dir, project(p1Dir, p1Grad));
-	
-	// we need ((pt1 + p1Vec) - pt2) . pt2_grad == 0
-	// so given p1Vec = k (a, b, c), we have 
-	// pt2_gradx * (pt1.x + k a - pt2.x) + pt2_grady * (pt1.y + k b - pt2.y) ... == 0
-	// k == ( pt2_gradx(pt2.x - pt1.x) + pt2_grady(pt2.y - pt1.y) ...) / ( a pt2_gradx + b pt2_grady ... )
-	// k == pt2_grad . (pt2 - pt1) / (p1Vec . pt2_grad) (curious...)
-	
-	const k = dot(p2Grad, sub(pt2, pt1)) / dot(p1Vec, p2Grad);
-	
-	let controlPt = null;
-	
-	// there are some cases where the only way to do a quadratic bezier is to go past the point and come back
-	// it the angle between pt1, pt2 and controlPt > 90, go with a straight line
-	if(k !== null && !isNaN(k)){
-		controlPt = add(pt1, scalar(k, p1Vec));
-	}
-	
-	if(k === null || isNaN(k) || dot(sub(pt1,pt2), sub(controlPt, pt2)) < 0 || dot(sub(pt2,pt1), sub(controlPt, pt1)) < 0){
-		// default to a straight line
-		controlPt = scalar(.5, add(pt1, pt2));
-	}
-	
-    pt1.neighbors.push({
-        draw:true,
-        pt:pt2,
-		controlPt:controlPt
-    });
-    pt2.neighbors.push({
-        draw:false,
-        pt:pt1,
-		controlPt:controlPt
-    });
-}
-
-function removeConnection(pt1, pt2){
-    for(var j = pt1.neighbors.length - 1; j >= 0; j--){
-        if(pt1.neighbors[j].pt === pt2){
-            pt1.neighbors.splice(j,1);
-        }
-    }
-    for(var k = pt2.neighbors.length - 1; k >= 0; k--){
-        if(pt2.neighbors[k].pt === pt1){
-            pt2.neighbors.splice(k,1);
-        }
-    }
-}
-
-function averageValue(pts){
-    var sum = {x:0,y:0,z:0};
-    for(var i = 0; i < pts.length; i++){
-        if(!pts[i]){
-            return 99999999;
-        }
-        sum.x += pts[i].x;
-        sum.y += pts[i].y;
-        sum.z += pts[i].z;
-    }
-    return {x:sum.x / pts.length, y:sum.y / pts.length, z:sum.z / pts.length};
 }
 
 function getRealPart(val){
@@ -2049,53 +1346,6 @@ function copyPoint(point){
     return {x:point.x,y:point.y,z:point.z};
 }
 
-//compiled x,y,z functions
-function plot(cX, cY, cZ, u,v){
-    var scope = {
-            u:u,
-            v:v,
-            x:null,
-            y:null,
-            z:null
-        }
-        for(var j = 0; j < animationVars.length; j++){
-            scope[animationVars[j].name] = animationVars[j].value;
-        }
-        
-        var point;
-        
-        if(domain.currentSystem.indexOf('parametric') !== -1){
-            //the parametric body is stored in the cX function by convention
-            cX.eval(scope)
-            point = {
-                u:u,
-                v:v,
-            };
-            [0,1,2].forEach(i => 
-                point[domain.expressionInfo.expression.vars[i]] = getRealPart(math.subset(scope.x, math.index(i)))
-            );
-            if(domain.currentSystem.indexOf('cylindrical') !== -1){
-                point.x = point.rho * Math.cos(point.phi);
-                point.y = point.rho * Math.sin(point.phi)
-            }else if(domain.currentSystem.indexOf('spherical') !== -1){
-                point.x = point.r * Math.cos(point.theta) * Math.cos(point.phi);
-                point.y = point.r * Math.sin(point.theta) * Math.cos(point.phi);
-                point.z = point.r * Math.sin(point.phi);
-            }
-        }else{
-            cX.eval(scope);
-            cY.eval(scope);
-            cZ.eval(scope);
-            point = {u:u,v:v,
-            x:getRealPart(scope.x),y:getRealPart(scope.y),z:getRealPart(scope.z)};
-        }
-        point.x = spreadCoord(point.x, domain.x.min, domain.x.max, domain.x.spread);
-        point.y = spreadCoord(point.y, domain.y.min, domain.y.max, domain.y.spread);
-        point.z = spreadCoord(point.z, domain.z.min, domain.z.max, domain.z.spread);
-        point.neighbors = [];
-        return point;
-}
-
 //cFunc should be compiled version of the function that's being bad
 function isolateAsymptote(pt1, pt2, v, cFunc, cFunc2, cFunc3, iterations){
     if(iterations === 0){
@@ -2138,65 +1388,8 @@ function isolateAsymptote(pt1, pt2, v, cFunc, cFunc2, cFunc3, iterations){
     return isolateAsymptote(newP1, newP2, v, cFunc,cFunc2, cFunc3, iterations - 1);
 }
 
-function uvDist(a,b){
-    return Math.sqrt(Math.pow(a.u-b.u,2) + Math.pow(a.v-b.v,2));
-}
-
-function xyzDist(a,b){
-    return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2);
-}
-
 function isNonReal(pt){
     return pt===undefined || !pt || isNaN(pt.x) || isNaN(pt.y) || isNaN(pt.z) || pt.x === null || pt.y === null || pt.z === null;
-}
-
-function findParametricEdge(realP, nonRealP, xFunc, yFunc, zFunc, iterations){
-    //when we have completed the necessary amount of iterations,
-    //  return the real end of the interval containing the boundary
-    if(iterations === 0){
-        return realP;
-    }
-    
-    //find the midpoint of realP and nonRealP in terms of parameterized variables
-    var u = (realP.u + nonRealP.u)/2;
-    var v = (realP.v + nonRealP.v)/2;
-    var scope = {
-        u:u,
-        v:v,
-        x:null,
-        y:null,
-        z:null
-    }
-    
-    //set any animation variables
-    for(var j = 0; j < animationVars.length; j++){
-        scope[animationVars[j].name] = animationVars[j].value;
-    }
-    
-    //evaluate function at new point (twice to account for function like x = u, y = x, z = y)
-    xFunc.eval(scope);
-    yFunc.eval(scope);
-    zFunc.eval(scope);
-    xFunc.eval(scope);
-    yFunc.eval(scope);
-    zFunc.eval(scope);
-    //create new point containing xyz and uv coordinates for midppoint
-    var inBetween = {x:getRealPart(scope.x),y:getRealPart(scope.y),z:getRealPart(scope.z)};
-    makeFiniteIfInfinate(inBetween)
-    
-    //domain stretching for non-cubic domains
-    inBetween.x = spreadCoord(inBetween.x, domain.x.min, domain.x.max, domain.x.spread);
-    inBetween.y = spreadCoord(inBetween.y, domain.y.min, domain.y.max, domain.y.spread);
-    inBetween.z = spreadCoord(inBetween.z, domain.z.min, domain.z.max, domain.z.spread);
-    inBetween.u = u;
-    inBetween.v = v;
-    
-    //return new interval
-    if(isNonReal(inBetween)){
-        return findParametricEdge(realP, inBetween, xFunc, yFunc, zFunc, iterations - 1);
-    }else{
-        return findParametricEdge(inBetween, nonRealP, xFunc, yFunc, zFunc, iterations - 1);
-    }
 }
 
 function makeFiniteIfInfinate(pt){
@@ -2232,6 +1425,7 @@ function pointToQuat(p){
 
 // assumes that all points and polygons have been created
 function initWebGL(){
+	console.log('initializing webgl...');
 	let gl = document.getElementById('canvas').getContext('webgl');
 	
 	if(!gl){
@@ -2284,37 +1478,6 @@ function initWebGL(){
 	
 	// put the data in polygons into an array
 	let polyData = [];
-	for(let poly of polygons){
-		let c = 0;
-		for(let p of poly.indices){
-			polyData.push(points[p].x);
-			polyData.push(points[p].y);
-			polyData.push(points[p].z);
-			
-			// compute normal to point
-			// (this is simly the cross product of p.deriv1.du and p.deriv1.dv)
-			let normal = cross(points[p].deriv1.du, points[p].deriv1.dv);
-			normal = scalar(1/magnitude(normal), normal);
-			
-			polyData.push(normal.x);
-			polyData.push(normal.y);
-			polyData.push(normal.z);
-			
-			let arr = [1.0, 0.0, 0.0];
-			// barimetric data
-			if(c === 1){
-				arr = [0.0, 1.0, 0.0];
-			}else if(c === 2){
-				arr = [0.0, 0.0, 1.0];
-			}
-			
-			for(let el of arr){
-				polyData.push(el);
-			}
-			
-			c++;
-		}
-	}
 	
 	// put the data into the buffer
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(polyData), gl.STATIC_DRAW);
@@ -2322,6 +1485,11 @@ function initWebGL(){
 	webGLInfo.gl = gl;
 	webGLInfo.program = program;
 	webGLInfo.initialized = true;
+}
+
+function updateBuffer(polyData){
+	let gl = webGLInfo.gl;
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(polyData), gl.STATIC_DRAW);
 }
 
 function plotPointsWebGL(){
@@ -2381,24 +1549,8 @@ function plotPointsWebGL(){
 	gl.uniform1f(webGLInfo.normalMultiplierLocation, domain.normalMultiplier);
 	
 	// primitive type, offset, count
-	gl.drawArrays(gl.TRIANGLES, 0, polygons.length * 3);
-}
-
-function copyPoly(poly){
-    var newPoly = {};
-    newPoly.pts = [];
-    for(var k = 0; k < poly.pts.length; k++){
-        newPoly.pts.push({x: poly.pts[k].x, y: poly.pts[k].y, z: poly.pts[k].z});
-    }
-    return newPoly;
-}
-
-function getLineWidth(){
-    var thickness = .3*math.sech(domain.density / 300);
-    if(thickness < .002){
-        thickness = .002;
-    }
-    return thickness;
+	console.log(domain.polyNumber);
+	gl.drawArrays(gl.TRIANGLES, 0, domain.polyNumber * 3);
 }
 
 function rotatePoints(pQuats, rot){
@@ -2468,35 +1620,6 @@ function quatConj(q){
     };
 }
 
-function transform(x,y,z,canvas){
-    //have some perspective, people!
-    //a plane parallel to the z plane
-    var imagePlaneZ = spreadCoord(domain.z.min, domain.z.min, domain.z.max, 1.6);
-    var cameraZ = spreadCoord(domain.z.min, domain.z.min, domain.z.max, 3);
-    var camera = {x: domain.center.x, y:domain.center.y, z:cameraZ};
-    var fudge = 2;
-    
-    //need the line from point to camera
-    if(domain.perspective === false){
-        camera.z *= 9999999
-        fudge = 1;
-    }
-    x = fudge*(x - camera.x) / (z - camera.z) * (imagePlaneZ - camera.z) + camera.x;
-    y = fudge*(y - camera.y) / (z - camera.z) * (imagePlaneZ - camera.z) + camera.y;
-    
-    if(z < imagePlaneZ){
-        return null;
-    }
-    
-    var factor = Math.min(canvas.width, canvas.height);
-    
-    //switch the x and y axis to retain x cross y == z
-    var realX = (x-domain.x.min)/(domain.x.max - domain.x.min)* factor;
-    var realY = (y-domain.y.min)/(domain.y.max - domain.y.min)* factor;
-    
-    return {x:realX,y:realY};
-}
-
 function quatNorm(q){
     var mag = Math.sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
     q.w /= mag;
@@ -2504,20 +1627,6 @@ function quatNorm(q){
     q.y /= mag;
     q.z /= mag;
     return q;
-}
-
-// stackoverflow for the win again! http://gamedev.stackexchange.com/questions/8191/any-reliable-polygon-normal-calculation-code
-//  Modified from http://www.fullonsoftware.co.uk/snippets/content/Math_-_Calculating_Face_Normals.pdf
-// EDIT: I know how to do this now :)
-function polyNormal(p1, p2, p3){
-    var v1 = sub(p2,p1);
-    var v2 = sub(p3,p1);
-    var surfaceNormal = {};
-    surfaceNormal.x = (v1.y*v2.z) - (v1.z*v2.y);
-    surfaceNormal.y = (v1.z*v2.x) - (v1.x*v2.z);
-    surfaceNormal.z = (v1.x*v2.y) - (v1.y*v2.x);
-
-    return surfaceNormal;
 }
 
 function angleBetween(v1, v2){
@@ -2554,32 +1663,6 @@ function magnitude(v){
     return Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
 }
 
-//stack overflow - Paul S. http://stackoverflow.com/questions/17242144/javascript-convert-hsb-hsv-color-to-rgb-accurately
-function HSVtoRGB(h, s, v,a) {
-    var r, g, b, i, f, p, q, t;
-    if (h && s === undefined && v === undefined) {
-        s = h.s, v = h.v, h = h.h;
-    }
-    i = Math.floor(h * 6);
-    f = h * 6 - i;
-    p = v * (1 - s);
-    q = v * (1 - f * s);
-    t = v * (1 - (1 - f) * s);
-    switch (i % 6) {
-        case 0: r = v, g = t, b = p; break;
-        case 1: r = q, g = v, b = p; break;
-        case 2: r = p, g = v, b = t; break;
-        case 3: r = p, g = q, b = v; break;
-        case 4: r = t, g = p, b = v; break;
-        case 5: r = v, g = p, b = q; break;
-    }
-    return {
-        r: Math.floor(r * 255),
-        g: Math.floor(g * 255),
-        b: Math.floor(b * 255),
-        a: a
-    };
-}
 
 
 
