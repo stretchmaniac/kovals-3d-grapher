@@ -473,7 +473,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
         pt.y = newPt.y;
         pt.z = newPt.z;
 		pt.deriv1 = newPt.deriv1;
-		pt.deriv2 = newPt.deriv2;
     }
 	
 	// we also need to fix the edge point control points
@@ -693,20 +692,16 @@ function removeConnection(pt1, pt2){
     }
 }
 
-// plot the point, computes its 1st partial derivatives (dx/du, dx/dv etc) and its 2nd parial derivatives (dx^2/du, etc)
+// plot the point, computes its 1st partial derivatives (dx/du, dx/dv etc)
 function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
     if(!delta){
         delta = Math.min((domain.u.max-domain.u.min)/1e8, (domain.v.max-domain.v.min)/1e8);
     }
-    var p1 = plot(xfunc, yfunc, zfunc, u, v);
-    var pu = plot(xfunc, yfunc, zfunc, u-delta, v);
-    var pu2 =plot(xfunc, yfunc, zfunc, u+delta, v);
-    var pv = plot(xfunc, yfunc, zfunc, u, v-delta);
-    var pv2 =plot(xfunc, yfunc, zfunc, u, v+delta);
-    var ud1 = scalar(1/delta,sub(p1,pu));
-    var ud2 = scalar(1/delta,sub(pu2,p1));
-    var vd1 = scalar(1/delta,sub(p1,pv));
-    var vd2 = scalar(1/delta,sub(pv2,p1));
+    const p1 = plot(xfunc, yfunc, zfunc, u, v);
+    const pu = plot(xfunc, yfunc, zfunc, u-delta, v);
+    const pv = plot(xfunc, yfunc, zfunc, u, v-delta);
+    const ud1 = scalar(1/delta,sub(p1,pu));
+	const uv1 = scalar(1/delta, sub(p1, pv));
     
     return {
         x:p1.x,
@@ -716,14 +711,9 @@ function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
         v:p1.v,
         neighbors:[],
         deriv1:{
-            //average the two 1st derivative measurements
-            du:scalar(1/2, add(ud1,ud2)),
-            dv:scalar(1/2, add(vd1,vd2))
+            du:ud1,
+            dv:udv1
         },
-        deriv2:{
-            du:scalar(1/delta, sub(ud2,ud1)), 
-            dv:scalar(1/delta, sub(vd2,vd1))
-        }
     };
 }
 
