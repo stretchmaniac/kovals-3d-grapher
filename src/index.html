@@ -95,6 +95,9 @@
 			vec3 light = vec3(1, 1, -1);
 			light = normalize(light);
 			
+			// ooh, more lighting!
+			vec3 light2 = vec3(-1,0,-1);
+			
 			// rotate the normal vector too
 			vec3 newNormal = a_normal.x * u_orientation_x + a_normal.y * u_orientation_y + a_normal.z * u_orientation_z;
 			newNormal = normalize(u_normal_multiplier * newNormal);
@@ -103,18 +106,23 @@
 			
 			// phong shading per https://en.wikipedia.org/wiki/Phong_reflection_model
 			
-			float ksConst = 0.0005;
+			float ksConst = 0.00005;
 			float kdConst = 0.25;
-			float kaConst = 0.1;
+			float kaConst = 0.075;
 			float aConst = 8.0;
-			float imConst = 1.0;
+			float imConst = 0.5;
 			
 			vec3 LVec = light;
+			vec3 LVec2 = light2;
 			vec3 NVec = newNormal;
 			vec3 RVec = 2.0 * dot(LVec, NVec) * NVec - LVec;
+			vec3 RVec2 = 2.0 * dot(LVec2, NVec) * NVec - LVec2;
 			vec3 VVec = vec3(0, 0, -2) - clipspace.xyz;
 			
+			// light 1
 			float luminosity = kaConst * imConst + kdConst * max(dot(LVec, NVec), 0.0) * imConst + ksConst * pow(max(dot(RVec, VVec), 0.0), aConst) * imConst;
+			// light2
+			luminosity += kaConst * imConst + kdConst * max(dot(LVec2, NVec), 0.0) * imConst + ksConst * pow(max(dot(RVec2, VVec), 0.0), aConst) * imConst;
 			
 			float h = 1.0 / (1.0 + pow(2.0, -1.0 * (a_position.z / u_domain_halfwidth)));
 			
