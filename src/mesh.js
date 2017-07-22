@@ -475,17 +475,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		pt.deriv1 = newPt.deriv1;
     }
 	
-	// we also need to fix the edge point control points
-	for(let edge of edgePoints){
-		// This is not a for ... of loop to avoid concurrent modification bugs
-		for(let k = edge.neighbors.length - 1; k >= 0; k--){
-			// remaking the connection resets the control point
-			let otherPt = edge.neighbors[k].pt;
-			removeConnection(edge, otherPt);
-			makeConnection(edge, otherPt);
-		}
-	}
-	
 	onFinish();
 }
 
@@ -631,51 +620,14 @@ function makeConnection(pt1, pt2){
     if(!pt2 || !pt1){
         throw new Error('pt1 or pt2 is null')
     }
-	// for a quadratic bezier curve, the control point should be 
-	// the intersection of the first degree linear approximations 
-	// for the two points in the direction of the other (since bezier 
-	// curves are tangent to the control lines at the end points)
-	
-	// for a parameterized surface of u and v, grad(f(u,v)) is perpendicular 
-	// to the tangent line, so from the tangent plane, project (pt2 - pt1)
-	// then normalize
-	
-	const p1Grad = cross(pt1.deriv1.du, pt1.deriv1.dv),
-		p2Grad = cross(pt2.deriv1.du, pt2.deriv1.dv);
-	
-	const p1Dir = sub(pt2, pt1);
-	const p1Vec = sub(p1Dir, project(p1Dir, p1Grad));
-	
-	// we need ((pt1 + p1Vec) - pt2) . pt2_grad == 0
-	// so given p1Vec = k (a, b, c), we have 
-	// pt2_gradx * (pt1.x + k a - pt2.x) + pt2_grady * (pt1.y + k b - pt2.y) ... == 0
-	// k == ( pt2_gradx(pt2.x - pt1.x) + pt2_grady(pt2.y - pt1.y) ...) / ( a pt2_gradx + b pt2_grady ... )
-	// k == pt2_grad . (pt2 - pt1) / (p1Vec . pt2_grad) (curious...)
-	
-	const k = dot(p2Grad, sub(pt2, pt1)) / dot(p1Vec, p2Grad);
-	
-	let controlPt = null;
-	
-	// there are some cases where the only way to do a quadratic bezier is to go past the point and come back
-	// it the angle between pt1, pt2 and controlPt > 90, go with a straight line
-	if(k !== null && !isNaN(k)){
-		controlPt = add(pt1, scalar(k, p1Vec));
-	}
-	
-	if(k === null || isNaN(k) || dot(sub(pt1,pt2), sub(controlPt, pt2)) < 0 || dot(sub(pt2,pt1), sub(controlPt, pt1)) < 0){
-		// default to a straight line
-		controlPt = scalar(.5, add(pt1, pt2));
-	}
 	
     pt1.neighbors.push({
         draw:true,
         pt:pt2,
-		controlPt:controlPt
     });
     pt2.neighbors.push({
         draw:false,
         pt:pt1,
-		controlPt:controlPt
     });
 }
 
