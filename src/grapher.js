@@ -461,7 +461,8 @@ $(function(){
         }else{
             magnification = 1/.9;
         }
-        var c = getRealDomainCenter()
+        var c = getRealDomainCenter();
+		domain.center = c;
         var w = getRealDomainWidth();
         var prevDomain = domain;
         var min = c.x-w.x/2;
@@ -512,6 +513,8 @@ $(function(){
     document.getElementById('canvas').oncontextmenu = function(e){
         return false;
     }
+	
+	domain.center = getRealDomainCenter();
 });
 
 $(window).resize(function(){
@@ -947,17 +950,11 @@ function randomGraph(){
 }
 
 function getRealDomainCenter(){
-    var newDomainCenter;
-    if(domain.panCenter){
-        newDomainCenter = {
-            x:domain.panCenter.x - (-domain.center.x + domain.panCenter.x)/domain.x.spread,
-            y:domain.panCenter.y - (-domain.center.y + domain.panCenter.y)/domain.y.spread,
-            z:domain.panCenter.z - (-domain.center.z + domain.panCenter.z)/domain.z.spread
-        }
-    }else{
-        newDomainCenter = domain.center;
-    }
-    return newDomainCenter;
+     return {
+		x:(domain.x.max + domain.x.min)/2,
+		y:(domain.y.max + domain.y.min)/2,
+		z:(domain.z.max + domain.z.min)/2
+	}
 }
 
 function getRealDomainWidth(){
@@ -1042,7 +1039,6 @@ function graph(onFinish){
     }
     
     spread = {x:domain.x.spread, y:domain.y.spread, z:domain.z.spread}
-    domain.center = getRealDomainCenter();
     
     domain.showAxes = $('#axes-checkbox').prop('checked');
     domain.coloring = $('#color-checkbox').prop('checked');
@@ -1159,7 +1155,7 @@ function graph(onFinish){
             inputs.z = 'x';
         }
         else if(domain.currentSystem.indexOf('cartesian') !== -1){
-            var realCenter = getRealDomainCenter();
+            var realCenter = domain.center
             var realWidth = getRealDomainWidth();
             
             inputs[exp.vars[0]] = exp.body;
