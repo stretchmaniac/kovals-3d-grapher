@@ -85,6 +85,7 @@
 			vec3 rotated = a_position.x * u_orientation_x + a_position.y * u_orientation_y + a_position.z * u_orientation_z;
 			vec3 clipspace = (rotated - u_domain_center) / (u_domain_halfwidth * 1.75);
 			clipspace.x /= u_aspect_ratio;
+			clipspace.z +=  .3;
 			
 			float shrinkFactor = (clipspace.z + 1.0) / 2.0 + 0.10; 
 			
@@ -175,6 +176,7 @@
 			vec3 rotated = a_position.x * u_orientation_x + a_position.y * u_orientation_y + a_position.z * u_orientation_z;
 			vec3 clipspace = (rotated - u_domain_center) / (u_domain_halfwidth * 1.75);
 			clipspace.x /= u_aspect_ratio;
+			clipspace.z += .3;
 			
 			float shrinkFactor = (clipspace.z + 1.0) / 2.0 + 0.10; 
 			
