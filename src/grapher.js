@@ -41,7 +41,8 @@ var domain = {
 	maxColoringTime:0,
 	normalMultiplier:1,
 	polyNumber:0,
-	polyData:[]
+	polyData:[],
+	axisPrecision:3
 }
 
 var compile = require('interval-arithmetic-eval');
@@ -1580,12 +1581,48 @@ function initWebGL(){
 	// put the data in polygons into an array
 	let polyData = [];
 	
-	// put the data into the buffer
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(polyData), gl.STATIC_DRAW);
+	webGLInfo.polyBuffer = new Float32Array(polyData);
 	
 	webGLInfo.gl = gl;
 	webGLInfo.program = program;
 	webGLInfo.initialized = true;
+	
+	// create our axis box data / program 
+	let axisVertexShader = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(axisVertexShader, document.getElementById('axis-vertex-shader').text);
+	gl.compileShader(axisVertexShader);
+	
+	console.log(gl.getShaderInfoLog(axisVertexShader));
+	
+	let axisFragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+	gl.shaderSource(axisFragmentShader, document.getElementById('axis-fragment-shader').text);
+	gl.compileShader(axisFragmentShader);
+	
+	console.log(gl.getShaderInfoLog(axisFragmentShader));
+	
+	let axisProgram = gl.createProgram();
+	gl.attachShader(axisProgram, axisVertexShader);
+	gl.attachShader(axisProgram, axisFragmentShader);
+	gl.linkProgram(axisProgram);
+	
+	console.log(gl.getProgramInfoLog(axisProgram));
+	
+	webGLInfo.axisProgram = axisProgram;
+	
+	// attributes / uniforms 
+	webGLInfo.axisPositionLocation = gl.getAttribLocation(axisProgram, 'a_position');
+	
+	webGLInfo.axisOrientationXLocation = gl.getUniformLocation(axisProgram, 'u_orientation_x');
+	webGLInfo.axisOrientationYLocation = gl.getUniformLocation(axisProgram, 'u_orientation_y');
+	webGLInfo.axisOrientationZLocation = gl.getUniformLocation(axisProgram, 'u_orientation_z');
+	webGLInfo.axisAspectRatioLocation = gl.getUniformLocation(axisProgram, 'u_aspect_ratio');
+	webGLInfo.axisDomainCenterLocation = gl.getUniformLocation(axisProgram, 'u_domain_center');
+	webGLInfo.axisDomainHalfWidthLocation = gl.getUniformLocation(axisProgram, 'u_domain_halfwidth');
+	webGLInfo.axisPerspectiveLocation = gl.getUniformLocation(axisProgram, 'u_perspective');
+	
+	// set our axis buffer
+	updateAxisBuffer();
+	
 }
 
 function updateBuffer(polyDatas){
@@ -1599,7 +1636,132 @@ function updateBuffer(polyDatas){
 	domain.polyNumber = polyData.length / 27;
 	
 	let gl = webGLInfo.gl;
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(polyData), gl.STATIC_DRAW);
+	webGLInfo.polyBuffer = new Float32Array(polyData);
+}
+
+function updateAxisBuffer(){
+	// our axis is made of line segments. The only attributes that we will need are 3 floats for position, or 12 bytes
+	
+	// convenience array
+	const ptArray = [
+		domain.x.min,
+		domain.x.max,
+		domain.y.min,
+		domain.y.max,
+		domain.z.min,
+		domain.z.max
+	];
+	
+	const lines = [];
+	
+	// each line segment is the result of holding two of the variables constant
+	// secondaryMax / tertiaryMax are booleans determining which direction the ticks marks go
+	function axisSegment(c1, c2, varyIndex, secondaryMax, tertiaryMax){
+		// draw the backbone first
+		lines.push([c1, c2]);
+		
+		// which variable which defines the drawing plane
+		const secondaryIndex = [0,1,2].filter(x => x !== varyIndex)[0];
+		const tertiaryIndex = [0,1,2].filter(x => x !== varyIndex)[1];
+		
+		// now figure out the important tick marks in the variable
+		const maxStep = 10**Math.floor(Math.log10(c2[varyIndex] - c1[varyIndex]));
+		const minStep = maxStep * 10 ** (- domain.axisPrecision);
+		
+		const maxLineLength = secondaryIndex === 0 ? (domain.x.max - domain.x.min) / 20 :
+			secondaryIndex === 1 ? (domain.y.max - domain.y.min) / 20 : 
+			secondaryIndex === 2 ? (domain.z.max - domain.z.min) / 20 : 0;
+		
+		const minVal = (Math.floor(c1[varyIndex] / minStep) + 1) * minStep,
+			steps = Math.floor((c2[varyIndex] - c1[varyIndex]) / minStep) - 1;
+			
+		console.log(minStep, maxStep, maxLineLength, minVal, steps);
+		
+		for(let i = 0; i < steps; i++){
+			const varyVal = minVal + i * minStep;
+			
+			let decScore = 0;
+			// special case for the very special number zero
+			if(varyVal !== 0){
+				// determine the length of the line (round for floating point error)
+				let normalized = Math.round(varyVal / minStep);
+				let normalized2 = normalized * 2;
+				while(normalized % 10 === 0){
+					normalized /= 10;
+					decScore++;
+				}
+				
+				// if double the value is a bigger decScore, increase decScore by 1/2
+				let fiveScore = 0;
+				while(normalized2 % 10 === 0){
+					normalized2 /= 10;
+					fiveScore++;
+				}
+				
+				if(fiveScore > decScore){
+					decScore += .5;
+				}
+			}else{
+				decScore = domain.axisPrecision;
+			}
+			
+			const normalizedDecScore = decScore / domain.axisPrecision;
+			// and finally draw the line
+			let base = [...c1];
+			base[varyIndex] = varyVal;
+			
+			let end = [...c1];
+			end[varyIndex] = varyVal;
+			end[secondaryIndex] += maxLineLength * normalizedDecScore * (secondaryMax ? -1 : 1);
+			
+			let end2 = [...c1];
+			end2[varyIndex] = varyVal;
+			end2[tertiaryIndex] += maxLineLength * normalizedDecScore * (tertiaryMax ? -1 : 1); 
+			
+			lines.push([base, end]);
+			lines.push([base, end2]);
+		}
+	}
+	
+	let axisProtoDataX = [
+		[[0,2,4],[1,2,4]],
+		[[0,2,5],[1,2,5]],
+		[[0,3,4],[1,3,4]],
+		[[0,3,5],[1,3,5]]
+	];
+	let axisProtoDataY = [
+		[[0,2,4],[0,3,4]],
+		[[1,2,4],[1,3,4]],
+		[[0,2,5],[0,3,5]],
+		[[1,2,5],[1,3,5]]
+	];
+	let axisProtoDataZ = [
+		[[0,2,4],[0,2,5]],
+		[[0,3,4],[0,3,5]],
+		[[1,2,4],[1,2,5]],
+		[[1,3,4],[1,3,5]]
+	];
+	for(let a of axisProtoDataX){
+		axisSegment(a[0].map(x=>ptArray[x]), a[1].map(x=>ptArray[x]), 0, a[0][1] === 3, a[0][2] === 5);
+	}
+	for(let a of axisProtoDataY){
+		axisSegment(a[0].map(x=>ptArray[x]), a[1].map(x=>ptArray[x]), 1, a[0][0] === 1, a[0][2] === 5);
+	}
+	for(let a of axisProtoDataZ){
+		axisSegment(a[0].map(x=>ptArray[x]), a[1].map(x=>ptArray[x]), 2, a[0][0] === 1, a[0][1] === 3);
+	}
+	
+	const axisData = [];
+	
+	// create our buffer array
+	for(let line of lines){
+		let [p1,p2] = line;
+		axisData.push(...p1);
+		axisData.push(...p2);
+	}
+	
+	webGLInfo.axisBuffer = new Float32Array(axisData);
+	webGLInfo.axisLineCount = axisData.length / 6;
 }
 
 function plotPointsWebGL(){
@@ -1616,6 +1778,28 @@ function plotPointsWebGL(){
 	gl.clearColor(0, 0, 0, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	
+	// AXES ---------
+	gl.useProgram(webGLInfo.axisProgram);
+	
+	// location, size, type, normalize, stride, offset
+	gl.vertexAttribPointer(webGLInfo.axisPositionLocation, 3, gl.FLOAT, false, 12, 0);
+	gl.enableVertexAttribArray(webGLInfo.axisPositionLocation);
+	
+	// set uniforms
+	gl.uniform3fv(webGLInfo.axisOrientationXLocation, [axes[0].x, axes[0].y, axes[0].z]);
+	gl.uniform3fv(webGLInfo.axisOrientationYLocation, [axes[1].x, axes[1].y, axes[1].z]);
+	gl.uniform3fv(webGLInfo.axisOrientationZLocation, [axes[2].x, axes[2].y, axes[2].z]);
+	
+	gl.uniform3fv(webGLInfo.axisDomainCenterLocation, [(domain.x.max+domain.x.min)/2, (domain.y.max+domain.y.min)/2, (domain.z.max+domain.z.min)/2]);
+	gl.uniform1f(webGLInfo.axisDomainHalfWidthLocation, (domain.x.max - domain.x.min) / 2);
+	gl.uniform1f(webGLInfo.axisAspectRatioLocation, canvas.width / canvas.height);
+	
+	gl.uniform1f(webGLInfo.axisPerspectiveLocation, domain.perspective ? 1 : -1);
+	
+	gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.axisBuffer, gl.STATIC_DRAW);
+	gl.drawArrays(gl.LINES, 0, webGLInfo.axisLineCount * 2);
+	
+	// POlYGONS ----------
 	gl.useProgram(webGLInfo.program);
 	
 	// location, size, type, normalize, stride, offset
@@ -1658,6 +1842,7 @@ function plotPointsWebGL(){
 	
 	gl.uniform1f(webGLInfo.normalMultiplierLocation, domain.normalMultiplier);
 	
+	gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.polyBuffer, gl.STATIC_DRAW);
 	// primitive type, offset, count
 	gl.drawArrays(gl.TRIANGLES, 0, domain.polyNumber * 3);
 }

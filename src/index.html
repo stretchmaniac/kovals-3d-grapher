@@ -158,6 +158,36 @@
 			}
 		}
 	</script>
+	<script id='axis-vertex-shader' type='notjs'>
+		attribute vec4 a_position;
+		
+		uniform vec3 u_orientation_x;
+		uniform vec3 u_orientation_y;
+		uniform vec3 u_orientation_z;
+		
+		uniform vec3 u_domain_center;
+		uniform float u_domain_halfwidth;
+		// ratio of canvas width to canvas height
+		uniform float u_aspect_ratio;
+		uniform float u_perspective;
+		
+		void main(){
+			vec3 rotated = a_position.x * u_orientation_x + a_position.y * u_orientation_y + a_position.z * u_orientation_z;
+			vec3 clipspace = (rotated - u_domain_center) / (u_domain_halfwidth * 1.75);
+			clipspace.x /= u_aspect_ratio;
+			
+			float shrinkFactor = (clipspace.z + 1.0) / 2.0 + 0.10; 
+			
+			gl_Position = vec4(clipspace.xyz, u_perspective > 0.0 ? shrinkFactor : 0.6);
+		}
+	</script>
+	<script id='axis-fragment-shader' type='notjs'>
+		precision mediump float;
+	
+		void main(){
+			gl_FragColor = vec4(0.4,0.4,0.4,1);
+		}
+	</script>
 </head>
 <body>
     <div id='help-popup' class='hidden popup'>
