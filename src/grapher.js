@@ -1226,6 +1226,10 @@ function refreshMathJax(){
 }
 
 function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
+	// we had some leaking, where it was rendering slower and slower.
+	// call me lazy, but hey, it works with negligable overhead
+	initWebGL();
+	
 	// make the little box that says "Plotting..." out
 	document.getElementById('graphing-progress-popup').classList.remove('graphing-progress-hidden');
 	
@@ -1807,8 +1811,10 @@ function plotPointsWebGL(){
 	
 	gl.uniform1f(webGLInfo.axisPerspectiveLocation, domain.perspective ? 1 : -1);
 	
-	gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.axisBuffer, gl.STATIC_DRAW);
-	gl.drawArrays(gl.LINES, 0, webGLInfo.axisLineCount * 2);
+	if(domain.showAxes){
+		gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.axisBuffer, gl.STATIC_DRAW);
+		gl.drawArrays(gl.LINES, 0, webGLInfo.axisLineCount * 2);
+	}
 	
 	// POlYGONS ----------
 	gl.useProgram(webGLInfo.program);
