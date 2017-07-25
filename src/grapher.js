@@ -42,7 +42,7 @@ var domain = {
 	normalMultiplier:1,
 	polyNumber:0,
 	polyData:[],
-	axisPrecision:3
+	axisPrecision:2
 }
 
 var compile = require('interval-arithmetic-eval');
@@ -1225,7 +1225,10 @@ function refreshMathJax(){
     MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
 }
 
-function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){    
+function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
+	// make the little box that says "Plotting..." out
+	document.getElementById('graphing-progress-popup').classList.remove('graphing-progress-hidden');
+	
 	// give our webworker(s) some work to do 
 	domain.polyData = [];
 	domain.polyNumber = 0;
@@ -1245,6 +1248,15 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			subdivisionIndex:null
 		});
 		workerIndex++;
+	}
+	
+	document.getElementById('cancel-plot-button').onclick = function(e){
+		console.log('terminating all workers...');
+		for(let w of graphWorkers){
+			w.worker.terminate();
+		}
+		graphWorkers = [];
+		document.getElementById('graphing-progress-popup').classList.add('graphing-progress-hidden');
 	}
 	
 	// the domain will be divided into 16 zones, each a square
@@ -1303,6 +1315,9 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			
 			updateBuffer(domain.polyData);
 			plotPointsWebGL();
+			
+			// make the plotting popup disappear
+			document.getElementById('graphing-progress-popup').classList.add('graphing-progress-hidden');
 			
 			onFinish();
 		}else if(subIndex === -1){

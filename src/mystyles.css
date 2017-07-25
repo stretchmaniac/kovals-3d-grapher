@@ -578,5 +578,36 @@ hr + span{
     padding:5px;
     display:block;
 }
+#graphing-progress-popup{
+	position:absolute;
+	background-color:#333333;
+	font-size:17px;
+	color:var(--equation-font-color);
+	padding:5px 10px 5px 10px;
+	border:solid .5px var(--equation-font-color);
+	bottom:10%;
+	left:50px;
+	transition: all .5s ease;
+}
+.graphing-progress-hidden{
+	transform:translateX(calc(-101% - 50px));
+}
+#cancel-plot-button{
+	color:rgb(255, 102, 102);
+	background-color:transparent;
+	margin: 0px;
+    border-radius: 3px;
+}
+#cancel-plot-button:hover{
+	background-color:rgba(255,255,255,.1);
+}
+
+
+
+
+
+
+
+
 
 
