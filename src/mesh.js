@@ -194,6 +194,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		
 		let pointList = [];
 		
+		const averageNeighborLength = pt.neighbors.map(x=>xyzDist(x.pt, pt)).reduce((a,b)=>a+b, 0) / pt.neighbors.length;
+		
 		// ...but that's for a euclidean plane. Let's add or remove sections as needed
 		let adequateNodeNumber = false;
 		let count = 0;
@@ -217,6 +219,37 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			pointList.push(ePoint);
 			arcLength += xyzDist(pointList[pointList.length-1], pointList[pointList.length-2]);
 			
+			// compute alanConstant, a good way to figure out how small the mesh should be :) 
+			// (it's invariant on a sphere no matter the grid size as ~1/r)
+			// (in this sense, it's equal to curvature for radially symmetric points)
+			// (but is able to be used for things topologically flat)
+			// (like z = sin 5x )
+			let orderedPoints = pointList.slice(1, pointList.length - 1).concat(pt.neighbors.map(x=>x.pt));
+			orderedPoints.sort((a,b) => {
+				return Math.atan2(a.v-pt.v,a.u-pt.u) - Math.atan2(b.v-pt.v,b.u-pt.u);
+			});
+			
+			let alanConstant = 0;
+			for(let i = 0; i < orderedPoints.length-1; i++){
+				let firstPt = orderedPoints[i],
+					secondPt = orderedPoints[i+1];
+				alanConstant += Math.abs(angleBetween(normal(firstPt), normal(secondPt))) / xyzDist(firstPt, secondPt);
+			}
+			
+			let finalPt1 = orderedPoints[orderedPoints.length-1],
+				finalPt2 = orderedPoints[0];
+			alanConstant += Math.abs(angleBetween(normal(finalPt1), normal(finalPt2))) / xyzDist(finalPt1, finalPt2);
+			
+			// now update nodeDist
+			nodeDist = defaultXYZLength * (Math.E**(-0.35*alanConstant)/1.2 + .2);
+			
+			if(nodeDist < averageNeighborLength / 1.5){
+				nodeDist = averageNeighborLength / 1.5;
+			}
+			if(nodeDist > averageNeighborLength * 1.5){
+				nodeDist = averageNeighborLength * 1.5;
+			}
+			
 			// 1.25 and 1 are "empiracly chosen" (aka arbitrary :))
 			if(arcLength / sections > nodeDist * 1.25){
 				sections++;
@@ -228,32 +261,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				adequateNodeNumber = true;
 			}
 		}
-		
-		// compute alanConstant, a good way to figure out how small the mesh should be :) 
-		// (it's invariant on a sphere no matter the grid size as ~1/r)
-		// (in this sense, it's equal to curvature for radially symmetric points)
-		// (but is able to be used for things topologically flat)
-		// (like z = sin 5x )
-		let orderedPoints = pointList.slice(1, pointList.length - 1).concat(pt.neighbors.map(x=>x.pt));
-		orderedPoints.sort((a,b) => {
-			return Math.atan2(a.v-pt.v,a.u-pt.u) - Math.atan2(b.v-pt.v,b.u-pt.u);
-		});
-		
-		let alanConstant = 0;
-		for(let i = 0; i < orderedPoints.length-1; i++){
-			let firstPt = orderedPoints[i],
-				secondPt = orderedPoints[i+1];
-			alanConstant += Math.abs(angleBetween(normal(firstPt), normal(secondPt))) / xyzDist(firstPt, secondPt);
-		}
-		
-		let finalPt1 = orderedPoints[orderedPoints.length-1],
-			finalPt2 = orderedPoints[0];
-		alanConstant += Math.abs(angleBetween(normal(finalPt1), normal(finalPt2))) / xyzDist(finalPt1, finalPt2);
-		
-		console.log(alanConstant);
-		
-		// now update nodeDist
-		nodeDist *= 1/(1+0.1*alanConstant**2);
 		
 		// now space out pointList so that eash point has close to equal sub-arc lengths to 
 		// the right and to the left
@@ -277,7 +284,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				// worse. We'll do a weighted average.
 				const nodeDistFactor = .95 * pointList[i].nodeDistFactor + .05 * pointList[i].nodeDistFactor * nodeDist / xyzDist(pt, pointList[i]);
 				
-				let loc = dir(pt, nodeDistFactor * nodeDist * Math.cos(newAngle), nodeDistFactor * nodeDist * Math.sin(newAngle));
+				let loc = dir(pt, nodeDist * Math.cos(newAngle), nodeDist * Math.sin(newAngle));
 				
 				let newPt = null;
 				if(k == PADDING_ITERATIONS - 1){
