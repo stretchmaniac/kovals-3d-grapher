@@ -515,6 +515,8 @@ $(function(){
     }
 	
 	domain.center = getRealDomainCenter();
+	updateAxisBuffer();
+	plotPointsWebGL();
 });
 
 $(window).resize(function(){
@@ -1005,7 +1007,7 @@ function graph(onFinish){
             result.forEach(val => {
                 domain[val.varName].min = math.eval(val.range.min);
                 domain[val.varName].max = math.eval(val.range.max);
-            })
+            });
         })
         var xWidth = domain.x.max - domain.x.min;
         var yWidth = domain.y.max - domain.y.min;
@@ -1165,11 +1167,11 @@ function graph(onFinish){
             inputs[otherVars[0]] = 'u';
             inputs[otherVars[1]] = 'v';
             
-            domain.u.max = realCenter[otherVars[0]] + realWidth[otherVars[0]]/2
-            domain.u.min = realCenter[otherVars[0]] - realWidth[otherVars[0]]/2
+            domain.u.max = realCenter[otherVars[0]] + realWidth[otherVars[0]]/2;
+            domain.u.min = realCenter[otherVars[0]] - realWidth[otherVars[0]]/2;
             
-            domain.v.max = realCenter[otherVars[1]] + realWidth[otherVars[1]]/2
-            domain.v.min = realCenter[otherVars[1]] - realWidth[otherVars[1]]/2
+            domain.v.max = realCenter[otherVars[1]] + realWidth[otherVars[1]]/2;
+            domain.v.min = realCenter[otherVars[1]] - realWidth[otherVars[1]]/2;
         }else if(domain.currentSystem.indexOf('cylindrical') !== -1 || domain.currentSystem.indexOf('spherical') !== -1){
             var cyl = domain.currentSystem.indexOf('cylindrical') !== -1;
             var cylInputs = cyl ? {rho:'', phi:'', z:''} : {r:'', theta:'', phi:''};
@@ -1237,8 +1239,11 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	domain.polyData = [];
 	domain.polyNumber = 0;
 	updateBuffer([]);
+	domain.extrema = null;
 	
 	let lastUpdateTime = Date.now();
+	
+	let graphID = Math.floor(Math.random() * 1e16);
 	
 	// 3 cores is a pretty good guess for a modern computer... maybe? (average of 2 and 4?)
 	let workerIndex = 0;
@@ -1249,7 +1254,8 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			worker: new Worker('mesh.js'),
 			idle: true,
 			index: workerIndex,
-			subdivisionIndex:null
+			subdivisionIndex:null,
+			graphID:graphID
 		});
 		workerIndex++;
 	}
@@ -1318,6 +1324,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			graphWorkers = [];
 			
 			updateBuffer(domain.polyData);
+			updateAxisBuffer();
 			plotPointsWebGL();
 			
 			// make the plotting popup disappear
@@ -1348,6 +1355,9 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			// handle responses
 			graphWorker.worker.onmessage = function(e){
 				let [responseType, ...args] = e.data;
+				if(graphWorker.graphID !== graphID){
+					return;
+				}
 				if(responseType === 'POLYGON_UPDATE'){
 					// draw the updates
 					// expected args: [polydata, polygons.length]
@@ -1366,6 +1376,18 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 					
 					domain.polyData[graphWorker.subdivisionIndex] = args[0];
 					updateBuffer(domain.polyData);
+					
+					// synthesize extrema result
+					let workerExtrema  = args[2];
+					if(!domain.extrema){
+						domain.extrema = workerExtrema;
+					}else{
+						let objs = ['x','y','z'];
+						for(let i of objs){
+							domain.extrema[i].max = domain.extrema[i].max < workerExtrema[i].max ? workerExtrema[i].max : domain.extrema[i].max;
+							domain.extrema[i].min = domain.extrema[i].min > workerExtrema[i].min ? workerExtrema[i].min : domain.extrema[i].min;
+						}
+					}
 					
 					workerSubdivision.completed = true;
 					
@@ -1658,7 +1680,7 @@ function updateAxisBuffer(){
 	// our axis is made of line segments. The only attributes that we will need are 3 floats for position, or 12 bytes
 	
 	// convenience array
-	const ptArray = [
+	let ptArray = [
 		domain.x.min,
 		domain.x.max,
 		domain.y.min,
@@ -1666,6 +1688,22 @@ function updateAxisBuffer(){
 		domain.z.min,
 		domain.z.max
 	];
+	
+	// make minStep based on the domain, not extrema
+	const maxGap = Math.max(ptArray[1] - ptArray[0], ptArray[3] - ptArray[2], ptArray[5], ptArray[4]);
+	const maxStep = 10**Math.floor(Math.log10(maxGap));
+	const minStep = maxStep * 10 ** (- domain.axisPrecision);
+	
+	if(domain.extrema){
+		ptArray = [
+			domain.extrema.x.min,
+			domain.extrema.x.max,
+			domain.extrema.y.min,
+			domain.extrema.y.max,
+			domain.extrema.z.min,
+			domain.extrema.z.max
+		];
+	}
 	
 	const lines = [];
 	
@@ -1679,10 +1717,7 @@ function updateAxisBuffer(){
 		const secondaryIndex = [0,1,2].filter(x => x !== varyIndex)[0];
 		const tertiaryIndex = [0,1,2].filter(x => x !== varyIndex)[1];
 		
-		// now figure out the important tick marks in the variable
-		const maxStep = 10**Math.floor(Math.log10(c2[varyIndex] - c1[varyIndex]));
-		const minStep = maxStep * 10 ** (- domain.axisPrecision);
-		
+		// now figure out the important tick marks in the variable	
 		const maxLineLength = secondaryIndex === 0 ? (domain.x.max - domain.x.min) / 20 :
 			secondaryIndex === 1 ? (domain.y.max - domain.y.min) / 20 : 
 			secondaryIndex === 2 ? (domain.z.max - domain.z.min) / 20 : 0;
@@ -1690,7 +1725,7 @@ function updateAxisBuffer(){
 		const minVal = (Math.floor(c1[varyIndex] / minStep) + 1) * minStep,
 			steps = Math.floor((c2[varyIndex] - c1[varyIndex]) / minStep) - 1;
 			
-		console.log(minStep, maxStep, maxLineLength, minVal, steps);
+		console.log(minStep, maxLineLength, minVal, steps);
 		
 		for(let i = 0; i < steps; i++){
 			const varyVal = minVal + i * minStep;

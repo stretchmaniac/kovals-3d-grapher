@@ -8,12 +8,17 @@ let polygons = [];
 let polyUpdateIndex = 0;
 let domain = {};
 let distFunc = null;
+let extrema = {
+	x:{min:0,max:0},
+	y:{min:0,max:0},
+	z:{min:0,max:0}
+}
 
 onmessage = function(e){
 	let [requestType, ...args] = e.data;
 	if(requestType === 'GRAPH'){
 		graphParametricFunction2(...args, function(){
-			postMessage(['FINISHED', getTotalPolyData(), polygons.length]);
+			postMessage(['FINISHED', getTotalPolyData(), polygons.length, extrema]);
 		});
 	}
 }
@@ -50,6 +55,14 @@ function polyDataPt(polyData, poly){
 		polyData.push(p.x);
 		polyData.push(p.y);
 		polyData.push(p.z);
+		
+		// update extrema for axes purposes
+		extrema.x.min = extrema.x.min > p.x ? p.x : extrema.x.min;
+		extrema.x.max = extrema.x.max < p.x ? p.x : extrema.x.max;
+		extrema.y.min = extrema.y.min > p.y ? p.y : extrema.y.min;
+		extrema.y.max = extrema.y.max < p.y ? p.y : extrema.y.max;
+		extrema.z.min = extrema.z.min > p.z ? p.z : extrema.z.min;
+		extrema.z.max = extrema.z.max < p.z ? p.z : extrema.z.max;
 		
 		// compute normal to point
 		// (this is simly the cross product of p.deriv1.du and p.deriv1.dv)
@@ -179,25 +192,12 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		
 		let nodeDist = defaultXYZLength;
 		
-		// sample a bunch of angles to see how the concavity looks in this part of town
-		let samples = [];
-		for(let a = 0; a < Math.PI * 2; a += Math.PI/8 + .0001){
-			let direction = dir(pt, Math.cos(a), Math.sin(a));
-			samples.push(dAngle(pt, direction.u, direction.v, xFunc, yFunc, zFunc));
-		}
-		// take the maximum angle 
-		let defactoAngle = Math.max(...samples);
-		nodeDist *= 1/(1 + defactoAngle**2);
-		
-		// but there needs to be a limit...
-		nodeDist = nodeDist < defaultXYZLength / 2 ? defaultXYZLength / 2 : nodeDist;
-		
 		let pointList = [];
 		
 		// ...but that's for a euclidean plane. Let's add or remove sections as needed
 		let adequateNodeNumber = false;
 		let count = 0;
-		while(!adequateNodeNumber && count < 3){
+		while(!adequateNodeNumber && count < 5){
 			count++;
 			let arcLength = 0;
 			pointList = [sPoint];
@@ -206,7 +206,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				let angle = sAngle + nodeCount * angleDiff/(sections + 1)
 				let loc = dir(pt, nodeDist * Math.cos(angle), nodeDist * Math.sin(angle));
 				
-				let point = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
+				let point = plotPlus(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
 				point.angle = angle;
 				point.nodeDistFactor = 1;
 				
@@ -228,6 +228,33 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				adequateNodeNumber = true;
 			}
 		}
+		
+		// compute alanConstant, a good way to figure out how small the mesh should be :) 
+		// (it's invariant on a sphere no matter the grid size as ~1/r)
+		// (in this sense, it's equal to curvature for radially symmetric points)
+		// (but is able to be used for things topologically flat)
+		// (like z = sin 5x )
+		let orderedPoints = pointList.slice(1, pointList.length - 1).concat(pt.neighbors.map(x=>x.pt));
+		orderedPoints.sort((a,b) => {
+			return Math.atan2(a.v-pt.v,a.u-pt.u) - Math.atan2(b.v-pt.v,b.u-pt.u);
+		});
+		
+		let alanConstant = 0;
+		for(let i = 0; i < orderedPoints.length-1; i++){
+			let firstPt = orderedPoints[i],
+				secondPt = orderedPoints[i+1];
+			alanConstant += Math.abs(angleBetween(normal(firstPt), normal(secondPt))) / xyzDist(firstPt, secondPt);
+		}
+		
+		let finalPt1 = orderedPoints[orderedPoints.length-1],
+			finalPt2 = orderedPoints[0];
+		alanConstant += Math.abs(angleBetween(normal(finalPt1), normal(finalPt2))) / xyzDist(finalPt1, finalPt2);
+		
+		console.log(alanConstant);
+		
+		// now update nodeDist
+		nodeDist *= 1/(1+0.1*alanConstant**2);
+		
 		// now space out pointList so that eash point has close to equal sub-arc lengths to 
 		// the right and to the left
 		// we'll do this for a set number of iterations, since it's possible for for points 
@@ -507,6 +534,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	onFinish();
 }
 
+function normal(pt){
+	return cross(pt.deriv1.du, pt.deriv1.dv);
+}
+
 function withinPolygon(pt, poly){
 	// check if newPt is on the interior of pointFront. If so, remove the point.
 	// we'll make use of a simple scanline algorithm for if a point is in a polygon
@@ -567,15 +598,26 @@ function dir(refPt, s,t){
 	};
 }
 
-// finds change in angle per unit (xyz) vector (uDir, vDir)
+// finds curvature per unit (xyz) vector (uDir, vDir)
 function dAngle(pt, uDir, vDir, xFunc, yFunc, zFunc){
 	const delta = Math.min((domain.u.max-domain.u.min)/1e6, (domain.v.max-domain.v.min)/1e6);
 	const pt2 = plotPlus(xFunc, yFunc, zFunc, pt.u + uDir*delta, pt.v + vDir*delta);
 	
-	const ptVec = add(scalar(uDir, pt.deriv1.du), scalar(vDir, pt.deriv1.dv));
-	const pt2Vec = add(scalar(uDir, pt2.deriv1.du), scalar(vDir, pt2.deriv1.dv));
+	let ptVec = add(scalar(uDir, pt.deriv1.du), scalar(vDir, pt.deriv1.dv));
+	let pt2Vec = add(scalar(uDir, pt2.deriv1.du), scalar(vDir, pt2.deriv1.dv));
 	
-	return angleBetween(ptVec, pt2Vec) / delta;
+	let length1 = magnitude(ptVec),
+		length2 = magnitude(pt2Vec);
+		
+	if(length1 === 0 || length2 === 0){
+		return 0;
+	}
+	
+	ptVec = scalar(1/length1, ptVec);
+	pt2Vec = scalar(1/length2, pt2Vec);
+	
+	// curviture is the change in unit tangent per unit length
+	return magnitude(scalar(1/delta,sub(pt2Vec, ptVec)));
 }
 
 //inverse of dir function
@@ -880,7 +922,7 @@ function xyzDist(a,b){
 }
 
 function getRealPart(val){
-    return val.im ? undefined : val;
+    return val.im ? val.re : val;
 }
 
 
