@@ -131,11 +131,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
     //we have (x(u,v), y(u,v), z(u,v)) ≈ u du + v dv, so a linear transformation (a plane)
     //in order for a parameterization (x(s,t), y(s,t), z(s,t)) such that a change in s and t corresponds to 
     //an equal change in x,y and z, we need s = u du, t = v dv, or (u(s,t), v(s,t)) = (s / |du|, t / |dv|)
+	// make this triangle the smallest possible size (see conversion of alanConstant later)
+	defaultXYZLength *= .2;
     let vec = dir(initPoint, defaultXYZLength, 0);
 	
     let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v);
     vec = dir(initPoint, defaultXYZLength*.5, defaultXYZLength*Math.sqrt(3)/2)
     let initPoint3 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v)
+	
+	defaultXYZLength *= 5;
     
     //the space that needs to be transversed goes counter-clockwise from beginning to end
     initPoint.beginning = initPoint3;
