@@ -167,7 +167,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
     // as to prevent overlap
     let entirelyConvex = true;
     
-    function processPoint(pt, edgePoints){
+    function processPoint(pt, edgePoints, logResults){
 		if(pt.doNotExec){
 			return 1;
 		}
@@ -198,11 +198,19 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		
 		let pointList = [];
 		
-		const averageNeighborLength = pt.neighbors.map(x=>xyzDist(x.pt, pt)).reduce((a,b)=>a+b, 0) / pt.neighbors.length;
+		let averageNeighborLength = pt.neighbors.map(x=>xyzDist(x.pt, pt)).reduce((a,b)=>a+b, 0) / pt.neighbors.length;
+		// this is an important step
+		// for non-continuous functions like floor(x), 
+		// there will massive polygons (initially) no matter what
+		// we want them to resume normally
+		if(averageNeighborLength > defaultXYZLength){
+			averageNeighborLength = defaultXYZLength;
+		}
 		
 		// ...but that's for a euclidean plane. Let's add or remove sections as needed
 		let adequateNodeNumber = false;
 		let count = 0;
+		let prevAlanConst = null;
 		while(!adequateNodeNumber && count < 5){
 			count++;
 			let arcLength = 0;
@@ -244,6 +252,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				finalPt2 = orderedPoints[0];
 			alanConstant += Math.abs(angleBetween(normal(finalPt1), normal(finalPt2))) / xyzDist(finalPt1, finalPt2);
 			
+			//use the minimum alanConstant
+			if(!prevAlanConst){
+				prevAlanConst = alanConstant;
+			}
+			if(prevAlanConst && prevAlanConst < alanConstant){
+				alanConstant = prevAlanConst;
+			}
+			prevAlanConst = alanConstant;
+			
 			// now update nodeDist
 			nodeDist = defaultXYZLength * (Math.E**(-0.35*alanConstant)/1.2 + .2);
 			
@@ -266,6 +283,13 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			}
 		}
 		
+		if(logResults){
+			console.log(pt.u,pt.v,pt.x,pt.y,pt.z);
+			console.log(pt.u,pointList.length);
+			console.log(pt.u, 'dist='+xyzDist(pointList[0], pointList[1]));
+			console.log(pt.u,pointFront.indexOf(pointList[0]),pointFront.indexOf(pointList[pointList.length-1]));
+		}
+		
 		// now space out pointList so that eash point has close to equal sub-arc lengths to 
 		// the right and to the left
 		// we'll do this for a set number of iterations, since it's possible for for points 
@@ -274,31 +298,45 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		for(let k = 0; k < PADDING_ITERATIONS; k++){
 			// every element except the first and last are able to move
 			for(let i = 1; i < pointList.length - 1; i++){
-				let arcBefore = xyzDist(pointList[i-1], pointList[i]),
-					arcAfter = xyzDist(pointList[i+1], pointList[i]),
+				let tp1 = sub(pointList[i-1], pt),
+					tp2 = sub(pointList[i+1], pt);
+				let np1 = pt + scalar(nodeDist/magnitude(tp1), tp1),
+					np2 = pt + scalar(nodeDist/magnitude(tp2), tp2);
+				let arcBefore = xyzDist(tp1, pointList[i]),
+					arcAfter = xyzDist(tp2, pointList[i]),
 					ang0 = pointList[i-1].angle,
 					ang2 = pointList[i+1].angle,
 					ang1 = pointList[i].angle;
+				let ang0Length = magnitude(tp1),
+					ang2Length = magnitude(tp2);
 				
 				// move the node in the direction that arcBefore and arcAfter stipulate
-				const newAngle = ang1 + (ang2 - ang0) * 0.5 * (arcAfter - arcBefore) / (arcAfter + arcBefore);
+				// let newAngle = ang1 + (ang2 - ang0) * 0.5 * (arcAfter - arcBefore) / (arcAfter + arcBefore);
+				// take into account the length of each leg
+				let newAngle = (ang0*ang0Length + ang2*ang2Length)/(ang0Length + ang2Length);
 				
-				// and while we're here, we might as well fix the nodeDist as well
-				// we have to be careful, though, since the whole arbitary movement thing applies here too, except 
-				// worse. We'll do a weighted average.
-				const nodeDistFactor = .95 * pointList[i].nodeDistFactor + .05 * pointList[i].nodeDistFactor * nodeDist / xyzDist(pt, pointList[i]);
-				
-				let loc = dir(pt, nodeDist * Math.cos(newAngle), nodeDist * Math.sin(newAngle));
+				let loc = dir(pt, nodeDist * Math.cos(newAngle), nodeDist * Math.sin(newAngle));;
 				
 				let newPt = null;
 				if(k == PADDING_ITERATIONS - 1){
 					newPt = plotPlus(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
 				}else{
-					newPt = plot(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
+					newPt = plotPlus(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
+				}
+				
+				// it is imperative that the length actually be close to nodeDist
+				newPt = makeNodeDist(pt, newPt, nodeDist, loc, xFunc, yFunc, zFunc);
+				if(logResults){
+					console.log(newPt.u,newPt.v);
 				}
 				
 				if(withinPolygon(newPt, pointFront)){
 					// it's on the interior (not allowed)
+					if(logResults){
+						console.log(pt.u,k,'deleting...');
+						console.log(pt.u, newPt.u, newPt.v);
+						console.log(pt.u, xyzDist(newPt,pointList[0])+xyzDist(newPt,pointList[pointList.length-1]));
+					}
 					pointList.splice(i, 1);
 					i--;
 					continue;
@@ -306,10 +344,23 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				
 				
 				newPt.angle = newAngle;
-				newPt.nodeDistFactor = nodeDistFactor;
+				newPt.direction = loc;
 				
 				pointList[i] = newPt;
 			}
+		}
+		if(logResults){
+			console.log(pt.u, pointList.length);
+			console.log(pt.u, ...pointList.map(x=>[x.x,x.y,x.z]));
+			console.log(pt.u,angleDiff);
+			console.log(pt.u,pointList[0].u);
+			console.log(pt.u,pointList[0].end);
+			console.log(pt.u,pointList[1].u);
+			console.log(pt.u,pointList[1].end);
+			console.log(pt.u, pt.end);
+			console.log(pt.u,withinPolygon(plot(xFunc,yFunc,zFunc,(pointList[0].u+pointList[1].u+pt.u)/3,(pointList[1].v+pointList[0].v+pt.v)/3), pointFront));
+			console.log(pt.u, pointList[0]);
+			console.log(pt.u, pointList[1]);
 		}
 		
 		sPoint.end = pointList[1];
@@ -324,6 +375,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			p.beginning = pointList[i-1];
 			p.end = pointList[i+1];
 			
+			let outsideUVDomain = false;
 			// check if it's inside the domain
 			if(p.u >= domain.u.min && p.u <= domain.u.max && p.v >= domain.v.min && p.v <= domain.v.max){
 				pushToPointFront(p, pointFront);
@@ -334,7 +386,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				pushToPointFront(p, pointFront);
 				edgePoints.push(p);
 				p.edgePoint = true;
-			}		
+				outsideUVDomain = true;
+			}
 			
 			polygons.push({
 				pts:[pt, p, pointList[i-1]]
@@ -356,6 +409,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	let postPointFront = [];
     
     var c = 0;
+	//213
     while(pointFront.length > 0 && c < 40000){
         c++;
 		let ptToProcess = pointFront[0];
@@ -372,7 +426,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			ptToProcess = pointFront[i];
 		}
 		
-        const res = processPoint(ptToProcess, edgePoints);
+        const res = processPoint(ptToProcess, edgePoints, false);
 		
 		// res: 1 is the code for "do not delete"
 		// it is important to not delete edge points while they 
@@ -476,15 +530,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			}
 		}
 	}
-    console.log('moving back to middle');
     // move all the edge points back into the domain
     for(var k = 0; k < edgePoints.length; k++){
         const pt = edgePoints[k];
         let u = pt.u, v = pt.v;
-        u = u > domain.u.max ? domain.u.max : u;
-        u = u < domain.u.min ? domain.u.min : u;
-        v = v > domain.v.max ? domain.v.max : v;
-        v = v < domain.v.min ? domain.v.min : v;
+		
+		u = u > domain.u.max ? domain.u.max : u;
+		u = u < domain.u.min ? domain.u.min : u;
+		v = v > domain.v.max ? domain.v.max : v;
+		v = v < domain.v.min ? domain.v.min : v;
         
         pt.u = u;
         pt.v = v;
@@ -543,6 +597,49 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	}
 	
 	onFinish();
+}
+
+function makeNodeDist(base, pt, nodeDist, dir, xFunc, yFunc, zFunc){
+	// the goal is to make the distance between pt and base within 25% of nodeDist 
+	// if it already meets these standards, have a nice day
+	let withinTolerance = (proposed) => Math.abs(xyzDist(base, proposed) - nodeDist) / nodeDist < .1;
+	if(withinTolerance(pt)){
+		return pt;
+	}else{
+		// unfortunately, although we'd like to believe that as dir increases, xyzDist also increases,
+		// this can be proved false in certain cercumstances. Thus, we really need to start at 0
+		let a = 0;
+		let delta = .2;
+		let deltaMultiplier = 1;
+		let count = 0;
+		let switched = false;
+		let original = xyzDist(base, pt);
+		while(!withinTolerance(pt)){
+			count++;
+			pt = plot(xFunc, yFunc, zFunc, base.u + a * dir.u, base.v + a * dir.v);
+			let dist = xyzDist(pt, base);
+			//console.log(original, dist, a);
+			if(dist < nodeDist && deltaMultiplier < 0 || dist > nodeDist && deltaMultiplier > 0){
+				deltaMultiplier *= -1;
+				delta *= .2;
+				switched = true;
+				//console.log(original, 'switch');
+			}
+			a += delta * deltaMultiplier;
+			
+			if(count > 15 && switched === false){
+				deltaMultiplier *= 100;
+				switched = true;
+			}
+			
+			if(count > 50){
+				// give up, we can't win
+				console.log('giving up', original,dist, nodeDist);
+				break;
+			}
+		}
+		return plotPlus(xFunc, yFunc, zFunc, pt.u, pt.v);
+	}
 }
 
 function normal(pt){
@@ -790,6 +887,12 @@ function plot(cX, cY, cZ, u,v){
 		}
         
         var point;
+		// you know, like the ones in mines...
+		// except this one dies when the point is non real
+		// (and yes, I realize the great opportunity for a pun, but I'm better than that...)
+		let nonRealCanary = {
+			real:true
+		};
         
         if(domain.currentSystem.indexOf('parametric') !== -1){
             //the parametric body is stored in the cX function by convention
@@ -799,7 +902,7 @@ function plot(cX, cY, cZ, u,v){
                 v:v,
             };
             [0,1,2].forEach(i => 
-                point[domain.expressionInfo.expression.vars[i]] = getRealPart(math.subset(scope.x, math.index(i)))
+                point[domain.expressionInfo.expression.vars[i]] = getRealPart(math.subset(scope.x, math.index(i)), nonRealCanary)
             );
             if(domain.currentSystem.indexOf('cylindrical') !== -1){
                 point.x = point.rho * Math.cos(point.phi);
@@ -814,16 +917,30 @@ function plot(cX, cY, cZ, u,v){
             cY.eval(scope);
             cZ.eval(scope);
             point = {u:u,v:v,
-            x:getRealPart(scope.x),y:getRealPart(scope.y),z:getRealPart(scope.z)};
+            x:getRealPart(scope.x, nonRealCanary),y:getRealPart(scope.y, nonRealCanary),z:getRealPart(scope.z, nonRealCanary)};
         }
         point.x = spreadCoord(point.x, domain.x.min, domain.x.max, domain.x.spread);
         point.y = spreadCoord(point.y, domain.y.min, domain.y.max, domain.y.spread);
         point.z = spreadCoord(point.z, domain.z.min, domain.z.max, domain.z.spread);
+		
+		point.outsideDomain = false;
+		
+		// contrain it to our viewing domain...
+		if(point.x < domain.x.min){point.x = domain.x.min; point.outsideDomain = true;}
+		if(point.x > domain.x.max){point.x = domain.x.max; point.outsideDomain = true;}
+		if(point.y < domain.y.min){point.y = domain.y.min; point.outsideDomain = true;}
+		if(point.y > domain.y.max){point.y = domain.y.max; point.outsideDomain = true;}
+		if(point.z < domain.z.min){point.z = domain.z.min; point.outsideDomain = true;}
+		if(point.z > domain.z.max){point.z = domain.z.max; point.outsideDomain = true;}
+		
         point.neighbors = [];
+		point.real = nonRealCanary.real;
         return point;
 }
 
-function findParametricEdge(realP, nonRealP, xFunc, yFunc, zFunc, iterations){
+// this was originally designed to find the boundary between a real and non-real point, but 
+// it works just as well with any criteria
+function findParametricEdge(realP, nonRealP, testFunc, xFunc, yFunc, zFunc, iterations){
     //when we have completed the necessary amount of iterations,
     //  return the real end of the interval containing the boundary
     if(iterations === 0){
@@ -833,42 +950,14 @@ function findParametricEdge(realP, nonRealP, xFunc, yFunc, zFunc, iterations){
     //find the midpoint of realP and nonRealP in terms of parameterized variables
     var u = (realP.u + nonRealP.u)/2;
     var v = (realP.v + nonRealP.v)/2;
-    var scope = {
-        u:u,
-        v:v,
-        x:null,
-        y:null,
-        z:null
-    }
     
-    //set any animation variables
-    for(var j = 0; j < animationVars.length; j++){
-        scope[animationVars[j].name] = animationVars[j].value;
-    }
-    
-    //evaluate function at new point (twice to account for function like x = u, y = x, z = y)
-    xFunc.eval(scope);
-    yFunc.eval(scope);
-    zFunc.eval(scope);
-    xFunc.eval(scope);
-    yFunc.eval(scope);
-    zFunc.eval(scope);
-    //create new point containing xyz and uv coordinates for midppoint
-    var inBetween = {x:getRealPart(scope.x),y:(scope.y),z:getRealPart(scope.z)};
-    makeFiniteIfInfinate(inBetween)
-    
-    //domain stretching for non-cubic domains
-    inBetween.x = spreadCoord(inBetween.x, domain.x.min, domain.x.max, domain.x.spread);
-    inBetween.y = spreadCoord(inBetween.y, domain.y.min, domain.y.max, domain.y.spread);
-    inBetween.z = spreadCoord(inBetween.z, domain.z.min, domain.z.max, domain.z.spread);
-    inBetween.u = u;
-    inBetween.v = v;
+    let inBetween = plot(xFunc, yFunc, zFunc, u, v);
     
     //return new interval
-    if(isNonReal(inBetween)){
-        return findParametricEdge(realP, inBetween, xFunc, yFunc, zFunc, iterations - 1);
+    if(!testFunc(inBetween)){
+        return findParametricEdge(realP, inBetween, testFunc, xFunc, yFunc, zFunc, iterations - 1);
     }else{
-        return findParametricEdge(inBetween, nonRealP, xFunc, yFunc, zFunc, iterations - 1);
+        return findParametricEdge(inBetween, nonRealP, testFunc, xFunc, yFunc, zFunc, iterations - 1);
     }
 }
 
@@ -932,8 +1021,12 @@ function xyzDist(a,b){
     return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2 + (a.z-b.z)**2);
 }
 
-function getRealPart(val){
-    return val.im ? val.re : val;
+function getRealPart(val, canary){
+	if(val.im){
+		canary.real = false;
+		return val.re;
+	}
+    return val;
 }
 
 
