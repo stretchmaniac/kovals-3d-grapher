@@ -925,13 +925,20 @@ function plot(cX, cY, cZ, u,v){
 		
 		point.outsideDomain = false;
 		
-		// contrain it to our viewing domain...
-		if(point.x < domain.x.min){point.x = domain.x.min; point.outsideDomain = true;}
-		if(point.x > domain.x.max){point.x = domain.x.max; point.outsideDomain = true;}
-		if(point.y < domain.y.min){point.y = domain.y.min; point.outsideDomain = true;}
-		if(point.y > domain.y.max){point.y = domain.y.max; point.outsideDomain = true;}
-		if(point.z < domain.z.min){point.z = domain.z.min; point.outsideDomain = true;}
-		if(point.z > domain.z.max){point.z = domain.z.max; point.outsideDomain = true;}
+		// record it as outside domain if outside,
+		// but only move it if it's a good distance away
+		const moveDist = (domain.x.max - domain.x.min) / 30;
+		for(let [attr, min, max] of [['x',domain.x.min, domain.x.max],['y',domain.y.min,domain.y.max],['z',domain.z.min,domain.z.max]]){
+			if(point[attr] < min || point[attr] > max){
+				point.outsideDomain = true;
+			}
+			if(point[attr] < min - moveDist){
+				point[attr] = min-moveDist;
+			}
+			if(point[attr] > max + moveDist){
+				point[attr] = max+moveDist;
+			}
+		}
 		
         point.neighbors = [];
 		point.real = nonRealCanary.real;
