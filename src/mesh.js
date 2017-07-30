@@ -245,7 +245,12 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			for(let i = 0; i < orderedPoints.length-1; i++){
 				let firstPt = orderedPoints[i],
 					secondPt = orderedPoints[i+1];
-				alanConstant += Math.abs(angleBetween(normal(firstPt), normal(secondPt))) / xyzDist(firstPt, secondPt);
+				if(xyzDist(firstPt, secondPt) !== 0){
+					alanConstant += Math.abs(angleBetween(normal(firstPt), normal(secondPt))) / xyzDist(firstPt, secondPt);
+				}
+				if(isNaN(alanConstant)){
+					console.log('point '+i+' is the culprit',firstPt, secondPt,pointList[0],pointList[pointList.length-1],count,angleDiff,pt,sections,...pointList,xyzDist(firstPt, secondPt));
+				}
 			}
 			
 			let finalPt1 = orderedPoints[orderedPoints.length-1],
@@ -311,11 +316,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					ang2Length = magnitude(tp2);
 				
 				// move the node in the direction that arcBefore and arcAfter stipulate
-				// let newAngle = ang1 + (ang2 - ang0) * 0.5 * (arcAfter - arcBefore) / (arcAfter + arcBefore);
 				// take into account the length of each leg
 				let newAngle = (ang0*ang0Length + ang2*ang2Length)/(ang0Length + ang2Length);
 				
-				let loc = dir(pt, nodeDist * Math.cos(newAngle), nodeDist * Math.sin(newAngle));;
+				let loc = dir(pt, nodeDist * Math.cos(newAngle), nodeDist * Math.sin(newAngle));
 				
 				let newPt = null;
 				if(k == PADDING_ITERATIONS - 1){
@@ -324,8 +328,13 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					newPt = plotPlus(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
 				}
 				
+				if(isNaN(newPt.x)){
+					console.log(newPt.u,newPt.v,pt.u,pt.v,loc.u,loc.v,newAngle,nodeDist);
+				}
+				
 				// it is imperative that the length actually be close to nodeDist
 				newPt = makeNodeDist(pt, newPt, nodeDist, loc, xFunc, yFunc, zFunc);
+				
 				if(logResults){
 					console.log(newPt.u,newPt.v);
 				}
@@ -340,8 +349,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					pointList.splice(i, 1);
 					i--;
 					continue;
-				}
-				
+				}				
 				
 				newPt.angle = newAngle;
 				newPt.direction = loc;
@@ -349,25 +357,39 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				pointList[i] = newPt;
 			}
 		}
-		if(logResults){
-			console.log(pt.u, pointList.length);
-			console.log(pt.u, ...pointList.map(x=>[x.x,x.y,x.z]));
-			console.log(pt.u,angleDiff);
-			console.log(pt.u,pointList[0].u);
-			console.log(pt.u,pointList[0].end);
-			console.log(pt.u,pointList[1].u);
-			console.log(pt.u,pointList[1].end);
-			console.log(pt.u, pt.end);
-			console.log(pt.u,withinPolygon(plot(xFunc,yFunc,zFunc,(pointList[0].u+pointList[1].u+pt.u)/3,(pointList[1].v+pointList[0].v+pt.v)/3), pointFront));
-			console.log(pt.u, pointList[0]);
-			console.log(pt.u, pointList[1]);
-		}
 		
 		sPoint.end = pointList[1];
 		
+		let crossingFound = false;
 		// now join pointList into a a set of polygons 
 		for(let i = 1; i < pointList.length - 1; i++){
 			let p = pointList[i];
+			
+			// check for the special case where the new point is not within the polygon 
+			// but still "crosses over" another polygon 
+			// this is a problem for discontinuities
+			
+			// if the edge {p, pt} crosses another line, then it is garunteed 
+			// to cross another, since it's on the outside of the polygon 
+			// our job is to find the first crossing
+			let crossings = [];
+			for(let testP of pointFront){
+				let [a,b,c,d] = [testP.u, testP.v, testP.end.u, testP.end.v];
+				let [a2,b2,c2,d2] = [pt.u,pt.v, p.u,p.v];
+				// (a,b) + t1 ((c,d) - (a,b)) == (a2, b2) + t2 ((c2,d2) -  (a2, b2))
+				// a + t1 (c - a) == a2 + t2 (c2 - a2), b + t1 (d - b) == b2 + t2 (d2 - b2)
+				// ... mathematica magic ...
+				let t1 = -((-(a2*b)+a*b2+b*c2-b2*c2-a*d2+a2*d2)/(a2*b-a*b2+b2*c-b*c2-a2*d+c2*d+a*d2-c*d2));
+				let t2 = -((a2*b-a*b2-b*c+b2*c+a*d-a2*d)/(-(a2*b)+a*b2-b2*c+b*c2+a2*d-c2*d-a*d2+c*d2));
+				// every point has it's base on pointFront, so we need some leeway
+				if(t1 > .00001 && t1 < .9999 && t2 > .00001 && t2 < .9999){
+					crossings.push([testP,t2]);
+				}
+			}
+			if(crossings.length > 0){
+				//pointList.splice(i, pointList.length - 2);
+				//break;
+			}
 			
 			makeConnection(p, pointList[i-1]);
 			makeConnection(p, pt);
@@ -389,18 +411,21 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				outsideUVDomain = true;
 			}
 			
-			polygons.push({
-				pts:[pt, p, pointList[i-1]]
-			});
+			if(!isEntirelyInvalid([pt, p, pointList[i-1]])){
+				polygons.push({
+					pts:[pt, p, pointList[i-1]]
+				});
+				}
 		}
 		
 		ePoint.beginning = pointList[pointList.length - 2];
 		
 		makeConnection(ePoint, pointList[pointList.length-2]);
-		polygons.push({
-			pts:[pt, ePoint, pointList[pointList.length-2]]
-		});
-		
+		if(!isEntirelyInvalid([pt, ePoint, pointList[pointList.length-2]])){
+			polygons.push({
+				pts:[pt, ePoint, pointList[pointList.length-2]]
+			});
+		}
     }
     
     //in order not to mess up the mesh as its graphing, we'll squish the 
@@ -504,13 +529,17 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					// remove the offending polygons and add new ones
 					polysToRemove.push([p1,  p2]);
 					
-					polysToAdd.push({
-						pts:[p1, ...common]
-					});
+					if(!isEntirelyInvalid([p1, ...common])){
+						polysToAdd.push({
+							pts:[p1, ...common]
+						});
+					}
 					
-					polysToAdd.push({
-						pts:[p2, ...common]
-					});
+					if(!isEntirelyInvalid([p2, ...common])){
+						polysToAdd.push({
+							pts:[p2, ...common]
+						});
+					}
 				}
 			}
 		}
@@ -596,6 +625,48 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		}
 	}
 	
+	// remove all polygons that are entirely nonreal, outside the domain or infinite
+	let ptsToFix = new Set();
+	for(let i = polygons.length - 1; i >= 0; i--){
+		let poly = polygons[i];
+		let entirelyNonValid = true, 
+			validPts = [],
+			invalidPts = [];
+		for(let testP of poly.pts){
+			if(!testP.infinite && testP.real && !testP.outsideDomain){
+				entirelyNonValid = false;
+			}
+			if(testP.infinite || !testP.real || testP.outsideDomain){
+				invalidPts.push(testP);
+			}else{
+				validPts.push(testP);
+			}
+		}
+		
+		if(entirelyNonValid){
+			polygons.splice(i, 1);
+		}else if(invalidPts.length > 0){
+			// move the points 'till they're valid again
+			for(let p of invalidPts){
+				ptsToFix.add(p);
+			}
+		}
+	}
+	for(let p of ptsToFix){
+		// find nearest valid neighbors
+		let valid = p.neighbors.filter(x=>x.pt.real && !x.pt.infinite && !x.pt.outsideDomain).sort((a,b) => xyzDist(a.pt,p) - xyzDist(b.pt,p))[0];
+		let newP = findParametricEdge(valid.pt, p, x => !x.infinite && x.real && !x.outsideDomain, xFunc, yFunc, zFunc, 30);
+		p.x = newP.x;
+		p.y = newP.y;
+		p.z = newP.z;
+		p.real = newP.real;
+		p.infinite = newP.infinite;
+		p.outsideDomain = newP.outsideDomain;
+		p.u = newP.u;
+		p.v = newP.v;
+		p.deriv1 = valid.pt.deriv1;
+	}
+	
 	onFinish();
 }
 
@@ -614,6 +685,11 @@ function makeNodeDist(base, pt, nodeDist, dir, xFunc, yFunc, zFunc){
 		let count = 0;
 		let switched = false;
 		let original = xyzDist(base, pt);
+		
+		// for actual discontinuities, there needs to be a minimum u/v travel so we don't get stuck
+		// (also, floating point errors)
+		let minUVTravel = nodeDist / 10;
+		
 		while(!withinTolerance(pt)){
 			count++;
 			pt = plot(xFunc, yFunc, zFunc, base.u + a * dir.u, base.v + a * dir.v);
@@ -627,19 +703,37 @@ function makeNodeDist(base, pt, nodeDist, dir, xFunc, yFunc, zFunc){
 			}
 			a += delta * deltaMultiplier;
 			
+			while(Math.sqrt((a*dir.u)**2 + (a*dir.v)**2) < minUVTravel){
+				a += Math.abs(delta * deltaMultiplier);
+			}
+			
 			if(count > 15 && switched === false){
 				deltaMultiplier *= 100;
 				switched = true;
 			}
 			
-			if(count > 50){
+			if(count > 30){
 				// give up, we can't win
-				console.log('giving up', original,dist, nodeDist);
+				if(isNaN(original)){
+					console.log('giving up', original,dist, nodeDist);
+				}
 				break;
 			}
 		}
 		return plotPlus(xFunc, yFunc, zFunc, pt.u, pt.v);
 	}
+
+	
+}
+
+function isEntirelyInvalid(pts){
+	let invalid = true;
+	for(let p of pts){
+		if(p.real && !p.outsideDomain && !p.infinite){
+			invalid = false;
+		}
+	}
+	return invalid;
 }
 
 function normal(pt){
@@ -647,6 +741,10 @@ function normal(pt){
 }
 
 function withinPolygon(pt, poly){
+	return withinPolygonCrossCount(pt,poly) % 2 === 1;
+}
+
+function withinPolygonCrossCount(pt, poly){
 	// check if newPt is on the interior of pointFront. If so, remove the point.
 	// we'll make use of a simple scanline algorithm for if a point is in a polygon
 	const v0 = pt.v, u0 = pt.u;
@@ -666,7 +764,7 @@ function withinPolygon(pt, poly){
 		}
 	}
 	
-	return crossCount % 2 === 1;
+	return crossCount;
 }
 
 function generatingVecs(refPt){
@@ -868,6 +966,9 @@ function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
             du:ud1,
             dv:uv1
         },
+		real:p1.real,
+		infinite:p1.infinite,
+		outsideDomain:p1.outsideDomain
     };
 }
 
@@ -924,6 +1025,7 @@ function plot(cX, cY, cZ, u,v){
         point.z = spreadCoord(point.z, domain.z.min, domain.z.max, domain.z.spread);
 		
 		point.outsideDomain = false;
+		point.infinite = false;
 		
 		// record it as outside domain if outside,
 		// but only move it if it's a good distance away
@@ -937,6 +1039,13 @@ function plot(cX, cY, cZ, u,v){
 			}
 			if(point[attr] > max + moveDist){
 				point[attr] = max+moveDist;
+			}
+		}
+		
+		for(let attr of ['x','y','z']){
+			if(!isFinite(point[attr])){
+				point[attr] = domain[attr].max;
+				point.infinite = true;
 			}
 		}
 		
@@ -958,7 +1067,7 @@ function findParametricEdge(realP, nonRealP, testFunc, xFunc, yFunc, zFunc, iter
     var u = (realP.u + nonRealP.u)/2;
     var v = (realP.v + nonRealP.v)/2;
     
-    let inBetween = plot(xFunc, yFunc, zFunc, u, v);
+    let inBetween = plotPlus(xFunc, yFunc, zFunc, u, v);
     
     //return new interval
     if(!testFunc(inBetween)){
