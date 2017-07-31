@@ -334,6 +334,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				
 				// it is imperative that the length actually be close to nodeDist
 				newPt = makeNodeDist(pt, newPt, nodeDist, loc, xFunc, yFunc, zFunc);
+				newPt.base = pt;
 				
 				if(logResults){
 					console.log(newPt.u,newPt.v);
@@ -349,7 +350,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					pointList.splice(i, 1);
 					i--;
 					continue;
-				}				
+				}
 				
 				newPt.angle = newAngle;
 				newPt.direction = loc;
@@ -664,17 +665,91 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		p.outsideDomain = newP.outsideDomain;
 		p.u = newP.u;
 		p.v = newP.v;
+		p.base = newP.base;
+		p.discontinuous = newP.discontinuous;
 		p.deriv1 = valid.pt.deriv1;
+	}
+	
+	let discPolysToAdd = [];	
+	// fix any points that "gave up" in makeNodeDist
+	// this indicates a discontinuity in most circumstances
+	// and when it's not, there won't be much of a difference
+	for(let i = polygons.length - 1; i >= 0; i--){
+		// if a polygon includes the base and the discontinuous point, remove the polygon
+		let poly = polygons[i];
+		let p = poly.pts[0],
+			np = poly.pts[1],
+			lp = poly.pts[2];
+		let ptInfo = [];
+		let hasDisc = false;
+		for(let testP of [np, lp]){
+			let newPtInfo = {
+				discontinuous:false,
+				edges:[],
+				pt:testP
+			};
+			if(xyzDist(p,testP) > defaultXYZLength*2){
+				// check for discontinuity
+				let edge1 = findParametricEdge(p, testP, x => xyzDist(p, x) < xyzDist(testP, x), xFunc, yFunc, zFunc, 20),
+					edge2 = findParametricEdge(testP, p, x => xyzDist(p, x) > xyzDist(testP, x), xFunc, yFunc, zFunc, 20);
+				edge1.deriv1 = safeDeriv(edge1, xFunc, yFunc, zFunc);
+				edge2.deriv1 = safeDeriv(edge2, xFunc, yFunc, zFunc);
+				if(xyzDist(edge1, edge2) > defaultXYZLength){
+					hasDisc = true;
+					newPtInfo.discontinuous = true;
+					newPtInfo.edges.push(edge1, edge2);
+				}
+			}
+			ptInfo.push(newPtInfo);
+		}
+		
+		if(hasDisc){
+			let discPts = ptInfo.filter(x => x.discontinuous);
+			if(discPts.length === 2){
+				discPolysToAdd.push({
+					pts:[p, discPts[0].edges[0], discPts[1].edges[0]]
+				});
+				discPolysToAdd.push({
+					pts:[discPts[0].pt, discPts[1].pt, discPts[0].edges[1]]
+				});
+				discPolysToAdd.push({
+					pts:[discPts[0].pt, discPts[1].pt, discPts[1].edges[1]]
+				});
+			}else{
+				// then only a single pt is
+				let otherPt = discPts[0].pt === np ? lp : np;
+				let newEdge = findParametricEdge(discPts[0].pt, otherPt, x => xyzDist(discPts[0].pt, x) < xyzDist(otherPt, x), xFunc, yFunc, zFunc, 20);
+				newEdge.deriv1 = safeDeriv(newEdge, xFunc, yFunc, zFunc);
+				let newEdge2 = findParametricEdge(otherPt, discPts[0].pt, x => xyzDist(otherPt, x) < xyzDist(discPts[0].pt, x), xFunc, yFunc, zFunc, 20);
+				newEdge2.deriv1 = safeDeriv(newEdge2, xFunc, yFunc, zFunc);
+				discPolysToAdd.push({
+					pts:[discPts[0].pt, discPts[0].edges[1], newEdge]
+				});
+				discPolysToAdd.push({
+					pts:[p, discPts[0].edges[0], otherPt]
+				});
+				discPolysToAdd.push({
+					pts:[otherPt, p, newEdge2]
+				});
+			}
+			polygons.splice(i, 1);
+		}
+	}
+	for(let poly of discPolysToAdd){
+		polygons.push(poly);
 	}
 	
 	onFinish();
 }
 
 function makeNodeDist(base, pt, nodeDist, dir, xFunc, yFunc, zFunc){
-	// the goal is to make the distance between pt and base within 25% of nodeDist 
+	// the goal is to make the distance between pt and base within 10% of nodeDist 
 	// if it already meets these standards, have a nice day
 	let withinTolerance = (proposed) => Math.abs(xyzDist(base, proposed) - nodeDist) / nodeDist < .1;
+	let gaveUp = false;
+	pt.nodeDist = nodeDist;
 	if(withinTolerance(pt)){
+		pt.discontinuous = false;
 		return pt;
 	}else{
 		// unfortunately, although we'd like to believe that as dir increases, xyzDist also increases,
@@ -714,13 +789,13 @@ function makeNodeDist(base, pt, nodeDist, dir, xFunc, yFunc, zFunc){
 			
 			if(count > 30){
 				// give up, we can't win
-				if(isNaN(original)){
-					console.log('giving up', original,dist, nodeDist);
-				}
+				gaveUp = true;
 				break;
 			}
 		}
-		return plotPlus(xFunc, yFunc, zFunc, pt.u, pt.v);
+		let finalPt = plotPlus(xFunc, yFunc, zFunc, pt.u, pt.v);
+		finalPt.discontinuous = gaveUp;
+		return finalPt;
 	}
 
 	
@@ -947,13 +1022,9 @@ function removeConnection(pt1, pt2){
 // plot the point, computes its 1st partial derivatives (dx/du, dx/dv etc)
 function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
     if(!delta){
-        delta = Math.min((domain.u.max-domain.u.min)/1e8, (domain.v.max-domain.v.min)/1e8);
+        delta = Math.min((domain.u.max-domain.u.min)/1e9, (domain.v.max-domain.v.min)/1e9);
     }
     const p1 = plot(xfunc, yfunc, zfunc, u, v);
-    const pu = plot(xfunc, yfunc, zfunc, u-delta, v);
-    const pv = plot(xfunc, yfunc, zfunc, u, v-delta);
-    const ud1 = scalar(1/delta,sub(p1,pu));
-	const uv1 = scalar(1/delta, sub(p1, pv));
     
     return {
         x:p1.x,
@@ -962,14 +1033,33 @@ function plotPlus(xfunc, yfunc, zfunc, u,v,delta){
         u:p1.u,
         v:p1.v,
         neighbors:[],
-        deriv1:{
-            du:ud1,
-            dv:uv1
-        },
+        deriv1:safeDeriv(p1, xfunc, yfunc, zfunc),
 		real:p1.real,
 		infinite:p1.infinite,
 		outsideDomain:p1.outsideDomain
     };
+}
+
+// if there is a discontinuity on one side (within delta), picks the less large derivative
+function safeDeriv(p1, xfunc, yfunc, zfunc){
+	let delta = Math.min((domain.u.max-domain.u.min)/1e9, (domain.v.max-domain.v.min)/1e9);
+	let [u,v] = [p1.u, p1.v];
+	
+    const pu = plot(xfunc, yfunc, zfunc, u-delta, v);
+    const pv = plot(xfunc, yfunc, zfunc, u, v-delta);
+	const pu2 = plot(xfunc, yfunc, zfunc, u+delta, v);
+    const pv2 = plot(xfunc, yfunc, zfunc, u, v+delta);
+	
+	
+    const u1 = scalar(1/delta,sub(p1,pu));
+	const v1 = scalar(1/delta, sub(p1, pv));
+	const u2 = scalar(-1/delta,sub(p1,pu2));
+	const v2 = scalar(-1/delta, sub(p1, pv2));
+	
+	return {
+		du: magnitude(u1) > magnitude(u2) ? u2 : u1,
+		dv: magnitude(v1) > magnitude(v2) ? v2 : v1
+	}
 }
 
 //compiled x,y,z functions
