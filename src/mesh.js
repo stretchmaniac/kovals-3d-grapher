@@ -560,15 +560,18 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			}
 		}
 	}
+	
+	let overlapUDelta = (domain.u.max - domain.u.min) / 1e3,
+		overlapVDelta = (domain.v.max - domain.v.min) / 1e3;
     // move all the edge points back into the domain
     for(var k = 0; k < edgePoints.length; k++){
         const pt = edgePoints[k];
         let u = pt.u, v = pt.v;
 		
-		u = u > domain.u.max ? domain.u.max : u;
-		u = u < domain.u.min ? domain.u.min : u;
-		v = v > domain.v.max ? domain.v.max : v;
-		v = v < domain.v.min ? domain.v.min : v;
+		u = u > domain.u.max ? domain.u.max + overlapUDelta : u;
+		u = u < domain.u.min ? domain.u.min - overlapUDelta : u;
+		v = v > domain.v.max ? domain.v.max + overlapVDelta : v;
+		v = v < domain.v.min ? domain.v.min - overlapVDelta : v;
         
         pt.u = u;
         pt.v = v;
@@ -586,10 +589,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	// and v axis edge point (to form a triangle)
 	
 	const corners = [
-		[domain.u.min, domain.v.min],
-		[domain.u.min, domain.v.max],
-		[domain.u.max, domain.v.min],
-		[domain.u.max, domain.v.max]
+		[domain.u.min - overlapUDelta, domain.v.min - overlapVDelta],
+		[domain.u.min - overlapUDelta, domain.v.max + overlapVDelta],
+		[domain.u.max + overlapUDelta, domain.v.min - overlapVDelta],
+		[domain.u.max + overlapUDelta, domain.v.max + overlapVDelta]
 	];
 	
 	for(let corner of corners){
@@ -597,8 +600,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		let [cornerU, cornerV] = corner;
 		if(!withinPolygon({u: cornerU, v: cornerV}, postPointFront)){
 			// find the nearest edge point in the u and v direction 
-			let wiggleFudgeU = (domain.u.max - domain.u.min) / 1e8;
-			let wiggleFudgeV = (domain.v.max - domain.v.min) / 1e8;
+			let wiggleFudgeU = (domain.u.max - domain.u.min) / 1e7;
+			let wiggleFudgeV = (domain.v.max - domain.v.min) / 1e7;
 			let bestU = null,
 				bestV = null;
 			
@@ -1119,7 +1122,7 @@ function plot(cX, cY, cZ, u,v){
 		
 		// record it as outside domain if outside,
 		// but only move it if it's a good distance away
-		const moveDist = (domain.x.max - domain.x.min) / 30;
+		const moveDist = (domain.x.max - domain.x.min) / 20;
 		for(let [attr, min, max] of [['x',domain.x.min, domain.x.max],['y',domain.y.min,domain.y.max],['z',domain.z.min,domain.z.max]]){
 			if(point[attr] < min || point[attr] > max){
 				point.outsideDomain = true;
