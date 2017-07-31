@@ -204,8 +204,9 @@
 					<a id='help-menu-basics' href='#help-parametric' class='help-menu-button'>Using Parametric Variables</a>
 					<a id='help-menu-basics' href='#help-equation-forms' class='help-menu-button'>Acceptable Equation Forms</a>
 					<a id='help-menu-basics' href='#help-normals' class='help-menu-button'>Rendering and Normal Vectors</a>
+					<a id='help-menu-basics' href='#help-faq' class='help-menu-button'>FAQ</a>
 					<a id='help-menu-basics' href='#help-funcs' class='help-menu-button'>Function and Operator Reference</a>
-					<a id='help-menu-basics' href='#help-how-it-works' class='help-menu-button'>How It All Works</a>
+					<a id='help-menu-basics' href='#help-how-it-works' class='help-menu-button'>A Primer on the Underlying Algorithms</a>
 					<a id='help-menu-basics' href='#help-about' class='help-menu-button'>About the Developer</a>
 				</div>
 				<div id='help-info'>
@@ -223,7 +224,53 @@
 							This is a short guide to plotting a simple function, \(z=\sin{x}+\sin{y}\).
 						</p>
 					</div>
-					<table class='center'>
+					<div id='help-domain'>
+						<h1>Changing the Plotting Domain</h1>
+						<p>
+							This section outlines how to view different sections of the plot by changing the 
+							domain of the input variables.
+						</p>
+					</div>
+					<div id='help-coordinate-systems'>
+						<h1>Changing Coordinate Systems</h1>
+						<p>
+							This section gives a basic overview of the three types of supported coordinate systems (cartesian, cylindrical and spherical) and 
+							how to use them in Koval's 3D Grapher.
+						</p>
+					</div>
+					<div id='help-parametric'>
+						<h1>Using Parametric Variables</h1>
+						<p>
+							This section defines the usage of parametricly defined plots using the extra variables /(u/) and /(v/).
+						</p>
+					</div>
+					<div id='help-equation-forms'>
+						<h1>Acceptable Equation Forms</h1>
+						<p>
+							This section outlines all the acceptable equation forms that may be entered into Koval's 3D Grapher, such as 
+							\(y = 4x + z\) and \([r,\theta,\phi]=[u,v,\sin{u}]\).
+						</p>
+					</div>
+					<div id='help-normals'>
+						<h1>Rendering and Normal Forms</h1>
+						<p>
+							This section provides background about the rendering of the 3D plotted surface and how the "invert 
+							normals" button illuminates the opposite side of the surface.
+						</p>
+					</div>
+					<div id='help-faq'>
+						<h1>Frequently Asked Questions</h1>
+						<p>
+							This section adresses some common misunderstandings and pitfalls when using Koval's 3D Grapher.
+						</p>
+					</div>
+					<div id='help-funcs'>
+						<h1>Function and Operator Reference</h1>
+						<p>
+							This section enumerates a list of operators and functions and their definitions that may be 
+							used in expressions.
+						</p>
+						<table class='center'>
 						<tr>
 							<th>Function Name</th>
 							<th>Meaning</th>
@@ -674,15 +721,28 @@
 						</tr>
 						-->
 					</table>
-					<p>
-						Don't see the function you'd like? Check out the full list of functions from 
-						<a href='http://mathjs.org/docs/reference/functions/alphabetical.html'>mathjs.org</a>,
-						at your own risk, of course.
-					</p>
-					<span id='help-about' style='font-size:50px;margin-top:30px'>About</span>
-					<p>
-						
-					</p>
+					
+											<p>
+							Don't see the function you'd like? Check out the full list of functions from 
+							<a href='http://mathjs.org/docs/reference/functions/alphabetical.html'>mathjs.org</a>,
+							at your own risk, of course.
+						</p>
+					</div>
+					<div id='help-how-it-works'>
+						<h1>A Primer on the Underlying Algorithms</h1>
+						<p>
+							This sections illuminates some of the algorithms that drive the mesh generation and graphing mechanism
+							of Koval's 3D Grapher.
+						</p>
+					</div>
+					<div id='help-about'>
+						<h1>About The Developer</h1>
+						<p>
+							My name is Alan Koval, a freshmen at the University of Minnesota. I am currently studying 
+							mathematics and computer science. You can find more about me on my website homepage, 
+							<a href='https://alankoval.com'>alankoval.com</a>
+						</p>
+					</div>
 				</div>
 			</div>
         </div>        
