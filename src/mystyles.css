@@ -15,7 +15,7 @@ a :not(.hyperlink){
     color:white;
 }
 p,li{
-    font-size:15pt;
+    
 }
 .note{
     font-size:13pt;
@@ -26,8 +26,7 @@ table{
     text-align:center;
 }
 td, tr, th{
-    padding:9px;
-    font-size:12pt;
+    padding:5px;
     border:1px solid rgb(200,200,200);
 }
 tr:nth-child(even) {
@@ -167,9 +166,7 @@ button:active{
 .hidden{
     display:none;
 }
-#help-content{
-    width:80%;
-    height:80%;
+#help-inner-content{
     display:flex;
     flex-direction:row;
 }
@@ -186,25 +183,23 @@ button:active{
 }
 #help-menu{
     height:100%;
-    background:rgb(54, 169, 104);
+	min-width:130px;
 }
 #help-info{
     background-color:white;
-    overflow-y:auto;
+    overflow-y:scroll;
     flex-grow:1;
+	min-width:1000px;
     padding:20px;
-    height:calc(100% - 40px);
 }
 .help-menu-button{
     cursor:pointer;
     display:block;
     margin:0px;
-    border-bottom:1px solid rgba(255,255,255,.5);
     text-decoration:none;
-    color:white;
-    font-size:20px;
+    color:black;
     text-align:center;
-    padding:15px 30px 15px 30px;
+    padding:5px;
 }
 .help-menu-button:hover{
     background-color:rgba(0,0,0,.1);
