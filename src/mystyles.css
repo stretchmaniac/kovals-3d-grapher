@@ -596,6 +596,37 @@ hr + span{
 #cancel-plot-button:hover{
 	background-color:rgba(255,255,255,.1);
 }
+#extra-options-menu{
+	position: absolute;
+    right: 0px;
+    background-color: #333333;
+    padding: 5px;
+	color: var(--equation-font-color);
+	transition: all .5s ease;
+    z-index: -1;
+}
+.extra-options-option-wrapper{
+	display:flex;
+	flex-direction:row;
+	cursor:default;
+}
+.extra-options-option-wrapper:hover{
+	background-color:rgba(255,255,255,.1);
+}
+.extra-options-option-icon{
+	height: 20px;
+    padding: 5px;
+}
+.extra-options-option-text{
+	padding: 8px
+}
+.extra-options-hidden{
+	opacity:0;
+}
+.extra-options-shone{
+	transform: translateY(-100%);
+	opacity:1;
+}
 
 
 

@@ -385,6 +385,7 @@ $(function(){
             MQ(el).latex(defaultValues[k])
         }
         setDomainVisibility();
+		readURLParameters();
     },1500)
     
     //randomGraph();
@@ -517,7 +518,121 @@ $(function(){
 	domain.center = getRealDomainCenter();
 	updateAxisBuffer();
 	plotPointsWebGL();
+	
+	
 });
+
+function readURLParameters(){
+	// URL encoding reference:
+	// f - function, what goes in the main box
+	// x - string - "xmin, xmax"
+	// y
+	// z
+	// u
+	// v 
+	// r 
+	// t - theta  
+	// phi
+	// rh - rho 
+	// ...
+	// n - normal multiplier
+	// r - a 24 digit string, representing 3 components of the 
+	//  x vector and 3 of the y
+	// op - a string representing the selected options
+	//    m - don't shade mesh
+	//    d - don't use directional lighting
+	//    p - don't use perspective
+	//    r - render mesh when shading
+	//    a - don't show axes
+	//    l - don't show axes labels
+	// q - mesh quality
+	
+	// if the url has a 'function' parameter, autofill the box 
+	let urlUtils = new URLSearchParams(window.location.search.substring(1));
+	if(urlUtils.has('f')){
+		let funcValue = urlUtils.get('f');
+		// write function value to function input
+		console.log('writing url value', funcValue);
+		MQ(document.getElementById('equation-input')).latex(funcValue);
+		
+		// read domain values, if any
+		for(let key of [['dca','cart'],['dcy','cyl'],['ds','sphere'],['dp','par']]){
+			let [urlKey, elementIDPart] = key;
+			if(urlUtils.has(urlKey)){
+				let val = urlUtils.get(urlKey);
+				MQ(document.getElementById(elementIDPart+'-domain-bar')).latex(val);
+			}
+		}
+		
+		// get any options
+		// normal multiplier
+		if(urlUtils.has('n')){
+			domain.normalMultiplier = parseFloat(urlUtils.get('n'));
+		}
+		
+		// rotation
+		// while it is technically possible to get away with only 5 components (x and y 
+		// are perpendicular), you run into issues when x.y ~= 0 and |y| ~= 0
+		if(urlUtils.has('r')){
+			let val = urlUtils.get('r');
+			let xString = val.substr(0, 12);
+			let yString = val.substr(12, 12);
+			let xData = [xString.substr(0,4), xString.substr(4,4), xString.substr(8,4)].map(x => parseInt(x)/(x.substr(0,1)==='-' ? 100 : 1000));
+			let yData = [yString.substr(0,4), yString.substr(4,4), yString.substr(8,4)].map(x => parseInt(x)/(x.substr(0,1)==='-' ? 100 : 1000));
+			let xVec = {x: xData[0], y: xData[1], z: xData[2]};
+			// for rounding errors
+			xVec = scalar(1/magnitude(xVec), xVec);
+			
+			// yVec needs to be perpendicular to xVec, hence yVec . xVec == 0
+			let yVec = {x: yData[0], y:yData[1], z:yData[2]};
+			
+			yVec = scalar(1/magnitude(yVec), yVec);
+			
+			let zVec = cross(xVec, yVec); // obviously
+			axes = [xVec, yVec, zVec];
+
+			console.log(axes);
+		}
+		
+		// menu options
+		if(urlUtils.has('op')){
+			let val = urlUtils.get('op');
+			if(val.indexOf('m') !== -1){
+				document.getElementById('color-checkbox').checked = false;
+				domain.coloring = false;
+			}
+			if(val.indexOf('d') !== -1){
+				document.getElementById('directional-lighting-checkbox').checked = false;
+				domain.directionalLighting = false;
+			}
+			if(val.indexOf('p') !== -1){
+				document.getElementById('perspective-checkbox').checked = false;
+				domain.perspective = false;
+			}
+			if(val.indexOf('r') !== -1){
+				document.getElementById('show-mesh-while-coloring-checkbox').checked = true;
+				domain.showMeshWhileColoring = true;
+			}
+			if(val.indexOf('a') !== -1){
+				document.getElementById('axes-checkbox').checked = false;
+				domain.showAxes = false;
+			}
+			if(val.indexOf('l') !== -1){
+				document.getElementById('show-axes-labels-checkbox').checked = false;
+				domain.showAxesLabels = false;
+			}
+		}
+		
+		// mesh quality
+		if(urlUtils.has('q')){
+			let val = urlUtils.get('q');
+			document.getElementById('mesh-quality-input').value = parseFloat(val);
+		}
+		
+		// finally, graph the function
+		graph();
+	}
+}
 
 $(window).resize(function(){
     var width = $('#content-graph').width();
@@ -530,40 +645,6 @@ $(window).resize(function(){
         $('#canvas').prop('height',$(window).height())
     }    
     plotPointsWebGL();
-});
-
-$('#cartesian-button').click(function(){
-    cartesian = true;
-    cylindrical = false;
-    spherical = false;
-    $('densisty')
-    $('#rho-phi-height-range-row').hide();
-    $('#r-theta-sphi-range-row').hide();
-    $('#spherical-coordinates').hide();
-    $('#cylindrical-coordinates').hide();
-    $('#cartesian-coordinates').show();
-    $('#x-y-z-range-row').show();
-    if(isParametric()){
-        $('#u-v-range-row').show();
-    }else{
-        $('#u-v-range-row').hide();
-    }
-    $('#x-plot-heading').html('\\(x\\)');
-    $('#y-plot-heading').html('\\(y\\)');
-    $('#z-plot-heading').html('\\(z\\)');
-    refreshMathJax()
-    
-    if(domain.pointsOnly){
-        $('#plot-row').show();
-        $('#cartesian-coordinates').hide();
-        $('#density-row').hide();
-        $('#u-v-range-row').hide();
-        $('#color-row').hide();
-    }else{
-        $('#plot-row').hide();
-        $('#color-row').show();
-        $('#density-row').show();
-    }
 });
 
 $('#axes-checkbox').change(function(){
@@ -658,6 +739,86 @@ $('#full-screen-button').click(function(){
     }
 })
 
+$('#more-options').click(function(){
+	document.getElementById('extra-options-menu').classList.toggle('extra-options-shone');
+	document.getElementById('extra-options-menu').classList.toggle('extra-options-hidden');
+});
+
+$('#get-link-button').click(function(){
+	// create url (see readURLParameters for reference)
+	let url = '?'
+	let func = MQ(document.getElementById('equation-input')).latex();
+	url += 'f=' + encodeURIComponent(func);
+	
+	let domainLayers = [];
+	// get the visible domain items
+	for(let k of [['dca','cart'],['dcy','cyl'],['ds','sphere'],['dp','par']]){
+		let [code, id] = k;
+		let el = document.getElementById(id+'-domain-bar');
+		let style = window.getComputedStyle(el);
+		if(style.display !== 'none'){
+			domainLayers.push({
+				code:code,
+				val:MQ(el).latex()
+			});
+		}
+	}
+	
+	for(let domainItem of domainLayers){
+		url += '&'+domainItem.code+'='+encodeURIComponent(domainItem.val);
+	}
+	
+	// essentially, if it's -1
+	if(domain.normalMultiplier < 0){
+		url += '&n='+encodeURIComponent('-1');
+	}
+	
+	// rotation
+	let get4Digits = x => {
+		let num = (x+'').replace(/\./g, '');
+		while(num.length < 4){
+			num += '0';
+		}
+		return num.substr(0,4);
+	}
+	let rotVal = get4Digits(axes[0].x) + get4Digits(axes[0].y) + get4Digits(axes[0].z) + 
+		get4Digits(axes[1].x) + get4Digits(axes[1].y) + get4Digits(axes[1].z);
+	url += '&r='+encodeURIComponent(rotVal);
+	
+	// options
+	//    m - don't shade mesh
+	//    d - don't use directional lighting
+	//    p - don't use perspective
+	//    r - render mesh when shading
+	//    a - don't show axes
+	//    l - don't show axes labels
+	let optionsString = ''
+	if(!domain.coloring){
+		optionsString += 'm';
+	}
+	if(!domain.directionalLighting){
+		optionsString += 'd';
+	}
+	if(!domain.perspective){
+		optionsString += 'p';
+	}
+	if(domain.showMeshWhileColoring){
+		optionsString += 'r';
+	}
+	if(!domain.showAxes){
+		optionsString += 'a';
+	}
+	if(!domain.showAxesLabels){
+		optionsString += 'l';
+	}
+	
+	if(optionsString !== ''){
+		url += '&op='+encodeURIComponent(optionsString);
+	}
+	
+	url += '&q='+encodeURIComponent(domain.density+'');
+	console.log(url);
+});
 function setDomainVisibility(){
     var toHide = [];
     //cart-domain-bar will never go away
@@ -1556,6 +1717,13 @@ function spreadCoord(val, min, max, spread){
     var center = (min+max)/2;
     var valRel = val - center;
     return valRel*spread + center;
+}
+
+// inverse of spreadCoord
+function antiSpread(val, min, max, spread){
+	let center = (min + max)/2;
+	let valRel = val - center;
+	return valRel/spread + center;
 }
 
 function pointToQuat(p){
