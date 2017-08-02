@@ -740,11 +740,30 @@ $('#full-screen-button').click(function(){
 })
 
 $('#more-options').click(function(){
-	document.getElementById('extra-options-menu').classList.toggle('extra-options-shone');
-	document.getElementById('extra-options-menu').classList.toggle('extra-options-hidden');
+	let menu = document.getElementById('extra-options-menu');
+	menu.classList.toggle('extra-options-shone');
+	menu.classList.toggle('extra-options-hidden');
+	document.getElementById('get-link-button').onclick = onGetLinkClicked;
+	document.getElementById('get-link-text').textContent = 'get link';
+	
+	if(menu.classList.contains('extra-options-shone')){
+		document.body.addEventListener('click', menuOpenBodyClick);
+	}else{
+		document.body.removeEventListener('click', menuOpenBodyClick);
+	}
+	return false;
 });
 
-$('#get-link-button').click(function(){
+$('#extra-options-menu').click(function(){
+	return false;
+});
+
+function menuOpenBodyClick(){
+	$('#more-options').click();
+	return true;
+}
+
+function onGetLinkClicked(){
 	// create url (see readURLParameters for reference)
 	let url = '?'
 	let func = MQ(document.getElementById('equation-input')).latex();
@@ -817,8 +836,15 @@ $('#get-link-button').click(function(){
 	}
 	
 	url += '&q='+encodeURIComponent(domain.density+'');
-	console.log(url);
-});
+	
+	document.getElementById('get-link-text').textContent = 'https://alankoval.com/3dgrapher'+url;
+	
+	selectText('get-link-text');
+	console.log('click');
+	document.getElementById('get-link-button').onclick = function(){
+		return false;
+	};
+};
 function setDomainVisibility(){
     var toHide = [];
     //cart-domain-bar will never go away
@@ -2175,6 +2201,26 @@ function project(v1,v2){
 
 function magnitude(v){
     return Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
+}
+
+// thanks to Jason on stack overflow
+// https://stackoverflow.com/questions/985272/selecting-text-in-an-element-akin-to-highlighting-with-your-mouse
+function selectText(element) {
+    var doc = document, 
+		text = doc.getElementById(element),
+		range, selection;
+		
+    if (doc.body.createTextRange) {
+        range = document.body.createTextRange();
+        range.moveToElementText(text);
+        range.select();
+    } else if (window.getSelection) {
+        selection = window.getSelection();        
+        range = document.createRange();
+        range.selectNodeContents(text);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
 }
 
 

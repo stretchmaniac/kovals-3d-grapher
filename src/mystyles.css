@@ -618,7 +618,10 @@ hr + span{
     padding: 5px;
 }
 .extra-options-option-text{
-	padding: 8px
+	padding: 8px;
+	width:200px;
+	overflow-x:auto;
+	white-space:nowrap;
 }
 .extra-options-hidden{
 	opacity:0;
@@ -626,6 +629,9 @@ hr + span{
 .extra-options-shone{
 	transform: translateY(-100%);
 	opacity:1;
+}
+.extra-options-option-text::-webkit-scrollbar { 
+    display: none; 
 }
 
 
