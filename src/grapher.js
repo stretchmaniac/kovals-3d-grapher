@@ -234,17 +234,6 @@ $(function(){
         });
     })
     $('#help-popup').click(function(event){})
-    $('#export-button').click(function(){
-        $('#export-popup').removeClass('hidden');
-        setUpDownload();
-        $(document).mouseup(function (e){
-            var container = $("#export-content");
-            if (!container.is(e.target) && container.has(e.target).length === 0){
-                $('#export-popup').addClass('hidden');
-                $("#export-content").unbind( 'click', document);
-            }
-        });
-    })
     $('#export-cancel-button').click(function(){
         $('#export-popup').addClass('hidden');
         $("#export-content").unbind('click', document);
@@ -769,9 +758,15 @@ $('#more-options').click(function(){
 	document.getElementById('get-link-text').textContent = 'get link';
 	document.getElementById('embed-button-text').textContent = 'embed in html';
 	document.getElementById('embed-mathematica-text').textContent = 'embed in mathematica workbook';
+	document.getElementById('export-button').onclick = function(){
+		document.getElementById('save-href').click();
+	}
 	
 	if(menu.classList.contains('extra-options-shone')){
 		document.body.addEventListener('click', menuOpenBodyClick);
+		domain.setUpDownload = true;
+		plotPointsWebGL();
+		domain.setUpDownload = false;
 	}else{
 		document.body.removeEventListener('click', menuOpenBodyClick);
 		document.getElementById('embed-button').onclick = function(){}
@@ -1215,14 +1210,12 @@ function changeDomainInputs(){
 }
 
 function setUpDownload(){
-    var select = document.getElementById('image-type-selector');
-    var type = select.options[select.selectedIndex].value;
     var canvas = document.getElementById('canvas');
-    var data = canvas.toDataURL('image/'+type);
+    var data = canvas.toDataURL('image/png');
     data = data.replace(/^data:image\/[^;]*/, 'data:application/octet-stream');
-    data = data.replace(/^data:application\/octet-stream/, 'data:application/octet-stream;headers=Content-Disposition%3A%20attachment%3B%20filename=Graph.'+type);
+    data = data.replace(/^data:application\/octet-stream/, 'data:application/octet-stream;headers=Content-Disposition%3A%20attachment%3B%20filename=Graph.png');
     document.getElementById('save-href').href = data;
-    document.getElementById('save-href').download = 'Graph.'+type;
+    document.getElementById('save-href').download = 'Graph.png';
 }
 
 function evalDomain(string){
@@ -2146,6 +2139,10 @@ function plotPointsWebGL(){
 	gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.polyBuffer, gl.STATIC_DRAW);
 	// primitive type, offset, count
 	gl.drawArrays(gl.TRIANGLES, 0, domain.polyNumber * 3);
+	
+	if(domain.setUpDownload){
+		setUpDownload();
+	}
 }
 
 function rotatePoints(pQuats, rot){
