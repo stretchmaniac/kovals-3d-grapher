@@ -42,7 +42,8 @@ var domain = {
 	normalMultiplier:1,
 	polyNumber:0,
 	polyData:[],
-	axisPrecision:2
+	axisPrecision:2,
+	miniDisplay:false
 }
 
 var compile = require('interval-arithmetic-eval');
@@ -545,6 +546,7 @@ function readURLParameters(){
 	//    r - render mesh when shading
 	//    a - don't show axes
 	//    l - don't show axes labels
+	//    s - miniDomain for embedding
 	// q - mesh quality
 	
 	// if the url has a 'function' parameter, autofill the box 
@@ -620,6 +622,24 @@ function readURLParameters(){
 			if(val.indexOf('l') !== -1){
 				document.getElementById('show-axes-labels-checkbox').checked = false;
 				domain.showAxesLabels = false;
+			}
+			if(val.indexOf('s') !== -1){
+				domain.miniDisplay = true;
+				// hide work bar 
+				document.getElementById('work-bar-wrapper').style.display = 'none';
+				// make big Koval's 3D Grapher text smaller 
+				document.getElementById('title').style.fontSize = '15px';
+				// remove fullscreen link (it doesn't work in iframes)
+				document.getElementById('full-screen-button').style.display = 'none';
+				// make reset button link visible 
+				document.getElementById('reset-button').style.display = 'block';
+				document.getElementById('reset-button').onclick = function(){
+					readURLParameters();
+				}
+				document.getElementById('invert-normals-embed-button').style.display = 'block';
+				document.getElementById('invert-normals-embed-button').onclick = function(){
+					$('#invert-normal-icon').click();
+				}
 			}
 		}
 		
@@ -744,12 +764,19 @@ $('#more-options').click(function(){
 	menu.classList.toggle('extra-options-shone');
 	menu.classList.toggle('extra-options-hidden');
 	document.getElementById('get-link-button').onclick = onGetLinkClicked;
+	document.getElementById('embed-button').onclick = onEmbedClicked;
+	document.getElementById('embed-mathematica-button').onclick = onMathematicaEmbedClicked;
 	document.getElementById('get-link-text').textContent = 'get link';
+	document.getElementById('embed-button-text').textContent = 'embed in html';
+	document.getElementById('embed-mathematica-text').textContent = 'embed in mathematica workbook';
 	
 	if(menu.classList.contains('extra-options-shone')){
 		document.body.addEventListener('click', menuOpenBodyClick);
 	}else{
 		document.body.removeEventListener('click', menuOpenBodyClick);
+		document.getElementById('embed-button').onclick = function(){}
+		document.getElementById('get-link-text').onclick = function(){}
+		document.getElementById('embed-mathematica-button').onclick = function(){}
 	}
 	return false;
 });
@@ -764,6 +791,38 @@ function menuOpenBodyClick(){
 }
 
 function onGetLinkClicked(){
+	let url = getLinkUrl();
+	document.getElementById('get-link-text').textContent = 'https://alankoval.com/3dgrapher'+url;
+	
+	selectText('get-link-text');
+	console.log('click');
+	document.getElementById('get-link-button').onclick = function(){
+		return false;
+	};
+};
+
+function onEmbedClicked(){
+	domain.miniDisplay = true;
+	let url = getLinkUrl();
+	document.getElementById('embed-button-text').textContent = '<iframe src=\'https://alankoval.com/3dgrapher'+url+'\' width=\'800\' height=\'800\'><p>Your browser does not support iframe</p></iframe>';
+	selectText('embed-button-text');
+	document.getElementById('embed-button').onclick = function(){
+		return false;
+	}
+}
+
+function onMathematicaEmbedClicked(){
+	domain.miniDisplay = true;
+	let htmlText = '<iframe src=\'https://alankoval.com/3dgrapher'+getLinkUrl()+'\' width=\'800\' height=\'800\'><p>Your browser does not support iframe</p></iframe>';
+	let finalText = 'EmbeddedHTML["'+htmlText+'"]';
+	document.getElementById('embed-mathematica-text').textContent = finalText;
+	selectText('embed-mathematica-text');
+	document.getElementById('embed-mathematica-button').onclick = function(){
+		return false;
+	}
+}
+
+function getLinkUrl(){
 	// create url (see readURLParameters for reference)
 	let url = '?'
 	let func = MQ(document.getElementById('equation-input')).latex();
@@ -787,10 +846,7 @@ function onGetLinkClicked(){
 		url += '&'+domainItem.code+'='+encodeURIComponent(domainItem.val);
 	}
 	
-	// essentially, if it's -1
-	if(domain.normalMultiplier < 0){
-		url += '&n='+encodeURIComponent('-1');
-	}
+	url += '&n='+encodeURIComponent(domain.normalMultiplier < 0 ? '-1' : '1');
 	
 	// rotation
 	let get4Digits = x => {
@@ -811,6 +867,7 @@ function onGetLinkClicked(){
 	//    r - render mesh when shading
 	//    a - don't show axes
 	//    l - don't show axes labels
+	//    s - miniDisplay (for embedding)
 	let optionsString = ''
 	if(!domain.coloring){
 		optionsString += 'm';
@@ -830,6 +887,9 @@ function onGetLinkClicked(){
 	if(!domain.showAxesLabels){
 		optionsString += 'l';
 	}
+	if(domain.miniDisplay){
+		optionsString += 's';
+	}
 	
 	if(optionsString !== ''){
 		url += '&op='+encodeURIComponent(optionsString);
@@ -837,14 +897,9 @@ function onGetLinkClicked(){
 	
 	url += '&q='+encodeURIComponent(domain.density+'');
 	
-	document.getElementById('get-link-text').textContent = 'https://alankoval.com/3dgrapher'+url;
-	
-	selectText('get-link-text');
-	console.log('click');
-	document.getElementById('get-link-button').onclick = function(){
-		return false;
-	};
-};
+	return url;
+}
+
 function setDomainVisibility(){
     var toHide = [];
     //cart-domain-bar will never go away

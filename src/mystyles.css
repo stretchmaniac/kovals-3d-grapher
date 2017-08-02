@@ -450,6 +450,23 @@ input[type=range]:focus::-ms-fill-upper {
     color:rgb(100,100,100);
     z-index:1;
 }
+#invert-normals-embed-button{
+	right:110px;
+}
+#reset-button{
+	right:10px;
+}
+#reset-button, #invert-normals-embed-button{
+	position:absolute;
+    bottom:10px;
+    color:rgb(100,100,100);
+    z-index:1;
+	display:none;
+}
+#reset-button:hover, #invert-normals-embed-button:hover{
+	text-decoration: underline;
+    cursor:pointer;
+}
 #full-screen-button:hover{
     text-decoration: underline;
     cursor:pointer;
