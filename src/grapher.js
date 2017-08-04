@@ -1441,6 +1441,13 @@ function graph(onFinish){
 				}
 			}
 			
+			// change exp.body too
+			if(domain.currentSystem.indexOf('cylindrical') !== -1){
+				exp.body = exp.body.replace(/\(z\)/g, '(height)');
+			}else{
+				exp.body = exp.body.replace(/\(phi\)/g, '(sphi)');
+			}
+			
             var cyl = domain.currentSystem.indexOf('cylindrical') !== -1;
             var cylInputs = cyl ? {rho:'', phi:'', height:''} : {r:'', theta:'', sphi:''};
             cylInputs[exp.vars[0]] = exp.body;
