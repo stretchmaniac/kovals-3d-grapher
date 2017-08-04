@@ -1431,11 +1431,21 @@ function graph(onFinish){
             domain.v.max = realCenter[otherVars[1]] + realWidth[otherVars[1]]/2;
             domain.v.min = realCenter[otherVars[1]] - realWidth[otherVars[1]]/2;
         }else if(domain.currentSystem.indexOf('cylindrical') !== -1 || domain.currentSystem.indexOf('spherical') !== -1){
+			// change z to height in cylindrical system 
+			for(let i = 0; i  < exp.vars.length; i++){
+				if(exp.vars[i] === 'z'){
+					exp.vars[i] = 'height';
+				}
+				if(exp.vars[i] === 'phi' && domain.currentSystem.indexOf('spherical') !== -1){
+					exp.vars[i] = 'sphi';
+				}
+			}
+			
             var cyl = domain.currentSystem.indexOf('cylindrical') !== -1;
-            var cylInputs = cyl ? {rho:'', phi:'', z:''} : {r:'', theta:'', phi:''};
+            var cylInputs = cyl ? {rho:'', phi:'', height:''} : {r:'', theta:'', sphi:''};
             cylInputs[exp.vars[0]] = exp.body;
             
-            var otherVars = (cyl ? ['rho','phi','z'] : ['r','theta','phi']).filter(x => x !== exp.vars[0]);
+            var otherVars = (cyl ? ['rho','phi','height'] : ['r','theta','sphi']).filter(x => x !== exp.vars[0]);
             
             cylInputs[otherVars[0]] = 'u';
             cylInputs[otherVars[1]] = 'v';
@@ -1454,11 +1464,11 @@ function graph(onFinish){
             if(cyl){
                 inputs.x = '('+cylInputs.rho+')*cos('+cylInputs.phi+')';
                 inputs.y = '('+cylInputs.rho+')*sin('+cylInputs.phi+')';
-                inputs.z = cylInputs.z;
+                inputs.z = cylInputs.height;
             }else{
-                inputs.x = '('+cylInputs.r+')*cos('+cylInputs.theta+')*cos('+cylInputs.phi+')';
-                inputs.y = '('+cylInputs.r+')*sin('+cylInputs.theta+')*cos('+cylInputs.phi+')';
-                inputs.z = '('+cylInputs.r+')*sin('+cylInputs.phi+')';
+                inputs.x = '('+cylInputs.r+')*cos('+cylInputs.theta+')*cos('+cylInputs.sphi+')';
+                inputs.y = '('+cylInputs.r+')*sin('+cylInputs.theta+')*cos('+cylInputs.sphi+')';
+                inputs.z = '('+cylInputs.r+')*sin('+cylInputs.sphi+')';
             }
             
             console.log(inputs)
