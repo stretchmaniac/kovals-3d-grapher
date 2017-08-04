@@ -82,8 +82,10 @@
 		varying vec3 v_bari_coord;
 		
 		void main(){
-			vec3 rotated = a_position.x * u_orientation_x + a_position.y * u_orientation_y + a_position.z * u_orientation_z;
-			vec3 clipspace = (rotated - u_domain_center) / (u_domain_halfwidth * 1.75);
+			vec3 rotated = (a_position.x - u_domain_center.x) * u_orientation_x + 
+				(a_position.y - u_domain_center.y) * u_orientation_y + 
+				(a_position.z - u_domain_center.z) * u_orientation_z;
+			vec3 clipspace = (rotated) / (u_domain_halfwidth * 1.75);
 			clipspace.x /= u_aspect_ratio;
 			clipspace.z +=  .3;
 			
@@ -125,7 +127,7 @@
 			// light2
 			luminosity += kaConst * imConst + kdConst * max(dot(LVec2, NVec), 0.0) * imConst + ksConst * pow(max(dot(RVec2, VVec), 0.0), aConst) * imConst;
 			
-			float h = 1.0 / (1.0 + pow(2.0, -1.0 * (a_position.z / u_domain_halfwidth)));
+			float h = 1.0 / (1.0 + pow(2.0, -1.0 * ((a_position.z-u_domain_center.z) / u_domain_halfwidth)));
 			
 			color = vec4(hsl2rgb(vec3(h, 1, u_directional_lighting > 0.0 ? luminosity : 0.5)), u_transparency);
 			
@@ -173,8 +175,10 @@
 		uniform float u_perspective;
 		
 		void main(){
-			vec3 rotated = a_position.x * u_orientation_x + a_position.y * u_orientation_y + a_position.z * u_orientation_z;
-			vec3 clipspace = (rotated - u_domain_center) / (u_domain_halfwidth * 1.75);
+			vec3 rotated = (a_position.x - u_domain_center.x) * u_orientation_x + 
+				(a_position.y - u_domain_center.y) * u_orientation_y + 
+				(a_position.z - u_domain_center.z) * u_orientation_z;
+			vec3 clipspace = (rotated) / (u_domain_halfwidth * 1.75);
 			clipspace.x /= u_aspect_ratio;
 			clipspace.z += .3;
 			

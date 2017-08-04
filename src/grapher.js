@@ -405,6 +405,11 @@ $(function(){
             
             rotatePoints(axes, yQuat);
             rotatePoints(axes, xQuat);
+			
+			// normalize axes to prevent drift
+			[0,1,2].forEach(x => {
+				axes[x] = scalar(1/magnitude(axes[x]), axes[x]);
+			});
             
             plotPointsWebGL()
         }
@@ -1239,11 +1244,27 @@ function graph(onFinish){
             var field = MQ($('#'+val+'-domain-bar')[0]);
             var latex = parseLatex(field.latex(), animationVars);
             var result = parseDomain(latex);
+			
+			// change z to height, phi to sphi in corresponding coordinate systems 
+			if(val === 'cyl'){
+				let zVal = result.filter(x => x.varName === 'z')[0];
+				if(zVal){
+					zVal.varName='height';
+				}
+			}
+			if(val === 'sphere'){
+				let phiVal = result.filter(x => x.varName === 'phi')[0];
+				if(phiVal){
+					phiVal.varName='sphi';
+				}
+			}
+			
             result.forEach(val => {
                 domain[val.varName].min = math.eval(val.range.min);
                 domain[val.varName].max = math.eval(val.range.max);
             });
-        })
+        });
+		
         var xWidth = domain.x.max - domain.x.min;
         var yWidth = domain.y.max - domain.y.min;
         var zWidth = domain.z.max - domain.z.min;
@@ -1273,6 +1294,8 @@ function graph(onFinish){
         domain.y.min = yCenter - ySpread * yWidth/2;
         domain.z.max = zCenter + zSpread * zWidth/2;
         domain.z.min = zCenter - zSpread * zWidth/2;
+		
+		console.log(domain);
     }
     
     spread = {x:domain.x.spread, y:domain.y.spread, z:domain.z.spread}
@@ -1905,17 +1928,26 @@ function initWebGL(){
 }
 
 function updateBuffer(polyDatas){
-	let polyData = [];
+	let totalLength = 0;
 	for(let polyD of polyDatas){
-		polyData = polyData.concat(polyD);
+		totalLength += polyD.length;
+	}
+	
+	let bufferData = new Float32Array(totalLength);
+	let i = 0;
+	for(let polyD of polyDatas){
+		for(let item of polyD){
+			bufferData[i] = item;
+			i++;
+		}
 	}
 	
 	// 3 for position, 3 for normal, 3 for barimetric data, per each point (of which 
 	// there are 3 per triangle)
-	domain.polyNumber = polyData.length / 27;
+	domain.polyNumber = bufferData.length / 27;
 	
 	let gl = webGLInfo.gl;
-	webGLInfo.polyBuffer = new Float32Array(polyData);
+	webGLInfo.polyBuffer = bufferData;
 }
 
 function updateAxisBuffer(){
@@ -2111,7 +2143,7 @@ function plotPointsWebGL(){
 	gl.uniform3fv(webGLInfo.orientationYLocation, [axes[1].x, axes[1].y, axes[1].z]);
 	gl.uniform3fv(webGLInfo.orientationZLocation, [axes[2].x, axes[2].y, axes[2].z]);
 	
-	gl.uniform3fv(webGLInfo.domainCenterLocation, [(domain.x.max+domain.x.min)/2, (domain.y.max+domain.y.min)/2, (domain.z.max+domain.z.min)/2]);
+	gl.uniform3fv(webGLInfo.domainCenterLocation, [domain.center.x, domain.center.y, domain.center.z]);
 	gl.uniform1f(webGLInfo.domainHalfWidthLocation, (domain.x.max - domain.x.min) / 2);
 	gl.uniform1f(webGLInfo.aspectRatioLocation, canvas.width / canvas.height);
 	
@@ -2147,7 +2179,7 @@ function plotPointsWebGL(){
 
 function rotatePoints(pQuats, rot){
     for(var k = 0; k < pQuats.length; k++){
-        rotate(pQuats[k],rot);
+        rotate(pQuats[k],rot, {x:0,y:0,z:0});
     }
 }
 

@@ -366,32 +366,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		for(let i = 1; i < pointList.length - 1; i++){
 			let p = pointList[i];
 			
-			// check for the special case where the new point is not within the polygon 
-			// but still "crosses over" another polygon 
-			// this is a problem for discontinuities
-			
-			// if the edge {p, pt} crosses another line, then it is garunteed 
-			// to cross another, since it's on the outside of the polygon 
-			// our job is to find the first crossing
-			let crossings = [];
-			for(let testP of pointFront){
-				let [a,b,c,d] = [testP.u, testP.v, testP.end.u, testP.end.v];
-				let [a2,b2,c2,d2] = [pt.u,pt.v, p.u,p.v];
-				// (a,b) + t1 ((c,d) - (a,b)) == (a2, b2) + t2 ((c2,d2) -  (a2, b2))
-				// a + t1 (c - a) == a2 + t2 (c2 - a2), b + t1 (d - b) == b2 + t2 (d2 - b2)
-				// ... mathematica magic ...
-				let t1 = -((-(a2*b)+a*b2+b*c2-b2*c2-a*d2+a2*d2)/(a2*b-a*b2+b2*c-b*c2-a2*d+c2*d+a*d2-c*d2));
-				let t2 = -((a2*b-a*b2-b*c+b2*c+a*d-a2*d)/(-(a2*b)+a*b2-b2*c+b*c2+a2*d-c2*d-a*d2+c*d2));
-				// every point has it's base on pointFront, so we need some leeway
-				if(t1 > .00001 && t1 < .9999 && t2 > .00001 && t2 < .9999){
-					crossings.push([testP,t2]);
-				}
-			}
-			if(crossings.length > 0){
-				//pointList.splice(i, pointList.length - 2);
-				//break;
-			}
-			
 			makeConnection(p, pointList[i-1]);
 			makeConnection(p, pt);
 			
