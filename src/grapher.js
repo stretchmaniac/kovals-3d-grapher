@@ -1405,6 +1405,24 @@ function graph(onFinish){
             z:''
         }
         var exp = domain.expressionInfo.expression;
+		
+		// change z to height in cylindrical system 
+		for(let i = 0; i  < exp.vars.length; i++){
+			if(exp.vars[i] === 'z' && domain.currentSystem.indexOf('cylindrical') !== -1){
+				exp.vars[i] = 'height';
+			}
+			if(exp.vars[i] === 'phi' && domain.currentSystem.indexOf('spherical') !== -1){
+				exp.vars[i] = 'sphi';
+			}
+		}
+		
+		// change exp.body too
+		if(domain.currentSystem.indexOf('cylindrical') !== -1){
+			exp.body = exp.body.replace(/\(z\)/g, '(height)');
+		}else if(domain.currentSystem.indexOf('spherical') !== -1){
+			exp.body = exp.body.replace(/\(phi\)/g, '(sphi)');
+		}
+		
         if(domain.currentSystem.indexOf('parametric') !== -1){
             //by convention, the entire body is stored in the xFunc
             //unfortunately, parametric cylindrical and spherical systems will need a little post processing (see plot),
@@ -1431,22 +1449,6 @@ function graph(onFinish){
             domain.v.max = realCenter[otherVars[1]] + realWidth[otherVars[1]]/2;
             domain.v.min = realCenter[otherVars[1]] - realWidth[otherVars[1]]/2;
         }else if(domain.currentSystem.indexOf('cylindrical') !== -1 || domain.currentSystem.indexOf('spherical') !== -1){
-			// change z to height in cylindrical system 
-			for(let i = 0; i  < exp.vars.length; i++){
-				if(exp.vars[i] === 'z'){
-					exp.vars[i] = 'height';
-				}
-				if(exp.vars[i] === 'phi' && domain.currentSystem.indexOf('spherical') !== -1){
-					exp.vars[i] = 'sphi';
-				}
-			}
-			
-			// change exp.body too
-			if(domain.currentSystem.indexOf('cylindrical') !== -1){
-				exp.body = exp.body.replace(/\(z\)/g, '(height)');
-			}else{
-				exp.body = exp.body.replace(/\(phi\)/g, '(sphi)');
-			}
 			
             var cyl = domain.currentSystem.indexOf('cylindrical') !== -1;
             var cylInputs = cyl ? {rho:'', phi:'', height:''} : {r:'', theta:'', sphi:''};
@@ -1480,7 +1482,6 @@ function graph(onFinish){
             
             console.log(inputs)
         }
-        
 		
 		graphParametricFunction(inputs.x, inputs.y, inputs.z, spread, onFinish);
     }

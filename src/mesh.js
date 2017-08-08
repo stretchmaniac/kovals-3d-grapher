@@ -220,6 +220,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				let angle = sAngle + nodeCount * angleDiff/(sections + 1)
 				let loc = dir(pt, nodeDist * Math.cos(angle), nodeDist * Math.sin(angle));
 				
+				if(pt.u+loc.u < -1000){
+					console.log(pt.deriv1.du, pt.deriv1.dv, nodeDist, angle);
+				}
 				let point = plotPlus(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
 				point.angle = angle;
 				point.nodeDistFactor = 1;
@@ -785,6 +788,7 @@ function isEntirelyInvalid(pts){
 			invalid = false;
 		}
 	}
+	return false;
 	return invalid;
 }
 
@@ -1074,19 +1078,26 @@ function plot(cX, cY, cZ, u,v){
             );
             if(domain.currentSystem.indexOf('cylindrical') !== -1){
                 point.x = point.rho * Math.cos(point.phi);
-                point.y = point.rho * Math.sin(point.phi)
+                point.y = point.rho * Math.sin(point.phi);
+				point.z = point.height;
             }else if(domain.currentSystem.indexOf('spherical') !== -1){
-                point.x = point.r * Math.cos(point.theta) * Math.cos(point.phi);
-                point.y = point.r * Math.sin(point.theta) * Math.cos(point.phi);
-                point.z = point.r * Math.sin(point.phi);
+                point.x = point.r * Math.cos(point.theta) * Math.cos(point.sphi);
+                point.y = point.r * Math.sin(point.theta) * Math.cos(point.sphi);
+                point.z = point.r * Math.sin(point.sphi);
             }
         }else{
             cX.eval(scope);
             cY.eval(scope);
             cZ.eval(scope);
-            point = {u:u,v:v,
-            x:getRealPart(scope.x, nonRealCanary),y:getRealPart(scope.y, nonRealCanary),z:getRealPart(scope.z, nonRealCanary)};
+            point = {
+				u:u,
+				v:v,
+				x:getRealPart(scope.x, nonRealCanary),
+				y:getRealPart(scope.y, nonRealCanary),
+				z:getRealPart(scope.z, nonRealCanary)
+			};
         }
+		
         point.x = spreadCoord(point.x, domain.x.min, domain.x.max, domain.x.spread);
         point.y = spreadCoord(point.y, domain.y.min, domain.y.max, domain.y.spread);
         point.z = spreadCoord(point.z, domain.z.min, domain.z.max, domain.z.spread);
@@ -1094,19 +1105,45 @@ function plot(cX, cY, cZ, u,v){
 		point.outsideDomain = false;
 		point.infinite = false;
 		
-		// record it as outside domain if outside,
-		// but only move it if it's a good distance away
-		const moveDist = (domain.x.max - domain.x.min) / 20;
-		for(let [attr, min, max] of [['x',domain.x.min, domain.x.max],['y',domain.y.min,domain.y.max],['z',domain.z.min,domain.z.max]]){
-			if(point[attr] < min || point[attr] > max){
-				point.outsideDomain = true;
-			}
-			if(point[attr] < min - moveDist){
-				point[attr] = min-moveDist;
-			}
-			if(point[attr] > max + moveDist){
-				point[attr] = max+moveDist;
-			}
+		let tempBefore = {x:point.x,y:point.y,z:point.z};
+		
+		// in order to properly traverse past sections that are outside the domain, 
+		// there needs to exist some mapping from outside the domain to the edge of the 
+		// domain. So for y = 1/x, obviously we can't plot from -1 to 1, but if we 
+		// bound y to [-10, 10], we've mapped (10, infinity) to 10  and (-10, -infinity) to -10. 
+		// This makes an infinite length line into a finite length one
+		// we can do the same thing in 3D, bounding each axis to [-min, +max]
+		// however, this leads to large swaths of space where x > xmax && y > ymax
+		// && z > zmax that all map to the same point. This makes transversing this region 
+		// impossible due to the current derivative-based direction algorithm (dir(...)). 
+		// Instead, we seek a mapping from every possible point (outside the 
+		// domain) to a unique point within a finite distance of the domain edge. 
+		
+		// one method of doing this is a projection onto a sphere with a 'height' component
+		// off the surface of the sphere based on the distance from the center of the domain
+		
+		// check if distance to center is less than dist to corner * 1.1
+		let cornerDist = Math.sqrt((domain.x.max-domain.center.x)**2+(domain.y.max-domain.center.y)**2+(domain.z.max-domain.center.z)**2);
+		let ptDist = xyzDist(domain.center, point);
+		const cornerMultiplier = 1.2;
+		if(ptDist > cornerDist * cornerMultiplier){
+			let sphereRadius= cornerDist * cornerMultiplier;
+			let normalizedCenterVec = scalar(1/sphereRadius, sub(point, domain.center));
+			let oldHeight = magnitude(normalizedCenterVec);
+			// see https://www.desmos.com/calculator/tuohw1zvuw
+			let newHeight = 2*((Math.E**3+1)/(Math.E**3-1))*(1/(1+Math.E**(-3*oldHeight))-0.5);
+			normalizedCenterVec = scalar(1/magnitude(normalizedCenterVec), normalizedCenterVec);
+			let newPos = add(scalar(newHeight*sphereRadius, normalizedCenterVec), domain.center);
+			point.x = newPos.x;
+			point.y = newPos.y;
+			point.z = newPos.z;
+		}
+		
+		// make all the points outside of the **cubic** domain dissappear
+		if( point.x > domain.x.max || point.x < domain.x.min || 
+			point.y > domain.y.max || point.y < domain.y.min ||
+				point.z > domain.z.max || point.z < domain.z.min){
+			point.outsideDomain = true;
 		}
 		
 		for(let attr of ['x','y','z']){
