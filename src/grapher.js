@@ -490,23 +490,17 @@ $(function(){
             domain.height.max = spreadCoord(max, min, max, magnification);
         }
         
-        if(timeID){
-            clearTimeout(timeID);
-        }
-        if(domain.coloringTime && domain.coloringTime > domain.maxColoringTime && domain.coloring){
-            domain.wasColoring = true;
-            domain.coloring = false;
-        }
-        plotPointsWebGL()
-        if(domain.wasColoring){
-            domain.coloring = true;
-        }
-        timeID = setTimeout(function(){
-            changeDomainInputs()
-            skipDomain = true;
-            graph();
-            skipDomain = false;
-        },500)
+        plotPointsWebGL();
+		
+		// get the 'replot at zoom' popup out
+		document.getElementById('replot-at-zoom-popup').classList.remove('graphing-progress-hidden');
+		document.getElementById('replot-at-zoom-button').onclick = function(){
+			skipDomain = true;
+			graph();
+			// domain stuff is an the beginning, and synchronous, so we don't have to wait for the workers
+			skipDomain = false;
+			document.getElementById('replot-at-zoom-popup').classList.add('graphing-progress-hidden');
+		}
     })
     document.getElementById('text-canvas').oncontextmenu = function(e){
         return false;

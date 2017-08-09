@@ -603,7 +603,7 @@ hr + span{
     padding:5px;
     display:block;
 }
-#graphing-progress-popup{
+#graphing-progress-popup, #replot-at-zoom-popup{
 	position:absolute;
 	background-color:#333333;
 	font-size:17px;
@@ -614,16 +614,22 @@ hr + span{
 	left:50px;
 	transition: all .5s ease;
 }
+#replot-at-zoom-popup{
+	bottom:calc(10% - 50px);
+}
 .graphing-progress-hidden{
 	transform:translateX(calc(-101% - 50px));
 }
-#cancel-plot-button{
+#cancel-plot-button, #replot-at-zoom-button{
 	color:rgb(255, 102, 102);
 	background-color:transparent;
 	margin: 0px;
     border-radius: 3px;
 }
-#cancel-plot-button:hover{
+#replot-at-zoom-button{
+	color:var(--equation-font-color);
+}
+#cancel-plot-button:hover, #replot-at-zoom-button:hover{
 	background-color:rgba(255,255,255,.1);
 }
 #extra-options-menu{
