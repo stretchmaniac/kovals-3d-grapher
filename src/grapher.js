@@ -122,6 +122,8 @@ $(function(){
     var height = $('#content-graph').height();
     $("#canvas").prop('width',width)
     $('#canvas').prop('height',height)
+	$('#text-canvas').prop('width',width);
+	$('#text-canvas').prop('height',height);
     
     $('#u-v-range-row').hide();
     
@@ -391,7 +393,7 @@ $(function(){
     var mouseClicked = false;
     var leftMouseClicked = false;
     var mousePosition = {x:0,y:0};
-    $('#canvas').mousemove(function(event){
+    $('#text-canvas').mousemove(function(event){
         var deltaX,deltaY;
         if(!leftMouseClicked && mouseClicked){
             deltaX = event.clientX - mousePosition.x;
@@ -419,7 +421,7 @@ $(function(){
         }
         mousePosition = {x:event.clientX,y:event.clientY};
     })
-    $('#canvas').mousedown(function(event){
+    $('#text-canvas').mousedown(function(event){
         mouseClicked = false;
         leftMouseClicked = false;
         if(event.which === 1){
@@ -435,7 +437,7 @@ $(function(){
             domain.wasColoring = false;
         }
     })
-    $('#canvas').mouseup(function(e){
+    $('#text-canvas').mouseup(function(e){
         mouseClicked = false;
         if(leftMouseClicked){
             skipDomain = true;
@@ -450,7 +452,7 @@ $(function(){
         leftMouseClicked = false;
     })
     var timeID;
-    $('#canvas').bind('mousewheel', function(e){
+    $('#text-canvas').bind('mousewheel', function(e){
         var magnification = 1;
         if(e.originalEvent.wheelDelta > 0){
             magnification = .9;
@@ -506,7 +508,7 @@ $(function(){
             skipDomain = false;
         },500)
     })
-    document.getElementById('canvas').oncontextmenu = function(e){
+    document.getElementById('text-canvas').oncontextmenu = function(e){
         return false;
     }
 	
@@ -654,9 +656,13 @@ $(window).resize(function(){
     if(!domain.fullscreen){
         $("#canvas").prop('width',width)
         $('#canvas').prop('height',height)
+		$("#text-canvas").prop('width',width);
+        $('#text-canvas').prop('height',height);
     }else{
         $("#canvas").prop('width',$(window).width())
         $('#canvas').prop('height',$(window).height())
+		$("#text-canvas").prop('width',$(window).width());
+        $('#text-canvas').prop('height',$(window).height());
     }    
     plotPointsWebGL();
 });
@@ -727,7 +733,7 @@ $('#color-scheme-select').change(function(){
 })
 
 $('#full-screen-button').click(function(){
-    var elem = document.getElementById('canvas');
+    var elem = document.getElementById('canvas-wrapper');
     if (elem.requestFullscreen) {
       elem.requestFullscreen();
     } else if (elem.msRequestFullscreen) {
@@ -1981,11 +1987,6 @@ function updateAxisBuffer(){
 		domain.z.max
 	];
 	
-	// make minStep based on the domain, not extrema
-	const maxGap = Math.max(ptArray[1] - ptArray[0], ptArray[3] - ptArray[2], ptArray[5], ptArray[4]);
-	const maxStep = 10**Math.floor(Math.log10(maxGap));
-	const minStep = maxStep * 10 ** (- domain.axisPrecision);
-	
 	if(domain.extrema){
 		ptArray = [
 			domain.extrema.x.min,
@@ -1998,10 +1999,26 @@ function updateAxisBuffer(){
 	}
 	
 	const lines = [];
+	const textAxes = [];
 	
 	// each line segment is the result of holding two of the variables constant
 	// secondaryMax / tertiaryMax are booleans determining which direction the ticks marks go
 	function axisSegment(c1, c2, varyIndex, secondaryMax, tertiaryMax){
+		
+		// this is going to be confusing since stretched domains 
+		// have the "real" coordinates "stretched" coordinates
+		//   "stretched" - a coordinate that **plots** where the "real" coordinate would
+		//      show up on the screen 
+		//   "real" - the mathematical definition of the point
+		
+		const varyCoord = ['x','y','z'][varyIndex];
+		const varyMin = domain[varyCoord].min,
+			varyMax = domain[varyCoord].max;
+				
+		const maxGap = (varyMax - varyMin) / domain[varyCoord].spread;
+		const maxStep = 10**Math.floor(Math.log10(maxGap));
+		const minStep = maxStep * 10 ** (- domain.axisPrecision);
+		
 		// draw the backbone first
 		lines.push([c1, c2]);
 		
@@ -2009,24 +2026,29 @@ function updateAxisBuffer(){
 		const secondaryIndex = [0,1,2].filter(x => x !== varyIndex)[0];
 		const tertiaryIndex = [0,1,2].filter(x => x !== varyIndex)[1];
 		
-		// now figure out the important tick marks in the variable	
+		// a plotted characteristic, so streched
 		const maxLineLength = secondaryIndex === 0 ? (domain.x.max - domain.x.min) / 20 :
 			secondaryIndex === 1 ? (domain.y.max - domain.y.min) / 20 : 
 			secondaryIndex === 2 ? (domain.z.max - domain.z.min) / 20 : 0;
 		
-		const minVal = (Math.floor(c1[varyIndex] / minStep) + 1) * minStep,
-			steps = Math.floor((c2[varyIndex] - c1[varyIndex]) / minStep) - 1;
+		// a real characteristic
+		const c1Val = antiSpread(c1[varyIndex], varyMin, varyMax, domain[varyCoord].spread),
+			c2Val = antiSpread(c2[varyIndex], varyMin, varyMax, domain[varyCoord].spread);
+		const minVal = (Math.floor(c1Val / minStep) + 1) * minStep,
+			steps = Math.floor((c2Val - c1Val) / minStep) - 1;
 			
 		console.log(minStep, maxLineLength, minVal, steps);
+		let textNodes = [];
 		
 		for(let i = 0; i < steps; i++){
 			const varyVal = minVal + i * minStep;
 			
 			let decScore = 0;
+			let normalized = 0;
 			// special case for the very special number zero
 			if(varyVal !== 0){
 				// determine the length of the line (round for floating point error)
-				let normalized = Math.round(varyVal / minStep);
+				normalized = Math.round(varyVal / minStep);
 				let normalized2 = normalized * 2;
 				while(normalized % 10 === 0){
 					normalized /= 10;
@@ -2050,19 +2072,91 @@ function updateAxisBuffer(){
 			const normalizedDecScore = decScore / domain.axisPrecision;
 			// and finally draw the line
 			let base = [...c1];
-			base[varyIndex] = varyVal;
+			// re-spread the coordinate to stretched form
+			base[varyIndex] = spreadCoord(varyVal, varyMin, varyMax, domain[varyCoord].spread);
 			
-			let end = [...c1];
-			end[varyIndex] = varyVal;
+			let end = [...base];
 			end[secondaryIndex] += maxLineLength * normalizedDecScore * (secondaryMax ? -1 : 1);
 			
-			let end2 = [...c1];
-			end2[varyIndex] = varyVal;
+			let end2 = [...base];
 			end2[tertiaryIndex] += maxLineLength * normalizedDecScore * (tertiaryMax ? -1 : 1); 
+			
+			// make a text node just outside the axis with the value
+			let textNode = {};
+			
+			textNode.pos = [...base];
+			textNode.pos[secondaryIndex] -= maxLineLength * .25 *  (secondaryMax ? -1 : 1);
+			textNode.pos[tertiaryIndex] -= maxLineLength * .25 * (tertiaryMax ? -1 : 1);
+			[textNode.x, textNode.y, textNode.z] = textNode.pos;
+			
+			varyValForText = (Math.abs(varyVal) > 1000 || Math.abs(varyVal) < 0.001) && varyVal !== 0 ? varyVal.toExponential(4)+'' : varyVal+'';
+			// fun floating point error. How fun.
+			if(varyValForText.length > 12){
+				let negative = false;
+				let varyValT = varyVal;
+				if(varyVal < 0){
+					negative = true;
+					varyValT *= -1;
+				}
+				// round it
+				varyValForText = Math.round(varyValT * 1000)+'';
+				// forward pad with zeros
+				while(varyValForText.length < 4){
+					varyValForText = '0'+varyValForText;
+				}
+				// insert decimal point (three from end)
+				varyValForText = varyValForText.substring(0, varyValForText.length-3)+'.'+varyValForText.substr(varyValForText.length-3, 3);
+				// remove trailing zeros
+				let lastChar = varyValForText.substr(varyValForText.length-1, 1);
+				while(lastChar === '0'){
+					varyValForText = varyValForText.substr(0, varyValForText.length - 1);
+					lastChar = varyValForText.substr(varyValForText.length-1, 1);
+				}
+				if(lastChar === '.'){
+					varyValForText = varyValForText.substr(0, varyValForText.length - 1);
+				}
+				
+				if(negative){
+					varyValForText = '-'+varyValForText;
+				}
+			}
+			
+			textNode.text = varyValForText;
+			textNode.fontMultiplier = 1;
+			
+			if(decScore > .5){
+				textNodes.push(textNode);
+			}
 			
 			lines.push([base, end]);
 			lines.push([base, end2]);
 		}
+		
+		// the actual axis letter label
+		let averagePt = {
+			x:(c1[0]+c2[0])/2,
+			y:(c1[1]+c2[1])/2,
+			z:(c1[2]+c2[2])/2
+		};
+		
+		let labelNode = {
+			text:['x','y','z'][varyIndex],
+			x: averagePt.x,
+			y: averagePt.y,
+			z: averagePt.z,
+			fontMultiplier:1.5
+		};
+		labelNode[['x','y','z'][secondaryIndex]] -= maxLineLength * .75 * (secondaryMax ? -1 : 1);
+		labelNode[['x','y','z'][tertiaryIndex]] -= maxLineLength * .75 * (tertiaryMax ? -1 : 1);
+		
+		textNodes.push(labelNode);
+		
+		
+		textAxes.push({
+			nodes:textNodes,
+			axis:varyIndex,
+			averagePt:averagePt
+		});
 	}
 	
 	let axisProtoDataX = [
@@ -2092,6 +2186,8 @@ function updateAxisBuffer(){
 	for(let a of axisProtoDataZ){
 		axisSegment(a[0].map(x=>ptArray[x]), a[1].map(x=>ptArray[x]), 2, a[0][0] === 1, a[0][1] === 3);
 	}
+	
+	domain.textAxes = textAxes;
 	
 	const axisData = [];
 	
@@ -2134,7 +2230,8 @@ function plotPointsWebGL(){
 	
 	gl.uniform3fv(webGLInfo.axisDomainCenterLocation, [(domain.x.max+domain.x.min)/2, (domain.y.max+domain.y.min)/2, (domain.z.max+domain.z.min)/2]);
 	gl.uniform1f(webGLInfo.axisDomainHalfWidthLocation, (domain.x.max - domain.x.min) / 2);
-	gl.uniform1f(webGLInfo.axisAspectRatioLocation, canvas.width / canvas.height);
+	domain.aspectRatio = canvas.width/canvas.height;
+	gl.uniform1f(webGLInfo.axisAspectRatioLocation, domain.aspectRatio);
 	
 	gl.uniform1f(webGLInfo.axisPerspectiveLocation, domain.perspective ? 1 : -1);
 	
@@ -2190,9 +2287,70 @@ function plotPointsWebGL(){
 	// primitive type, offset, count
 	gl.drawArrays(gl.TRIANGLES, 0, domain.polyNumber * 3);
 	
+	// axes labels text 
+	let textCanvas = document.getElementById('text-canvas');
+	let ctx = textCanvas.getContext('2d');
+	ctx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+	ctx.beginPath();
+	ctx.fillStyle='rgb(150,150,150)';
+	ctx.textAlign = 'center';
+	ctx.font = '12px Arial';
+	ctx.textBaseline = 'middle';
+	
+	if(domain.showAxesLabels){
+		// use the axes closest to the viewer (for each axis)
+		let textNodesToDraw = [];
+		for(let i of [0, 1, 2]){
+			let getZ = x => simulateWebGLTranform(x.averagePt, 1, textCanvas, true).z;
+			let axesContenders = domain.textAxes.filter(x => x.axis === i);
+			textNodesToDraw = textNodesToDraw.concat(
+				axesContenders.sort( (a,b) => getZ(a) - getZ(b) )[0].nodes
+			);
+		}
+		
+		for(let textNode of textNodesToDraw){
+			let transformed = simulateWebGLTranform(textNode, 1, textCanvas);
+			if(transformed){
+				let fontSize = transformed.height * 11;
+				ctx.font = (fontSize*textNode.fontMultiplier)+'px \'Source Serif Pro\', serif';
+				ctx.fillText(textNode.text, transformed.x, transformed.y);
+			}
+		}
+		ctx.fill();
+	}
+	
 	if(domain.setUpDownload){
 		setUpDownload();
 	}
+}
+
+// for 2d context text rendering
+// simulates clipspace rendering in index.html GLSL files
+function simulateWebGLTranform(pt, height, canvas, ignoreOutOfBounds){
+	let centered = sub(pt, domain.center);
+	let rotated = add(add(scalar(centered.x, axes[0]), scalar(centered.y, axes[1])), scalar(centered.z, axes[2]));
+	let clipspace = scalar(1/(1.75 * (domain.x.max - domain.x.min)/2), rotated);
+	clipspace.x /= domain.aspectRatio;
+	clipspace.z += .3;
+	
+	let shrinkFactor = domain.perspective ? (clipspace.z + 1.0) / 2.0 + 0.10 : .6;
+	
+	clipspace.x /= shrinkFactor;
+	clipspace.y /= shrinkFactor;
+	clipspace.z /= shrinkFactor;
+	
+	if((clipspace.z < -1 || clipspace.z > 1) && !ignoreOutOfBounds){
+		// out of bounds (don't show)
+		return null;
+	}
+	
+	return {
+		x:canvas.width * (clipspace.x + 1) / 2,
+		// flip the y axis
+		y:canvas.height - canvas.height * (clipspace.y + 1) / 2,
+		z:clipspace.z,
+		height: height / shrinkFactor
+	};
 }
 
 function rotatePoints(pQuats, rot){

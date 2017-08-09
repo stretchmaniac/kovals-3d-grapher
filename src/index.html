@@ -5,6 +5,7 @@
     <meta name="keywords" content="3D Grapher, 3D Plotter, Function Visualization, Cylindrical plotter, Spherical plotter">
     <meta name="description" content="A full color, dynamic function grapher of three dimensions.">
     <link rel="stylesheet" type="text/css" href="mystyles.css">
+	<link href="https://fonts.googleapis.com/css?family=Source+Serif+Pro" rel="stylesheet">
     <script type="text/javascript"
         src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
     </script>
@@ -749,6 +750,7 @@
 					</div>
 					<div id='attribution'>
 						<a href='http://www.danilodemarco.com/'>link icon</a>
+						<a href='https://fonts.google.com/specimen/Source+Serif+Pro'>font</a>
 					</div>
 				</div>
 			</div>
@@ -965,9 +967,10 @@
     </div>
     <div class="content">
         <div id="content-graph">
-            <canvas id="canvas">
-                
-            </canvas>
+			<div id='canvas-wrapper'>
+				<canvas id="canvas"></canvas>
+				<canvas id='text-canvas'></canvas>
+			</div>
             <div id='work-bar-wrapper'>
 				<div id='extra-options-menu' class='extra-options-hidden'>
 					<div id='export-button' class='extra-options-option-wrapper'>

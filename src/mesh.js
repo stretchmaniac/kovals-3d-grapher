@@ -57,12 +57,14 @@ function polyDataPt(polyData, poly){
 		polyData.push(p.z);
 		
 		// update extrema for axes purposes
-		extrema.x.min = extrema.x.min > p.x ? p.x : extrema.x.min;
-		extrema.x.max = extrema.x.max < p.x ? p.x : extrema.x.max;
-		extrema.y.min = extrema.y.min > p.y ? p.y : extrema.y.min;
-		extrema.y.max = extrema.y.max < p.y ? p.y : extrema.y.max;
-		extrema.z.min = extrema.z.min > p.z ? p.z : extrema.z.min;
-		extrema.z.max = extrema.z.max < p.z ? p.z : extrema.z.max;
+		if(!p.outsideDomain){
+			extrema.x.min = extrema.x.min > p.x ? p.x : extrema.x.min;
+			extrema.x.max = extrema.x.max < p.x ? p.x : extrema.x.max;
+			extrema.y.min = extrema.y.min > p.y ? p.y : extrema.y.min;
+			extrema.y.max = extrema.y.max < p.y ? p.y : extrema.y.max;
+			extrema.z.min = extrema.z.min > p.z ? p.z : extrema.z.min;
+			extrema.z.max = extrema.z.max < p.z ? p.z : extrema.z.max;
+		}
 		
 		// compute normal to point
 		// (this is simly the cross product of p.deriv1.du and p.deriv1.dv)

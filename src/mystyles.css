@@ -8,7 +8,7 @@ html,body {
     height: 100%;
     width: 100%;
     overflow: hidden;
-    font:10pt arial, sans-serif;
+    font-family: 'Source Serif Pro', serif;
 }
 a :not(.hyperlink){
     text-decoration:none;
@@ -117,9 +117,19 @@ select{
     top:0px;
     box-shadow:0px 0px 3px rgba(0,0,0,.3);
 }
-#canvas{
-    margin:0 auto 0 auto;
-    position:relative;
+#canvas, #text-canvas{
+    position:absolute;
+	left:0px;
+	right:0px;
+	top:0px;
+	bottom:0px;
+}
+#canvas-wrapper{
+	position:absolute;
+	left:0px;
+	right:0px;
+	top:0px;
+	bottom:0px;
 }
 button{
     float:right;
