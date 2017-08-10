@@ -450,7 +450,6 @@ $(function(){
 			domain.center = add(domain.center, translate2);
 			
 			if(magnitude(translate1) !== 0 || magnitude(translate2) !== 0){
-				console.log('here');
 				activateReplotAtZoomPopup();
 			}
 			
@@ -1581,8 +1580,9 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	
 	// give our webworker(s) some work to do 
 	domain.polyData = [];
+	domain.lineData = [];
 	domain.polyNumber = 0;
-	updateBuffer([]);
+	updateBuffer([],[]);
 	domain.extrema = null;
 	
 	let lastUpdateTime = Date.now();
@@ -1643,6 +1643,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			
 			// create a spot for the polyData 
 			domain.polyData.push([]);
+			domain.lineData.push([]);
 		}
 	}
 	
@@ -1667,7 +1668,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			graphWorker.worker.terminate();
 			graphWorkers = [];
 			
-			updateBuffer(domain.polyData);
+			updateBuffer(domain.polyData, domain.lineData);
 			updateAxisBuffer();
 			plotPointsWebGL();
 			
@@ -1706,11 +1707,12 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 					// draw the updates
 					// expected args: [polydata, polygons.length]
 					domain.polyData[graphWorker.subdivisionIndex] = domain.polyData[graphWorker.subdivisionIndex].concat(args[0]);
+					domain.lineData[graphWorker.subdivisionIndex] = domain.lineData[graphWorker.subdivisionIndex].concat(args[1]);
 					
 					// since there are many webworkers about, there will be at least one update every 500ms,  
 					// (or however long it is), but probably many more. Thus we'll time actual redraws ourselves
 					if(Date.now() - lastUpdateTime > 1000){
-						updateBuffer(domain.polyData);
+						updateBuffer(domain.polyData, domain.lineData);
 						plotPointsWebGL();
 						lastUpdateTime = Date.now();
 					}
@@ -1719,7 +1721,8 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 					console.log('worker '+graphWorker.index+' has finished');
 					
 					domain.polyData[graphWorker.subdivisionIndex] = args[0];
-					updateBuffer(domain.polyData);
+					domain.lineData[graphWorker.subdivisionIndex] = args[1];
+					updateBuffer(domain.polyData, domain.lineData);
 					
 					// synthesize extrema result
 					let workerExtrema  = args[2];
@@ -2007,13 +2010,14 @@ function initWebGL(){
 	webGLInfo.axisDomainCenterLocation = gl.getUniformLocation(axisProgram, 'u_domain_center');
 	webGLInfo.axisDomainHalfWidthLocation = gl.getUniformLocation(axisProgram, 'u_domain_halfwidth');
 	webGLInfo.axisPerspectiveLocation = gl.getUniformLocation(axisProgram, 'u_perspective');
+	webGLInfo.axisColorLocation = gl.getUniformLocation(axisProgram, 'u_color');
 	
 	// set our axis buffer
 	updateAxisBuffer();
 	
 }
 
-function updateBuffer(polyDatas){
+function updateBuffer(polyDatas, lineDatas){
 	let totalLength = 0;
 	for(let polyD of polyDatas){
 		totalLength += polyD.length;
@@ -2028,12 +2032,29 @@ function updateBuffer(polyDatas){
 		}
 	}
 	
+	totalLength = 0;
+	for(let lineD of lineDatas){
+		totalLength += lineD.length;
+	}
+	
+	let lineBufferData = new Float32Array(totalLength);
+	i = 0;
+	for(let lineD of lineDatas){
+		for(let item of lineD){
+			lineBufferData[i] = item;
+			i++;
+		}
+	}
+	
 	// 3 for position, 3 for normal, 3 for barimetric data, per each point (of which 
 	// there are 3 per triangle)
 	domain.polyNumber = bufferData.length / 27;
 	
-	let gl = webGLInfo.gl;
+	// 3 for position times 2 points per line
+	domain.lineNumber = lineBufferData.length / 6;
+	
 	webGLInfo.polyBuffer = bufferData;
+	webGLInfo.lineBuffer = lineBufferData;
 }
 
 function updateAxisBuffer(){
@@ -2074,8 +2095,14 @@ function updateAxisBuffer(){
 		//   "real" - the mathematical definition of the point
 		
 		const varyCoord = ['x','y','z'][varyIndex];
-		const varyMin = domain[varyCoord].min,
+		let varyMin = domain[varyCoord].min,
 			varyMax = domain[varyCoord].max;
+			
+		// use extrema if possible
+		if(domain.extrema){
+			varyMin = domain.extrema[varyCoord].min;
+			varyMax - domain.extrema[varyCoord].max;
+		}
 				
 		const maxGap = (varyMax - varyMin) / domain[varyCoord].spread;
 		const maxStep = 10**Math.floor(Math.log10(maxGap));
@@ -2089,9 +2116,9 @@ function updateAxisBuffer(){
 		const tertiaryIndex = [0,1,2].filter(x => x !== varyIndex)[1];
 		
 		// a plotted characteristic, so streched
-		const maxLineLength = secondaryIndex === 0 ? (domain.x.max - domain.x.min) / 20 :
-			secondaryIndex === 1 ? (domain.y.max - domain.y.min) / 20 : 
-			secondaryIndex === 2 ? (domain.z.max - domain.z.min) / 20 : 0;
+		const maxLineLength = secondaryIndex === 0 ? (ptArray[1] - ptArray[0]) / 20 :
+			secondaryIndex === 1 ? (ptArray[3] - ptArray[2]) / 20 : 
+			secondaryIndex === 2 ? (ptArray[5] - ptArray[4]) / 20 : 0;
 		
 		// a real characteristic
 		const c1Val = antiSpread(c1[varyIndex], varyMin, varyMax, domain[varyCoord].spread),
@@ -2297,10 +2324,23 @@ function plotPointsWebGL(){
 	
 	gl.uniform1f(webGLInfo.axisPerspectiveLocation, domain.perspective ? 1 : -1);
 	
+	gl.uniform4fv(webGLInfo.axisColorLocation, [.4,.4,.4,1]);
+	
 	if(domain.showAxes){
 		gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.axisBuffer, gl.STATIC_DRAW);
 		gl.drawArrays(gl.LINES, 0, webGLInfo.axisLineCount * 2);
 	}
+	
+	// LINES ---------
+	// conveniently, we can just reuse the axis program
+	
+	gl.uniform4fv(webGLInfo.axisColorLocation, [0,.9,.5,1]);
+	
+	if(webGLInfo.lineBuffer && webGLInfo.lineBuffer.length > 0){
+		gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.lineBuffer, gl.STATIC_DRAW);
+		gl.drawArrays(gl.LINES, 0, domain.lineNumber * 2);
+	}
+	
 	
 	// POlYGONS ----------
 	gl.useProgram(webGLInfo.program);
@@ -2346,8 +2386,10 @@ function plotPointsWebGL(){
 	gl.uniform1f(webGLInfo.normalMultiplierLocation, domain.normalMultiplier);
 	
 	gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.polyBuffer, gl.STATIC_DRAW);
-	// primitive type, offset, count
-	gl.drawArrays(gl.TRIANGLES, 0, domain.polyNumber * 3);
+	if(domain.polyNumber && domain.polyNumber > 0){
+		// primitive type, offset, count
+		gl.drawArrays(gl.TRIANGLES, 0, domain.polyNumber * 3);
+	}
 	
 	// axes labels text 
 	let textCanvas = document.getElementById('text-canvas');

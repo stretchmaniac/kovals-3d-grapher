@@ -6,6 +6,7 @@ let polygons = [];
 // what is the index of the next polygon to be passed back to the 
 // main thread
 let polyUpdateIndex = 0;
+let lineUpdateIndex = 0;
 let domain = {};
 let distFunc = null;
 let extrema = null;
@@ -14,13 +15,13 @@ onmessage = function(e){
 	let [requestType, ...args] = e.data;
 	if(requestType === 'GRAPH'){
 		graphParametricFunction2(...args, function(){
-			postMessage(['FINISHED', getTotalPolyData(), polygons.length, extrema]);
+			postMessage(['FINISHED', getTotalPolyData(), getTotalLineData(), extrema]);
 		});
 	}
 }
 
 function updateMainThread(){
-	postMessage(['POLYGON_UPDATE', getPartialPolyData(), polygons.length]);
+	postMessage(['POLYGON_UPDATE', getPartialPolyData(), getPartialLineData()]);
 }
 
 function getTotalPolyData(){
@@ -31,6 +32,15 @@ function getTotalPolyData(){
 	}
 	
 	return polyData;
+}
+
+function getTotalLineData(){
+	let lineData = [];
+	for(let line of lines){
+		lineDataPt(lineData, line);
+	}
+	
+	return lineData;
 }
 
 // used when updating the main thread. It only sends the polygons 
@@ -45,29 +55,24 @@ function getPartialPolyData(){
 	return polyData;
 }
 
-function polyDataPt(polyData, poly){
-	if(!extrema){
-		extrema = {
-			x:{min: domain.center.x, max: domain.center.x},
-			y:{min: domain.center.y, max: domain.center.y},
-			z:{min: domain.center.z, max: domain.center.z}
-		}
+function getPartialLineData(){
+	let lineData = [];
+	for(let k = lineUpdateIndex; k < lines.length; k++){
+		lineDataPt(lineData, lines[k]);
 	}
+	
+	lineUpdateIndex = lines.length;
+	return lineData;
+}
+
+function polyDataPt(polyData, poly){
 	let c = 0;
 	for(let p of poly.pts){
 		polyData.push(p.x);
 		polyData.push(p.y);
 		polyData.push(p.z);
 		
-		// update extrema for axes purposes
-		if(!p.outsideDomain){
-			extrema.x.min = extrema.x.min > p.x ? p.x : extrema.x.min;
-			extrema.x.max = extrema.x.max < p.x ? p.x : extrema.x.max;
-			extrema.y.min = extrema.y.min > p.y ? p.y : extrema.y.min;
-			extrema.y.max = extrema.y.max < p.y ? p.y : extrema.y.max;
-			extrema.z.min = extrema.z.min > p.z ? p.z : extrema.z.min;
-			extrema.z.max = extrema.z.max < p.z ? p.z : extrema.z.max;
-		}
+		updateExtrema(p);
 		
 		// compute normal to point
 		// (this is simly the cross product of p.deriv1.du and p.deriv1.dv)
@@ -91,6 +96,34 @@ function polyDataPt(polyData, poly){
 		}
 		
 		c++;
+	}
+}
+
+function lineDataPt(lineData, line){
+	for(let p of line.pts){
+		lineData.push(p.x, p.y, p.z);
+		
+		updateExtrema(p);
+	}
+}
+
+function updateExtrema(p){
+	if(!extrema){
+		extrema = {
+			x:{min: domain.center.x, max: domain.center.x},
+			y:{min: domain.center.y, max: domain.center.y},
+			z:{min: domain.center.z, max: domain.center.z}
+		}
+	}
+	
+	// update extrema for axes purposes
+	if(!p.outsideDomain){
+		extrema.x.min = extrema.x.min > p.x ? p.x : extrema.x.min;
+		extrema.x.max = extrema.x.max < p.x ? p.x : extrema.x.max;
+		extrema.y.min = extrema.y.min > p.y ? p.y : extrema.y.min;
+		extrema.y.max = extrema.y.max < p.y ? p.y : extrema.y.max;
+		extrema.z.min = extrema.z.min > p.z ? p.z : extrema.z.min;
+		extrema.z.max = extrema.z.max < p.z ? p.z : extrema.z.max;
 	}
 }
 
@@ -125,6 +158,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
     var defaultXYZLength = (domain.x.max - domain.x.min) / domain.density;
     
     polygons = [];
+	// for 1 dimensional functions (e.g. (x,y,z) = u(1,1,1))
+	lines = [];
+	
 	polyUpdateIndex = 0;
     
     // center of domain, the seed point
@@ -133,36 +169,70 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
         vMiddle = (domain.v.max + domain.v.min) / 2;
     
     let initPoint = plotPlus(xFunc, yFunc, zFunc, uMiddle, vMiddle);
-    //we have (x(u,v), y(u,v), z(u,v)) ≈ u du + v dv, so a linear transformation (a plane)
-    //in order for a parameterization (x(s,t), y(s,t), z(s,t)) such that a change in s and t corresponds to 
-    //an equal change in x,y and z, we need s = u du, t = v dv, or (u(s,t), v(s,t)) = (s / |du|, t / |dv|)
-	// make this triangle the smallest possible size (see conversion of alanConstant later)
-	defaultXYZLength *= .2;
-    let vec = dir(initPoint, defaultXYZLength, 0);
 	
-    let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v);
-    vec = dir(initPoint, defaultXYZLength*.5, defaultXYZLength*Math.sqrt(3)/2)
-    let initPoint3 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v)
+	let pointFront = null;
 	
-	defaultXYZLength *= 5;
-    
-    //the space that needs to be transversed goes counter-clockwise from beginning to end
-    initPoint.beginning = initPoint3;
-    initPoint.end = initPoint2;
-    
-    initPoint2.beginning = initPoint;
-    initPoint2.end = initPoint3;
-    
-    initPoint3.beginning = initPoint2;
-    initPoint3.end = initPoint;
-    
-    connectLoop(initPoint, initPoint2, initPoint3);
-    
-    polygons.push({
-        pts:[initPoint, initPoint2, initPoint3]
-    });
-    
-    let pointFront = [initPoint, initPoint2, initPoint3];
+	if(magnitude(initPoint.deriv1.du) === 0 || magnitude(initPoint.deriv1.dv) === 0){
+		// this is a one dimensional line, start it as such
+		
+		let changeVar = magnitude(initPoint.deriv1.du) === 0 ? 'v' : 'u';
+		
+		let dir = {
+			u:0,
+			v:0
+		}
+		dir[changeVar] += defaultXYZLength / 10;
+		
+		let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + dir.u, vMiddle + dir.v);
+		
+		makeConnection(initPoint2, initPoint);
+		
+		initPoint.beginning = initPoint2;
+		initPoint.end = initPoint2;
+		initPoint.oneDDir = -1;
+		
+		initPoint2.beginning = initPoint;
+		initPoint2.end = initPoint;
+		initPoint2.oneDDir = 1;
+		
+		lines.push({
+			pts:[initPoint, initPoint2]
+		});
+		
+		pointFront = [initPoint, initPoint2];
+	}else{
+		
+		//we have (x(u,v), y(u,v), z(u,v)) ≈ u du + v dv, so a linear transformation (a plane)
+		//in order for a parameterization (x(s,t), y(s,t), z(s,t)) such that a change in s and t corresponds to 
+		//an equal change in x,y and z, we need s = u du, t = v dv, or (u(s,t), v(s,t)) = (s / |du|, t / |dv|)
+		// make this triangle the smallest possible size (see conversion of alanConstant later)
+		defaultXYZLength *= .2;
+		let vec = dir(initPoint, defaultXYZLength, 0);
+		
+		let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v);
+		vec = dir(initPoint, defaultXYZLength*.5, defaultXYZLength*Math.sqrt(3)/2)
+		let initPoint3 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v)
+		
+		defaultXYZLength *= 5;
+		
+		//the space that needs to be transversed goes counter-clockwise from beginning to end
+		initPoint.beginning = initPoint3;
+		initPoint.end = initPoint2;
+		
+		initPoint2.beginning = initPoint;
+		initPoint2.end = initPoint3;
+		
+		initPoint3.beginning = initPoint2;
+		initPoint3.end = initPoint;
+		
+		connectLoop(initPoint, initPoint2, initPoint3);
+		
+		polygons.push({
+			pts:[initPoint, initPoint2, initPoint3]
+		});
+		
+		pointFront = [initPoint, initPoint2, initPoint3];
+	}
     distFunc = p => Math.sqrt((p.u-uMiddle)*(p.u-uMiddle)+(p.v-vMiddle)*(p.v-vMiddle));
     pointFront.sort(function(a,b){
         return distFunc(a) - distFunc(b);
@@ -175,6 +245,57 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
     function processPoint(pt, edgePoints, logResults){
 		if(pt.doNotExec){
 			return 1;
+		}
+		
+		// I feel like I'm coding desmos here...
+		if(magnitude(pt.deriv1.du) === 0 | magnitude(pt.deriv1.dv) === 0){
+			// this is a one dimensional function, so make it a line instead of a polygon 
+			let changeVar = magnitude(pt.deriv1.du) === 0 ? 'v' : 'u';
+			let dir = {
+				u:0,
+				v:0
+			};
+			dir[changeVar] = 1/magnitude(pt.deriv1['d'+changeVar]);
+			
+			// continue in the same direction as pt 
+			if(!pt.oneDDir){
+				// must be coming from a non-one dimensional surface
+				// decide based on the average of its neighbors
+				let averageChangeVar = pt.neighbors.map(x=>x.pt[changeVar]).reduce((a,b)=>a+b,0);
+				if(averageChangeVar > pt[changeVar]){
+					pt.oneDDir = -1;
+				}else{
+					pt.oneDDir = 1;
+				}
+			}
+			dir[changeVar] *= pt.oneDDir;
+			
+			let newPt = plotPlus(xFunc, yFunc, zFunc, pt.u + dir.u, pt.v + dir.v);
+			
+			// while we could do something fancy to nodedist, in reality a one 
+			// dimensional line is going to be blazing fast anyway, so just make
+			// is sufficiently small 
+			
+			let actualNewPt = makeNodeDist(pt, newPt, defaultXYZLength/10, dir, xFunc, yFunc, zFunc);
+			makeConnection(pt, actualNewPt);
+			if(!actualNewPt.outsideDomain){
+				lines.push({
+					pts:[pt,actualNewPt]
+				});
+			}
+			// in case this is an isolated pole or something, be able to 
+			// resume surface plotting (see angleDiff definition below, will
+			// result in 2pi diff)
+			actualNewPt.beginning = pt;
+			actualNewPt.end = pt;
+			actualNewPt.oneDDir = pt.oneDDir;
+			
+			// if outside uv domain, don't push 
+			let u = actualNewPt.u, 
+				v = actualNewPt.v;
+			if(u <= domain.u.max && u >= domain.u.min && v <= domain.v.max && v >= domain.v.min){
+				pushToPointFront(actualNewPt, pointFront);
+			}
 		}
 		
         // start point
