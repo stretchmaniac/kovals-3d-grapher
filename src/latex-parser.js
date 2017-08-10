@@ -105,6 +105,11 @@ function parseLatex(expression, vars){
     
     //convert dot char to multiplication
     expression = expression.replace(/\\cdot/g,'*');
+	
+	// replace any } followed by [ with }*[
+	// this was an issue because math.js thinks (cos(u))[...] is a lookup (as in an array)
+	// when we really want multiplication
+	expression = expression.replace(/}\[/g,'}*[');
     
     //remove spaces
     expression = expression.replace(/ /g, '');
