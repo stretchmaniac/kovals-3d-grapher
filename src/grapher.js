@@ -1360,7 +1360,18 @@ function changeDomainInputs(){
 
 function setUpDownload(){
     var canvas = document.getElementById('canvas');
-    var data = canvas.toDataURL('image/png');
+	let textCanvas = document.getElementById('text-canvas');
+	
+	// draw the first canvas, then the text canvas onto the final one
+	let finalCanvas = document.createElement('canvas');
+	finalCanvas.width = canvas.width;
+	finalCanvas.height = canvas.height;
+	
+	let ctx = finalCanvas.getContext('2d');
+	ctx.drawImage(canvas, 0, 0);
+	ctx.drawImage(textCanvas, 0, 0);
+	
+    var data = finalCanvas.toDataURL('image/png');
     data = data.replace(/^data:image\/[^;]*/, 'data:application/octet-stream');
     data = data.replace(/^data:application\/octet-stream/, 'data:application/octet-stream;headers=Content-Disposition%3A%20attachment%3B%20filename=Graph.png');
     document.getElementById('save-href').href = data;
