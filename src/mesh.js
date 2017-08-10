@@ -8,11 +8,7 @@ let polygons = [];
 let polyUpdateIndex = 0;
 let domain = {};
 let distFunc = null;
-let extrema = {
-	x:{min:0,max:0},
-	y:{min:0,max:0},
-	z:{min:0,max:0}
-}
+let extrema = null;
 
 onmessage = function(e){
 	let [requestType, ...args] = e.data;
@@ -50,6 +46,13 @@ function getPartialPolyData(){
 }
 
 function polyDataPt(polyData, poly){
+	if(!extrema){
+		extrema = {
+			x:{min: domain.center.x, max: domain.center.x},
+			y:{min: domain.center.y, max: domain.center.y},
+			z:{min: domain.center.z, max: domain.center.z}
+		}
+	}
 	let c = 0;
 	for(let p of poly.pts){
 		polyData.push(p.x);

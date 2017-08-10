@@ -416,7 +416,44 @@ $(function(){
             plotPointsWebGL()
         }
         if(leftMouseClicked){
-			// possibly implement pan here
+			// pan algorithm here 
+			// just translate the domain by the inverseclipspace-ed mouse delta vector
+			deltaX = event.clientX - mousePosition.x;
+            deltaY = event.clientY - mousePosition.y;
+			
+			let canvas = document.getElementById('canvas');
+			// convert to clipspace 
+			deltaX = -2 * deltaX / canvas.width;
+			deltaY = 2 * deltaY / canvas.height;
+			
+			let clipCenter = simulateWebGLClipspace(domain.center).clipspace;
+			let translate1 = inverseClipspace({
+				x: deltaX + clipCenter.x,
+				y: clipCenter.y,
+				z: clipCenter.z
+			});
+			let translate2 = inverseClipspace({
+				x: clipCenter.x,
+				y: deltaY + clipCenter.y,
+				z: clipCenter.z
+			});
+			
+			translate1 = sub(translate1, domain.center);
+			translate2 = sub(translate2, domain.center);
+			
+			for(let domainDim of ['x','y','z']){
+				for(let ext of ['min','max']){
+					domain[domainDim][ext] += translate1[domainDim] + translate2[domainDim];
+				}
+			}
+			domain.center = add(domain.center, translate1);
+			domain.center = add(domain.center, translate2);
+			
+			if(magnitude(translate1) !== 0 || magnitude(translate2) !== 0){
+				console.log('here');
+				activateReplotAtZoomPopup();
+			}
+			
             plotPointsWebGL()
         }
         mousePosition = {x:event.clientX,y:event.clientY};
@@ -427,7 +464,7 @@ $(function(){
         if(event.which === 1){
             mouseClicked = true;
         }else if(event.which === 3){
-            //leftMouseClicked = true;
+            leftMouseClicked = true;
         }
         mousePosition = {x:event.clientX,y:event.clientY};
         if(domain.coloring && domain.coloringTime && domain.coloringTime > domain.maxColoringTime){
@@ -440,10 +477,7 @@ $(function(){
     $('#text-canvas').mouseup(function(e){
         mouseClicked = false;
         if(leftMouseClicked){
-            skipDomain = true;
-            graph();
-            skipDomain = false;
-            domain.panCenter = null;
+			
         }
         if(domain.wasColoring){
             domain.coloring = true;
@@ -559,14 +593,8 @@ $(function(){
         plotPointsWebGL();
 		
 		// get the 'replot at zoom' popup out
-		document.getElementById('replot-at-zoom-popup').classList.remove('graphing-progress-hidden');
-		document.getElementById('replot-at-zoom-button').onclick = function(){
-			skipDomain = true;
-			graph();
-			// domain stuff is an the beginning, and synchronous, so we don't have to wait for the workers
-			skipDomain = false;
-			document.getElementById('replot-at-zoom-popup').classList.add('graphing-progress-hidden');
-		}
+		activateReplotAtZoomPopup();
+		
     })
     document.getElementById('text-canvas').oncontextmenu = function(e){
         return false;
@@ -575,9 +603,18 @@ $(function(){
 	domain.center = getRealDomainCenter();
 	updateAxisBuffer();
 	plotPointsWebGL();
-	
-	
 });
+
+function activateReplotAtZoomPopup(){
+	document.getElementById('replot-at-zoom-popup').classList.remove('graphing-progress-hidden');
+	document.getElementById('replot-at-zoom-button').onclick = function(){
+		skipDomain = true;
+		graph();
+		// domain stuff is an the beginning, and synchronous, so we don't have to wait for the workers
+		skipDomain = false;
+		document.getElementById('replot-at-zoom-popup').classList.add('graphing-progress-hidden');
+	}
+}
 
 function linePolyIntersection(poly, lp1, lp2){
 	// find intersection with plane, then determine if that is inside poly 
@@ -1416,93 +1453,6 @@ function graph(onFinish){
     //reset domain
     if(domain.pointsOnly === true){
         domain.coloring = true;
-        var table = $('#plot-table-body');
-        var rows = table.children('tr');
-        for(var q = 0; q < rows.length; q++){
-            var cols = $(rows[q]).children('td');
-            var hasAllComponents = true;
-            for(var c = 0; c < cols.length; c++){
-                if(cols[c].textContent.trim().length === 0){
-                    hasAllComponents = false;
-                }
-            }
-            if(cols.length === 3 && hasAllComponents){
-                var x = cols[0].textContent;
-                var y = cols[1].textContent;
-                var z = cols[2].textContent;
-                
-                var realPoint;
-                if(domain.currentSystem === 'cylindrical'){
-                    realPoint = cylindricalToCartesian(x,y,z);
-                    x = realPoint.x;
-                    y = realPoint.y;
-                    z = realPoint.z;
-                }
-                if(domain.currentSystem === 'spherical'){
-                    realPoint = sphericalToCartesian(x,y,z);
-                    x = realPoint.x;
-                    y = realPoint.y;
-                    z = realPoint.z;
-                }
-                
-                x = spreadCoord(x, domain.x.min, domain.x.max, domain.x.spread);
-                y = spreadCoord(y, domain.y.min, domain.y.max, domain.y.spread);
-                z = spreadCoord(z, domain.z.min, domain.z.max, domain.z.spread);
-                
-                //make an octohedron around the point 
-                //spread is included in domain
-                var xOffset = (domain.x.max - domain.x.min)  * domain.pointWidthRatio;
-                var yOffset = (domain.y.max - domain.y.min)  * domain.pointWidthRatio;
-                var zOffset = (domain.z.max - domain.z.min)  * domain.pointWidthRatio;
-                
-                var p1 = {x:x + xOffset, y: y, z:z};
-                var pD1 = pointToQuat(p1);
-                var p2 = {x:x,y:y+yOffset,z:z}
-                var pD2 = pointToQuat(p2)
-                var p3 = {x:x - xOffset, y:y, z:z};
-                var pD3 = pointToQuat(p3);
-                var p4 = {x:x,y:y-yOffset,z:z};
-                var pD4 = pointToQuat(p4);
-                var p5 = {x:x,y:y,z:z+zOffset};
-                var pD5 = pointToQuat(p5);
-                var p6 = {x:x,y:y,z:z-zOffset};
-                var pD6 = pointToQuat(p6);
-                
-                //repeat the top and bottom
-                var p7 = {x:x,y:y,z:z+zOffset};
-                var pD7 = pointToQuat(p7);
-                var p8 = {x:x,y:y,z:z-zOffset};
-                var pD8 = pointToQuat(p8);
-                
-                var nPoints = [p1, p2, p3, p4, p5, p6, p7, p8];
-                var dPoints = [pD1, pD2, pD3, pD4, pD5, pD6, pD7, pD8];
-                
-                //connections
-                p1.polygon = {pts:[p1,p2,p5]}
-                p2.polygon = {pts:[p2,p3,p5]}
-                p3.polygon = {pts:[p3,p4,p6]}
-                p4.polygon = {pts:[p4,p1,p6]}
-                p5.polygon = {pts:[p5,p4,p3]}
-                p6.polygon = {pts:[p6,p1,p2]}
-                p7.polygon = {pts:[p7,p4,p1]}
-                p8.polygon = {pts:[p8,p2,p3]}
-                
-                for(var b = 0; b < nPoints.length; b++){
-                    nPoints[b].index = points.length;
-                    points.push(nPoints[b]);
-                }
-                
-                pD1.polygon = {pts:[pD1,pD2,pD5]}
-                pD2.polygon = {pts:[pD2,pD3,pD5]}
-                pD3.polygon = {pts:[pD3,pD4,pD6]}
-                pD4.polygon = {pts:[pD4,pD1,pD6]}
-                pD5.polygon = {pts:[pD5,pD4,pD3]}
-                pD6.polygon = {pts:[pD6,pD1,pD2]}
-                pD7.polygon = {pts:[pD7,pD4,pD1]}
-                pD8.polygon = {pts:[pD8,pD2,pD3]}
-                
-            }
-        }
         plotPointsWebGL();
         
     }else{
