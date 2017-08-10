@@ -459,36 +459,102 @@ $(function(){
         }else{
             magnification = 1/.9;
         }
-        var c = getRealDomainCenter();
-		domain.center = c;
-        var w = getRealDomainWidth();
-        var prevDomain = domain;
-        var min = c.x-w.x/2;
-        var max = c.x+w.x/2;
-        domain.x.min = spreadCoord(min, min, max, magnification*domain.x.spread);
-        domain.x.max = spreadCoord(max, min, max, magnification*domain.x.spread);
-        min = c.y-w.y/2;
-        max = c.y+w.y/2;
-        domain.y.min = spreadCoord(min, min, max, magnification*domain.y.spread);
-        domain.y.max = spreadCoord(max, min, max, magnification*domain.y.spread);
-        min = c.z-w.z/2;
-        max = c.z+w.z/2;
-        domain.z.min = spreadCoord(min, min, max, magnification*domain.z.spread);
-        domain.z.max = spreadCoord(max, min, max, magnification*domain.z.spread);
+		
+		let mouseX = e.clientX,
+			mouseY = e.clientY;
         
-        if(domain.currentSystem.indexOf('cartesian') !== -1){
+		// the idea is to send a ray from the camera through the cursor.
+		// The midpoint between the intersection points of the domain faces 
+		// is where the center of magnification is 
+		
+		// use simulateWebGLClipspace to find the camera position 
+		// the center line (a dot in the middle of the screen, L(t) = t (0,0,1) ) passes through the camera, 
+		
+		// for our test points, we want to avoid when b === 0 || c === 0
+		// so we'll use 4 corners and screen out the ones that are too close 
+		
+		// the projection plane is simply the z value such that the 
+		// w coordinate is 1. Below (in simulateWebGLTranform), w is defined 
+		// as domain.perspective ? (clipspace.z + 1.0) / 2.0 + 0.10 : .6;
+		// so (z + 1.0) / 2.0 + .1 == 1, z = .8
+		
+		let projZ = .8;
+		
+		// the camera is where w is 0
+		// (z + 1)/2 + .1 == 0, z = -1.2
+		let camera = {
+			x: 0,
+			y: 0,
+			z: -1.2
+		};
+		
+		// now find the cursor position
+		let canvas = document.getElementById('canvas');
+		let cursor = {
+			x: (mouseX / canvas.width) * 2 - 1,
+			y: ((canvas.height - mouseY) / canvas.height) * 2 - 1,
+			z: projZ
+		}
+		
+		// now we have a ray, L(t) = camera + t (cursor - camera)
+		// find the intersection with all the domain edge planes (there should be 2),
+		// find the midpoint of these and make that the stationary point
+		
+		let xmax = domain.x.max,
+			xmin = domain.x.min,
+			ymax = domain.y.max,
+			ymin = domain.y.min,
+			zmax = domain.z.max,
+			zmin = domain.x.max;
+		if(domain.extrema){
+			xmax = domain.extrema.x.max,
+			xmin = domain.extrema.x.min,
+			ymax = domain.extrema.y.max,
+			ymin = domain.extrema.y.min,
+			zmax = domain.extrema.z.max,
+			zmin = domain.extrema.z.min
+		}
+		
+		// 6 faces => 6 polygon plane definitions with 4 points each
+		let planes = [
+			[{x:xmin,y:ymin,z:zmin},{x:xmin,y:ymax,z:zmin},{x:xmax,y:ymax,z:zmin},{x:xmax,y:ymin,z:zmin}],
+			[{x:xmin,y:ymin,z:zmin},{x:xmin,y:ymin,z:zmax},{x:xmax,y:ymin,z:zmax},{x:xmax,y:ymin,z:zmin}],
+			[{x:xmin,y:ymin,z:zmin},{x:xmin,y:ymax,z:zmin},{x:xmin,y:ymax,z:zmax},{x:xmin,y:ymin,z:zmax}],
 			
-        }else if(domain.currentSystem.indexOf('spherical') !== -1){
-            domain.r.min *= magnification;
-            domain.r.max *= magnification;
-        }else if(domain.currentSystem.indexOf('cylindrical') !== -1){
-            domain.rho.min *= magnification;
-            domain.rho.max *= magnification;
-            min = domain.height.min;
-            max = domain.height.max;
-            domain.height.min = spreadCoord(min, min, max, magnification);
-            domain.height.max = spreadCoord(max, min, max, magnification);
-        }
+			[{x:xmax,y:ymax,z:zmax},{x:xmax,y:ymin,z:zmax},{x:xmin,y:ymin,z:zmax},{x:xmin,y:ymax,z:zmax}],
+			[{x:xmax,y:ymax,z:zmax},{x:xmax,y:ymax,z:zmin},{x:xmin,y:ymax,z:zmin},{x:xmin,y:ymax,z:zmax}],
+			[{x:xmax,y:ymax,z:zmax},{x:xmax,y:ymin,z:zmax},{x:xmax,y:ymin,z:zmin},{x:xmax,y:ymax,z:zmin}]
+		];
+		
+		planes = planes.map(x => x.map(i => simulateWebGLClipspace(i).clipspace));
+		
+		let intersections = planes.map(x => linePolyIntersection(x, camera, cursor));
+		intersections = intersections.filter(x => x !== null);
+		
+		// find midpoint of first 2 intersections
+		let stationaryPt = null;
+		if(intersections.length >= 2){
+			stationaryPt = scalar(.5, add(intersections[0], intersections[1]));
+			// convert this back from clipspace
+			stationaryPt = inverseClipspace(stationaryPt);
+		}else{
+			stationaryPt = domain.center;
+		}
+		
+		// we need to transform the domain such that stationaryPt doesn't move under transformation 
+		// this is essentially a scaling with stationaryPt as the origin 
+		for(let domainDim of ['x','y','z']){
+			for(let ext of ['min','max']){
+				domain[domainDim][ext] = (domain[domainDim][ext] - stationaryPt[domainDim]) * magnification + stationaryPt[domainDim];
+			}
+		}
+		
+		// reset domain center 
+		domain.center = {
+			x: (domain.x.min + domain.x.max)/2,
+			y: (domain.y.min + domain.y.max)/2,
+			z: (domain.z.min + domain.z.max)/2
+		};
         
         plotPointsWebGL();
 		
@@ -512,6 +578,47 @@ $(function(){
 	
 	
 });
+
+function linePolyIntersection(poly, lp1, lp2){
+	// find intersection with plane, then determine if that is inside poly 
+	// line-plane intersection: 
+	// L(t) = lp1 + t (lp2 - lp1)
+	// plane in xyz form: 
+	//   normal: (poly[1] - poly[0]) cross (poly[2] - poly[0])
+	//   pt: poly[0]
+	// ((x,y,z)-pt).normal == 0
+	// ... some mathematica magic later ... 
+	// t = (lp1 . normal - pt . normal) / (normal . (lp1 - lp2))
+	let pt = poly[0],
+		normal = cross(sub(poly[1],poly[0]), sub(poly[2],poly[0]));
+	let t = (dot(lp1, normal) - dot(pt, normal)) / dot(normal, sub(lp1, lp2));
+	let intersection = add(lp1, scalar(t, sub(lp2, lp1)));
+	
+	if(isNaN(intersection.x) || intersection === null || intersection === undefined){
+		return null;
+	}
+	
+	// now determine if this intersection lies in poly 
+	// project the whole thing onto the xy plane (this function is used where lp1 and lp2 are never parallel to this plane)
+	// and do a scanline algorithm
+	let crosses = 0;
+	for(let i = 0; i < poly.length; i++){
+		let p1 = poly[i],
+			p2 = poly[i === poly.length - 1 ? 0 : i + 1];
+		// y = intersection.y
+		// L(t) = p1 + t (p2 - p1), (x, y) = (p1.x + t (p2.x-p1.x), p1.y+t(p2.y-p1.y))
+		// intersection.y = p1.y+t(p2.y-p1.y)
+		let t = (intersection.y-p1.y)/(p2.y-p1.y);
+		if(t >= 0 && t <= 1 && p1.x+t*(p2.x-p1.x) > intersection.x){
+			crosses++;
+		}
+	}
+	
+	if(crosses % 2 === 1){
+		return intersection;
+	}
+	return null;
+}
 
 function readURLParameters(){
 	// URL encoding reference:
@@ -2345,6 +2452,45 @@ function simulateWebGLTranform(pt, height, canvas, ignoreOutOfBounds){
 		z:clipspace.z,
 		height: height / shrinkFactor
 	};
+}
+
+function simulateWebGLClipspace(pt){
+	let centered = sub(pt, domain.center);
+	let rotated = add(add(scalar(centered.x, axes[0]), scalar(centered.y, axes[1])), scalar(centered.z, axes[2]));
+	let clipspace = scalar(1/(1.75 * (domain.x.max - domain.x.min)/2), rotated);
+	clipspace.x /= domain.aspectRatio;
+	clipspace.z += .3;
+	
+	let shrinkFactor = domain.perspective ? (clipspace.z + 1.0) / 2.0 + 0.10 : .6;
+	
+	return {
+		clipspace:clipspace,
+		w: shrinkFactor
+	}
+}
+
+// inverse of simulateWebGLClipspace
+function inverseClipspace(clip){
+	clip.z -= .3;
+	clip.x *= domain.aspectRatio;
+	let rotated = scalar(1.75 * (domain.x.max - domain.x.min)/2, clip);
+	// now we have a solid system of 3 equations with 3 variables...
+	// we have centered.x * axes[0] + centered.y * axes[1] + centered.z * axes[2] = rotated
+	// {
+	//   centered.x*axes[0].x + centered.y*axes[1].x + centered.z*axes[2].x = rotated.x
+	//   centered.x*axes[0].y + centered.y*axes[1].y + centered.z*axes[2].y = rotated.y
+	//   centered.x*axes[0].z + centered.y*axes[1].z + centered.z*axes[2].z = rotated.z
+	// }
+	// conveniently, math.js has an inverse matrix function, so I'm in luck! 
+	let inverse = math.inv([
+		[axes[0].x, axes[0].y, axes[0].z],
+		[axes[1].x, axes[1].y, axes[1].z],
+		[axes[2].x, axes[2].y, axes[2].z]
+	]);
+	let [centeredx, centeredy, centeredz] = math.multiply([rotated.x, rotated.y, rotated.z], inverse);
+	let centered = {x: centeredx, y: centeredy, z: centeredz};
+	let pt = add(centered, domain.center);
+	return pt;
 }
 
 function rotatePoints(pQuats, rot){
