@@ -299,6 +299,21 @@ $(function(){
 		domain.normalMultiplier *= -1;
 		plotPointsWebGL();
 	});
+	
+	$('#recenter-button').click(function(){
+		for(let a of ['x','y','z']){
+			for(let b of ['min','max']){
+				domain[a][b] = domain.extrema[a][b];
+			}
+		}
+		domain.center = {
+			x: (domain.x.min+domain.x.max)/2,
+			y: (domain.y.min+domain.y.max)/2,
+			z: (domain.z.min+domain.z.max)/2
+		}
+		
+		plotPointsWebGL();
+	});
     
     MQ = MathQuill.getInterface(2);
     var autoCommands = 'pi theta rho phi sqrt sum';
