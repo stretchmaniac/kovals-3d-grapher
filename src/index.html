@@ -75,6 +75,7 @@
 		// effectively booleans, true iff > 0
 		uniform float u_perspective;
 		uniform float u_directional_lighting;
+		uniform float u_ignore_normal;
 		
 		uniform float u_normal_multiplier;
 		
@@ -123,10 +124,27 @@
 			vec3 RVec2 = 2.0 * dot(LVec2, NVec) * NVec - LVec2;
 			vec3 VVec = vec3(0, 0, -2) - clipspace.xyz;
 			
+			float dot1a = dot(LVec, NVec);
+			float dot1b = dot(RVec, VVec);
+			
+			if(u_ignore_normal > 0.0){
+				dot1a = abs(dot1a);
+				dot1b = abs(dot1b);
+			}
+			
 			// light 1
-			float luminosity = kaConst * imConst + kdConst * max(dot(LVec, NVec), 0.0) * imConst + ksConst * pow(max(dot(RVec, VVec), 0.0), aConst) * imConst;
+			float luminosity = kaConst * imConst + kdConst * max(dot1a, 0.0) * imConst + ksConst * pow(max(dot1b, 0.0), aConst) * imConst;
+			
+			float dot2a = dot(LVec2, NVec);
+			float dot2b = dot(RVec2, VVec);
+			
+			if(u_ignore_normal > 0.0){
+				dot2a = abs(dot2a);
+				dot2b = abs(dot2b);
+			}
+			
 			// light2
-			luminosity += kaConst * imConst + kdConst * max(dot(LVec2, NVec), 0.0) * imConst + ksConst * pow(max(dot(RVec2, VVec), 0.0), aConst) * imConst;
+			luminosity += kaConst * imConst + kdConst * max(dot2a, 0.0) * imConst + ksConst * pow(max(dot2b, 0.0), aConst) * imConst;
 			
 			float h = 1.0 / (1.0 + pow(2.0, -1.0 * ((a_position.z-u_domain_center.z) / u_domain_halfwidth)));
 			
@@ -861,7 +879,7 @@
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Shade Mesh</div>
-                                <div class='checkbox-description'>Shade each polygon according to a color function based on the value of the function at the point. Uncheck to improve rendering speed.</div>
+                                <div class='checkbox-description'>Shade each polygon according to a color function based on the value of the function at the point.</div>
                             </div>
                         </div>
                     </label>
@@ -873,7 +891,7 @@
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Use Directional Lighting</div>
-                                <div class='checkbox-description'>Vary the shading of each polygon based on its angle relative to a light source. Does not significantly decrease rendering speed.</div>
+                                <div class='checkbox-description'>Vary the darkness of each polygon based on its angle relative to a light source.</div>
                             </div>
                         </div>
                     </label>
@@ -897,7 +915,21 @@
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Render Mesh when Shading</div>
-                                <div class='checkbox-description'>Draw the mesh boundaries when shading.</div>
+                                <div class='checkbox-description'>Draw the mesh lines when shading.</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+				<div class='checkbox-wrapper'>
+                    <label>
+                        <div class='checkbox-row'>
+                            <input type='checkbox' id='ignore-normal-checkbox'>
+                            <span></span>
+                            <div class='checkbox-text-wrapper'>
+                                <div class='checkbox-label'>Ignore Normal when Shading</div>
+                                <div class='checkbox-description'>When checked, the bottom of a surface (usually darker) will appear the same as the 
+									top. Useful when a surface overlaps itself or for a Mobius strip. However, it does have the side effect 
+									of making shading appear slightly less realistic for wavy functions.</div>
                             </div>
                         </div>
                     </label>
@@ -936,7 +968,7 @@
                 </div>
                 <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>A measure vaguely specifying how many polygons to use per unit area of surface. Note that this 
                     does not put a hard limit on the number of polygons drawn, since some surfaces have a much 
-                    greater surface area than others. Values greater than 500 are not recommended.
+                    greater surface area than others. Usually 100 is sufficient for a high quality surface.
                 </span>
                 <span class='settings-header'>Animations</span>
                 <hr>

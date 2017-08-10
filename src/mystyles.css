@@ -549,7 +549,7 @@ input[type=range]:focus::-ms-fill-upper {
 }
 label input {
     visibility: hidden;
-    display:block
+    display:block;
     height:0;
     width:0;
     position:absolute;
@@ -557,7 +557,7 @@ label input {
 }
 label span {
     height: 15px;
-    width: 15px;
+    min-width: 15px;
     border: 1px solid grey;
     margin-top:5px;
     display: block;

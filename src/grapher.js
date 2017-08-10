@@ -692,6 +692,7 @@ function readURLParameters(){
 	//    d - don't use directional lighting
 	//    p - don't use perspective
 	//    r - render mesh when shading
+	//    n - ignore normal when shading
 	//    a - don't show axes
 	//    l - don't show axes labels
 	//    s - miniDomain for embedding
@@ -763,6 +764,10 @@ function readURLParameters(){
 				document.getElementById('show-mesh-while-coloring-checkbox').checked = true;
 				domain.showMeshWhileColoring = true;
 			}
+			if(val.indexOf('n') !== -1){
+				document.getElementById('ignore-normal-checkbox').checked = true;
+				domain.ignoreNormal = true;
+			}
 			if(val.indexOf('a') !== -1){
 				document.getElementById('axes-checkbox').checked = false;
 				domain.showAxes = false;
@@ -822,17 +827,29 @@ $(window).resize(function(){
 $('#axes-checkbox').change(function(){
     domain.showAxes = $('#axes-checkbox').prop('checked');
     plotPointsWebGL();
-})
+});
 
 $('#color-checkbox').change(function(){
     domain.coloring = $('#color-checkbox').prop('checked');
     plotPointsWebGL();
-})
+});
 
 $('#show-mesh-while-coloring-checkbox').change(function(){
     domain.showMeshWhileColoring = $('#show-mesh-while-coloring-checkbox').prop('checked');
     plotPointsWebGL();
-})
+});
+
+$('#ignore-normal-checkbox').change(function(){
+	domain.ignoreNormal = $('#ignore-normal-checkbox').prop('checked');
+	
+	if(domain.ignoreNormal){
+		document.getElementById('invert-normal-button').style.opacity=.2;
+	}else{
+		document.getElementById('invert-normal-button').style.opacity=1;
+	}
+	
+	plotPointsWebGL();
+});
 
 $('#directional-lighting-checkbox').change(function(){
     domain.directionalLighting = $('#directional-lighting-checkbox').prop('checked');
@@ -1044,6 +1061,9 @@ function getLinkUrl(){
 	}
 	if(!domain.showAxesLabels){
 		optionsString += 'l';
+	}
+	if(domain.ignoreNormal){
+		optionsString += 'n';
 	}
 	if(domain.miniDisplay){
 		optionsString += 's';
@@ -1979,6 +1999,7 @@ function initWebGL(){
 	webGLInfo.perspectiveLocation = gl.getUniformLocation(program, 'u_perspective');
 	webGLInfo.directionalLightingLocation = gl.getUniformLocation(program, 'u_directional_lighting');
 	webGLInfo.normalMultiplierLocation = gl.getUniformLocation(program, 'u_normal_multiplier');
+	webGLInfo.ignoreNormalLocation = gl.getUniformLocation(program, 'u_ignore_normal');
 	
 	// make our buffer
 	let buffer = gl.createBuffer();
@@ -2397,6 +2418,7 @@ function plotPointsWebGL(){
 	
 	gl.uniform1f(webGLInfo.perspectiveLocation, domain.perspective ? 1 : -1);
 	gl.uniform1f(webGLInfo.directionalLightingLocation, domain.directionalLighting ? 1 : -1);
+	gl.uniform1f(webGLInfo.ignoreNormalLocation, domain.ignoreNormal ? 1 : -1);
 	
 	gl.uniform1f(webGLInfo.normalMultiplierLocation, domain.normalMultiplier);
 	
