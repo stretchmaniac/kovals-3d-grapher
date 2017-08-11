@@ -288,6 +288,23 @@
 						<p>
 							This section adresses some common misunderstandings and pitfalls when using Koval's 3D Grapher.
 						</p>
+						<h3>My function got stuck plotting. What happened?</h3>
+						<p>
+							Unfortunately, although a great effort has been made to prevent hangups, occasionally a function never seems to 
+							finish plotting. This often is an unforseen breakdown of the mesh at a discontinuity or other feature. Try changing 
+							the mesh quality slightly to "retry" with a different mesh structure.
+						</p>
+						<h3>
+						<h3>My plot is mottled with dark and light polygons. How do I fix it?</h3>
+						<p>
+							Perhaps like this?
+						</p>
+						<img class='help-menu-image' src='http://i.imgur.com/V8QA76w.png'>
+						<p>
+							Congradulations, you have discovered a superposition of two surfaces, one face up and one face down. 
+							Usually this is caused by incorrect domain bounds (in this above case, \(r=7\), \(\phi\) had a maximum of \(\pi\) 
+							instead of \(\pi/2\)). You can negate its effects by checking the "Ignore Normals" checkbox in the settings menu.
+						</p>
 					</div>
 					<div id='help-funcs'>
 						<h1>Function and Operator Reference</h1>

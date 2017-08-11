@@ -676,6 +676,11 @@ hr + span{
 .extra-options-option-text::-webkit-scrollbar { 
     display: none; 
 }
+.help-menu-image{
+	display:block;
+	max-width:50%;
+	margin:auto;
+}
 
 
 
