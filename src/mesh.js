@@ -592,6 +592,19 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	// find corresponding diamond then see if switching diagonals is a worthy decision
 	for(let k = polygons.length - 1; k >= 0; k--){
 		let poly = polygons[k];
+		
+		// don't use "deleted" polygons (this duplicates some of the actions)
+		let moveOn = false;
+		for(let deleted of polysToRemove){
+			if(poly.pts.indexOf(deleted[0]) !== -1 && poly.pts.indexOf(deleted[1]) !== -1){
+				moveOn = true;
+				break;
+			}
+		}
+		if(moveOn){
+			continue;
+		}
+		
 		// The circumcenter lies outside the triangle if there is an obtuse angle 
 		// (Hey, wikipedia agrees with me)
 		// a triangle is obtuse if the sum of the squares two of the sides is less than 
@@ -656,6 +669,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	// it is very important that the appropriate polygons be removed AFTER the other polygons 
 	// have been added. This way, the order can be preserved while getting rid of 
 	// polygons that were created at a previous step in the above logic
+	let polyLengthB = polygons.length;
 	for(let [p1, p2] of polysToRemove){
 		for(var k = polygons.length - 1; k >= 0; k--){
 			if(polygons[k].pts.indexOf(p1) !== -1 && polygons[k].pts.indexOf(p2) !== -1){

@@ -43,7 +43,8 @@ var domain = {
 	polyNumber:0,
 	polyData:[],
 	axisPrecision:2,
-	miniDisplay:false
+	miniDisplay:false,
+	transparency:1
 }
 
 var compile = require('interval-arithmetic-eval');
@@ -697,6 +698,7 @@ function readURLParameters(){
 	//    l - don't show axes labels
 	//    s - miniDomain for embedding
 	// q - mesh quality
+	// t - transparency
 	
 	// if the url has a 'function' parameter, autofill the box 
 	let urlUtils = new URLSearchParams(window.location.search.substring(1));
@@ -802,6 +804,11 @@ function readURLParameters(){
 			document.getElementById('mesh-quality-input').value = parseFloat(val);
 		}
 		
+		if(urlUtils.has('t')){
+			let val = urlUtils.get('t');
+			document.getElementById('transparency-input').value = parseFloat(val);
+		}
+		
 		// finally, graph the function
 		graph();
 	}
@@ -864,6 +871,17 @@ $('#show-axes-labels-checkbox').change(function(){
 $('#perspective-checkbox').change(function(){
     domain.perspective = $('#perspective-checkbox').prop('checked');
     plotPointsWebGL();
+});
+
+$('#transparency-input').change(function(){
+	domain.transparency = parseFloat(document.getElementById('transparency-input').value);
+	if(domain.transparency < 0){
+		domain.transparency = 0;
+	}
+	if(domain.transparency > 1){
+		domain.transparency = 1;
+	}
+	plotPointsWebGL();
 });
 
 $('#color-scheme-select').change(function(){
@@ -1074,6 +1092,7 @@ function getLinkUrl(){
 	}
 	
 	url += '&q='+encodeURIComponent(domain.density+'');
+	url += '&t='+encodeURIComponent(domain.transparency+'');
 	
 	return url;
 }
@@ -1954,7 +1973,7 @@ function pointToQuat(p){
 // assumes that all points and polygons have been created
 function initWebGL(){
 	console.log('initializing webgl...');
-	let gl = document.getElementById('canvas').getContext('webgl');
+	let gl = document.getElementById('canvas').getContext('webgl', {alpha: false} );
 	
 	if(!gl){
 		alert('Your browser does not support webgl. I\'m really not sure what browser you could possibly be using, but I suggest you update, or better yet, download Chrome.');
@@ -2400,17 +2419,17 @@ function plotPointsWebGL(){
 	gl.uniform1f(webGLInfo.domainHalfWidthLocation, (domain.x.max - domain.x.min) / 2);
 	gl.uniform1f(webGLInfo.aspectRatioLocation, canvas.width / canvas.height);
 	
-	let transparency = domain.coloring ? 1 : 0;
+	let transparency = domain.coloring ? domain.transparency : 0;
 	let showBorder = !domain.coloring || domain.showMeshWhileColoring;
 	
-	if(domain.coloring){
+	if(domain.coloring && transparency === 1){
 		gl.disable(gl.BLEND);
 		gl.enable(gl.DEPTH_TEST);
 		gl.depthFunc(gl.LEQUAL);
 	}else{
 		gl.disable(gl.DEPTH_TEST);
 		gl.enable(gl.BLEND);
-		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+		gl.blendFunc(gl.SRC_ALPHA, gl.DST_ALPHA);
 	}
 	
 	gl.uniform1f(webGLInfo.transparencyLocation, transparency);
