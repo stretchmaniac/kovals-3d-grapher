@@ -21,7 +21,6 @@ var domain = {
     coloring: true,
     showAxes: true,
     percentCalculated:0,
-    lightDirections:[{x:0,y:0,z:-1}],
     pointsOnly:false,
     pointWidthRatio:.005,
     animating:false,
@@ -47,63 +46,23 @@ var domain = {
 	transparency:1
 }
 
-var compile = require('interval-arithmetic-eval');
+// for multiple functions. domain refers to the 
+// current plot in question
+let domains = [];
 
-var handleablePoints = 5000;
 var xQuat = quatNorm({w:1,x:0,y:0,z:0});
 var yQuat = quatNorm({w:1,x:0,y:0,z:0});
-var cleanDensity = 15;
 
 let webGLInfo = {
 	initialized:false
 };
 
-var polygons = [];
 var MQ;
-var translation = {x:0,y:0};
-var translateConst = .001;
-var onlyPlotNewPoints = false;
-var pointsToPlot = 0;
-
-var unitQuat = {w:0,x:1,y:0,z:0};
 
 var animationVars = [];
 var animationImgs = [];
 
 var skipDomain = false;
-
-var intervalId, intervalId2, intervalId3, intervalId4, intervalId5;
-var intervalFunctionSupported = true;
-
-//[xFunc,yFunc,zFunc]
-var cartGallery = [
-        ['','','5\\cos \\left(2\\sqrt{x^2+y^2}\\right)\\operatorname{sech}\\left(\\frac{\\sqrt{x^2+y^2}}{1.5}\\right)'],
-        ['','','\\cos x+\\cos y'],
-        ['\\sin \\left(\\tan \\left(\\frac{\\left(\\text{hypot}\\left(z,y\\right)\\right)}{5}\\right)\\right)', '',''],
-        ['8\\operatorname{sech}\\left(\\frac{\\left(\\text{hypot}\\left(y,z\\right)\\right)}{4}\\right)-12\\operatorname{sech}\\left(\\frac{\\left(\\text{hypot}\\left(y-2,z-2\\right)\\right)}{2}\\right)','',''],
-        ['','\\sqrt{81-z^2-x^2}',''],
-        ['','','5\\frac{1}{1+e^y}+5\\frac{1}{1+e^x}-5'],
-        ['','','\\left(\\cos x+\\cos y\\right)\\left(\\frac{5}{1+\\sqrt{x^2+y^2}}\\sin \\left(\\sqrt{x^2+y^2}\\right)\\right)']
-    ];
-var cylinFuncGallery = [
-        ['\\sqrt{u^2+v^2}\\cos v','\\sin \\left(v\\right)+\\frac{\\cos \\left(5u\\right)}{5}','u'],
-        ['4\\operatorname{sech}z','',''],
-        ['\\frac{\\left(\\text{catalan}\\left(\\text{floor}\\left(\\text{abs}\\left(z\\right)+1\\right)\\right)\\right)}{5000}}{5000}','',''],
-        ['','\\rho +z',''],
-        ['','\\cos\\left(\\rho\\right)+\\sin\\left(z\\right)',''],
-        ['','3\\operatorname{sech}\\left(z\\right)\\left(\\cos \\left(\\rho\\right)+\\sin\\left(z\\right)\\right)',''],
-        ['','','\\phi '],
-        ['','','\\sin\\left(\\rho\\right)\\cos\\left(\\phi\\right)'],
-        ['5+2\\cos \\left(v\\right)','u','2\\sin\\left(v\\right)'],
-    ];
-var sphereFuncGallery = [
-        ['5\\left(1+2\\cos \\left(\\phi \\right)\\right)','',''],
-        ['','r\\phi ',''],
-        ['','r-\\phi ',''],
-        ['','','\\frac{r\\theta }{4}'],
-        ['v','\\sin\\left(3u\\right)','\\frac{uv}{4}'],
-        ['2\\left(u-\\pi \\right)','\\sin \\left(2u\\right)','\\cos \\left(v\\right)']
-    ];
     
 var graphingError = false;
 
@@ -396,15 +355,7 @@ $(function(){
 		readURLParameters();
     },1500)
     
-    //randomGraph();
-    // setTimeout(function(){
-    //     var input = MQ.MathField($('#equation-input'));
-    //     input.cmd(')');
-    //     input.keystroke('Backspace')
-    //     input.blur();
-    // },500)
     domain.coloring = true;
-    //graph();
     
     var mouseClicked = false;
     var leftMouseClicked = false;
@@ -1344,50 +1295,6 @@ function startAnimationPlayback(){
 function removeVariable(buttonElement){
     var parent = $(buttonElement).parent();
     parent.remove();
-}
-
-//chooses a random plot from the list and displays it
-function randomGraph(){
-    MQ = MathQuill.getInterface(2);
-    var num = Math.random();
-    var eqs;
-    cartesian = false;
-    cylindrical = false;
-    spherical = false;
-    if(num < .33){
-        //choose a cartesian option
-        eqs = cartGallery[Math.floor(Math.random()*cartGallery.length)];
-        cartesian = true;
-        var xInput = MQ.MathField(document.getElementById('x-input'));
-        xInput.write(eqs[0]);
-        var yInput = MQ.MathField(document.getElementById('y-input'));
-        yInput.write(eqs[1]);
-        var zInput = MQ.MathField(document.getElementById('z-input'));
-        zInput.write(eqs[2]);
-        $('#cartesian-button').click();
-    }else if(num < .66){
-        //choose a cylindrical option
-        eqs = cylinFuncGallery[Math.floor(Math.random()*cylinFuncGallery.length)];
-        cylindrical = true;
-        var rhoInput = MQ.MathField(document.getElementById('rho-input'));
-        rhoInput.write(eqs[0]);
-        var phiInput = MQ.MathField(document.getElementById('phi-input'));
-        phiInput.write(eqs[1]);
-        var heightInput= MQ.MathField(document.getElementById('height-input'));
-        heightInput.write(eqs[2]);
-        $('#cylindrical-button').click();
-    }else{
-        //choose a spherical option
-        eqs = sphereFuncGallery[Math.floor(Math.random()*sphereFuncGallery.length)];
-        spherical = true;
-        var rInput = MQ.MathField(document.getElementById('r-input'))
-        rInput.write(eqs[0]);
-        var thetaInput = MQ.MathField(document.getElementById('theta-input'))
-        thetaInput.write(eqs[1]);
-        var sphiInput = MQ.MathField(document.getElementById('sphi-input'))
-        sphiInput.write(eqs[2]);
-        $('#spherical-button').click();
-    }
 }
 
 function getRealDomainCenter(){
