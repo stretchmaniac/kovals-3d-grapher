@@ -76,6 +76,7 @@
 		uniform float u_perspective;
 		uniform float u_directional_lighting;
 		uniform float u_ignore_normal;
+		uniform float u_color_hue;
 		
 		uniform float u_normal_multiplier;
 		
@@ -146,7 +147,7 @@
 			// light2
 			luminosity += kaConst * imConst + kdConst * max(dot2a, 0.0) * imConst + ksConst * pow(max(dot2b, 0.0), aConst) * imConst;
 			
-			float h = 1.0 / (1.0 + pow(2.0, -1.0 * ((a_position.z-u_domain_center.z) / u_domain_halfwidth)));
+			float h = u_color_hue;
 			
 			color = vec4(hsl2rgb(vec3(h, 1, u_directional_lighting > 0.0 ? luminosity : 0.5)), u_transparency);
 			
@@ -971,6 +972,20 @@
                 <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>The opacity of the surface, with 0 being entirely transparent
 					(invisible) and 1 being entirely opaque (solid). 
                 </span>
+				<div style='display:flex;flex-direction:row;margin-top:20px;margin-bottom:20px;padding:3px'>
+                    <span class='checkbox-label' style='display:block;padding-bottom:4px'>Mesh Color</span>
+					<div id='mesh-color-button-wrapper'>
+						<button style='background-color:rgb(116,169,48)' class='mesh-color-option mesh-color-option-selected'></button>					
+						<button style='background-color:rgb(55,169,48)' class='mesh-color-option'></button>
+						<button style='background-color:rgb(48,169,162)' class='mesh-color-option'></button>
+						<button style='background-color:rgb(48,116,169)' class='mesh-color-option'></button>
+						<button style='background-color:rgb(101,48,169)' class='mesh-color-option'></button>
+						<button style='background-color:rgb(169,48,116)' class='mesh-color-option'></button>
+						<button style='background-color:rgb(169,48,55)' class='mesh-color-option'></button>
+						<button style='background-color:rgb(169,101,48)' class='mesh-color-option'></button>
+						<button style='background-color:rgb(169,162,48)' class='mesh-color-option'></button>
+					</div>
+                </div>
                 <span class='settings-header'>Axis Options</span>
                 <hr>
                 <div class='checkbox-wrapper'>

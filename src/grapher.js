@@ -302,6 +302,24 @@ $(function(){
 		// scroll to faq question
 		document.getElementById('global-faq').scrollIntoView();
 	});
+	
+	$('.mesh-color-option').click(e => {
+		for(let el of [...document.getElementsByClassName('mesh-color-option')]){
+			el.classList.remove('mesh-color-option-selected');
+		}
+		e.target.classList.add('mesh-color-option-selected');
+		let colorText = e.target.style.backgroundColor;
+		let rgb = colorText.split(',').map(x=>parseInt(x.replace(/\D/g,'')));
+		domain.color = rgbToHsl(...rgb)[0];
+		console.log(domain.color);
+		domain.colorString = colorText;
+		
+		plotPointsWebGL();
+	});
+	let colorTxt = document.getElementsByClassName('mesh-color-option-selected')[0].style.backgroundColor;
+	let rgb = colorTxt.split(',').map(x=>parseInt(x.replace(/\D/g,'')));
+	domain.color = rgbToHsl(...rgb)[0];
+	domain.colorString = colorTxt;
     
     MQ = MathQuill.getInterface(2);
     var autoCommands = 'pi theta rho phi sqrt sum';
@@ -667,11 +685,16 @@ function updateGUIOnDomainSwitch(){
 	//   ignore normal 
 	//   opacity
 	//   mesh quality
+	//   color
 	document.getElementById('color-checkbox').checked = domain.coloring;
 	document.getElementById('show-mesh-while-coloring-checkbox').checked = domain.showMeshWhileColoring;
 	document.getElementById('ignore-normal-checkbox').checked = domain.ignoreNormal;
 	document.getElementById('transparency-input').value = domain.transparency+'';
 	document.getElementById('mesh-quality-input').value = domain.density;
+	for(let i of [...document.getElementsByClassName('mesh-color-option')]){
+		i.classList.remove('mesh-color-option-selected');
+	}
+	[...document.getElementsByClassName('mesh-color-option')].filter(x => x.style.backgroundColor === domain.colorString)[0].classList.add('mesh-color-option-selected');
 }
 
 function activateReplotAtZoomPopup(){
@@ -2130,6 +2153,7 @@ function initWebGL(){
 	webGLInfo.directionalLightingLocation = gl.getUniformLocation(program, 'u_directional_lighting');
 	webGLInfo.normalMultiplierLocation = gl.getUniformLocation(program, 'u_normal_multiplier');
 	webGLInfo.ignoreNormalLocation = gl.getUniformLocation(program, 'u_ignore_normal');
+	webGLInfo.colorHueLocation = gl.getUniformLocation(program, 'u_color_hue');
 	
 	// make our buffer
 	let buffer = gl.createBuffer();
@@ -2559,6 +2583,7 @@ function plotPointsWebGL(){
 	for(let d of domains){
 		gl.uniform1f(webGLInfo.normalMultiplierLocation, d.normalMultiplier);
 		gl.uniform1f(webGLInfo.ignoreNormalLocation, d.ignoreNormal ? 1 : -1);
+		gl.uniform1f(webGLInfo.colorHueLocation, d.color);
 		
 		let transparency = d.coloring ? d.transparency : 0;
 		let showBorder = !d.coloring || d.showMeshWhileColoring;
@@ -2817,6 +2842,29 @@ function selectText(element) {
         selection.removeAllRanges();
         selection.addRange(range);
     }
+}
+
+// thanks to Mohsen over at stack overflow
+// https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
+function rgbToHsl(r, g, b){
+    r /= 255, g /= 255, b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, l = (max + min) / 2;
+
+    if(max == min){
+        h = s = 0; // achromatic
+    }else{
+        var d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch(max){
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+
+    return [h, s, l];
 }
 
 

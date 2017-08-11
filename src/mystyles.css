@@ -726,6 +726,23 @@ hr + span{
 	background-color:transparent;
 	cursor:pointer;
 }
+#mesh-color-button-wrapper{
+	display:flex;
+	flex-direction:row;
+	flex-grow:1;
+	padding:5px;
+	margin-left:30px;
+}
+.mesh-color-option{
+	margin:0px;
+	height:100%;
+	flex-grow:1;
+	transition: height .3s ease;
+}
+.mesh-color-option-selected{
+	border:5px solid black;
+	height: 150%;
+}
 
 
 
