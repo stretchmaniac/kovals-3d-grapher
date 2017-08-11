@@ -305,6 +305,17 @@
 							Usually this is caused by incorrect domain bounds (in this above case, \(r=7\), \(\phi\) had a maximum of \(\pi\) 
 							instead of \(\pi/2\)). You can negate its effects by checking the "Ignore Normals" checkbox in the settings menu.
 						</p>
+						<div id='global-faq'></div>
+						<h3>Why are some settings marked as "global"?</h3>
+						<p>
+							One can create multiple plots on the same set of axes by adding a tab with the plus icon above the equation input. 
+							Global options apply to all plots rather than the selected plot.
+						</p>
+						<img class='help-menu-image' src='http://i.imgur.com/NrEJQW4.png'>
+						<p>
+							This is a direct consequence of the setting. For example, a perspective-enabled plot displayed with a 
+							perspective-disabled plot would result in identical points mapping to different screen coordinates. 
+						</p>
 					</div>
 					<div id='help-funcs'>
 						<h1>Function and Operator Reference</h1>
@@ -903,27 +914,29 @@
                 </div>
                 <div class='checkbox-wrapper'>
                     <label>
-                        <div class='checkbox-row'>
+                        <div class='checkbox-row global-option'>
                             <input type='checkbox' id='directional-lighting-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
-                                <div class='checkbox-label'>Use Directional Lighting</div>
+                                <div class='checkbox-label'>Use Directional Lighting (global)</div>
                                 <div class='checkbox-description'>Vary the darkness of each polygon based on its angle relative to a light source.</div>
                             </div>
                         </div>
                     </label>
+					<button class='global-help-link hyperlink'>What is a global setting?</button>
                 </div>
                 <div class='checkbox-wrapper'>
                     <label>
-                        <div class='checkbox-row'>
+                        <div class='checkbox-row global-option'>
                             <input type='checkbox' id='perspective-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
-                                <div class='checkbox-label'>Use Perspective</div>
+                                <div class='checkbox-label'>Use Perspective (global)</div>
                                 <div class='checkbox-description'>Make points farther away appear closer to the center of view. Highly recommended.</div>
                             </div>
                         </div>
                     </label>
+					<button class='global-help-link hyperlink'>What is a global setting?</button>
                 </div>
                 <div class='checkbox-wrapper'>
                     <label>
@@ -962,27 +975,29 @@
                 <hr>
                 <div class='checkbox-wrapper'>
                     <label>
-                        <div class='checkbox-row'>
+                        <div class='checkbox-row global-option'>
                             <input type='checkbox' id='axes-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
-                                <div class='checkbox-label'>Show Axes</div>
+                                <div class='checkbox-label'>Show Axes (global)</div>
                                 <div class='checkbox-description'>Show the \(x\), \(y\) and \(z\) axes on the graph.</div>
                             </div>
                         </div>
                     </label>
+					<button class='global-help-link hyperlink'>What is a global setting?</button>
                 </div>
                 <div class='checkbox-wrapper'>
                     <label>
-                        <div class='checkbox-row'>
+                        <div class='checkbox-row global-option'>
                             <input type='checkbox' id='show-axes-labels-checkbox' checked>
                             <span></span>
                             <div class='checkbox-text-wrapper'>
-                                <div class='checkbox-label'>Show Axes Labels</div>
+                                <div class='checkbox-label'>Show Axes Labels (global)</div>
                                 <div class='checkbox-description'>Show the minimum and maximum value on each coordinate axis.</div>
                             </div>
                         </div>
                     </label>
+					<button class='global-help-link hyperlink'>What is a global setting?</button>
                 </div>
                 <span class='settings-header'>Mesh Options</span>
                 <hr>

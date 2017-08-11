@@ -290,6 +290,18 @@ $(function(){
 		
 		plotPointsWebGL();
 	});
+	
+	$('.global-help-link').click(function(){
+		// hide settings
+		$('#settings-popup').addClass('hidden');
+        $("#settings-content").unbind( 'click', document);
+		
+		// open help menu
+		$('#help-icon').click();
+		
+		// scroll to faq question
+		document.getElementById('global-faq').scrollIntoView();
+	});
     
     MQ = MathQuill.getInterface(2);
     var autoCommands = 'pi theta rho phi sqrt sum';

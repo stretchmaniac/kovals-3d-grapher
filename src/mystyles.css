@@ -14,9 +14,6 @@ a :not(.hyperlink){
     text-decoration:none;
     color:var(--equation-font-color);
 }
-p,li{
-    
-}
 .note{
     font-size:13pt;
     margin:50pt;
@@ -528,6 +525,7 @@ input[type=range]:focus::-ms-fill-upper {
 }
 .checkbox-row{
     display:flex;
+	padding:5px;
     flex-direction:row;
 }
 .checkbox-label{
@@ -709,6 +707,24 @@ hr + span{
 #add-tab-button:hover{
 	background-color:#2a2a2a;
 	cursor:default;
+}
+.global-option{
+	background-color:rgb(227,227,227);
+}
+.global-help-link{
+	float:right;
+	margin:0px;
+	padding:0px;
+    font-size: 12px;
+	background-color:transparent;
+	background:transparent;
+	border:none;
+	text-decoration:underline;
+	color:blue;
+}
+.global-help-link:hover{
+	background-color:transparent;
+	cursor:pointer;
 }
 
 
