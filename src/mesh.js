@@ -155,7 +155,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
         defaultDeltaV = (domain.v.max - domain.v.min) / domain.density;
     
     //sometimes I'm really thankful I stretched the function instead of the domain...
-    var defaultXYZLength = (domain.x.max - domain.x.min) / domain.density;
+    var defaultXYZLength = (domain.globalViewPoint.x.max - domain.globalViewPoint.x.min) / domain.density;
     
     polygons = [];
 	// for 1 dimensional functions (e.g. (x,y,z) = u(1,1,1))
@@ -1238,9 +1238,9 @@ function plot(cX, cY, cZ, u,v){
 			};
         }
 		
-        point.x = spreadCoord(point.x, domain.x.min, domain.x.max, domain.x.spread);
-        point.y = spreadCoord(point.y, domain.y.min, domain.y.max, domain.y.spread);
-        point.z = spreadCoord(point.z, domain.z.min, domain.z.max, domain.z.spread);
+        point.x = spreadCoord(point.x, domain.spreadCenter.x, domain.x.spread);
+        point.y = spreadCoord(point.y, domain.spreadCenter.y, domain.y.spread);
+        point.z = spreadCoord(point.z, domain.spreadCenter.z, domain.z.spread);
 		
 		point.outsideDomain = false;
 		point.infinite = false;
@@ -1321,8 +1321,7 @@ function findParametricEdge(realP, nonRealP, testFunc, xFunc, yFunc, zFunc, iter
     }
 }
 
-function spreadCoord(val, min, max, spread){
-    var center = (min+max)/2;
+function spreadCoord(val, center, spread){
     var valRel = val - center;
     return valRel*spread + center;
 }

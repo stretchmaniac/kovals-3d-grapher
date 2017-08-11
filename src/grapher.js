@@ -26,6 +26,7 @@ var domain = {
     animating:false,
     stopAnimating:true,
     showMeshWhileColoring:false,
+	showAxes:true,
     showAxesLabels:true,
     directionalLighting:true,
     perspective:true,
@@ -43,12 +44,26 @@ var domain = {
 	polyData:[],
 	axisPrecision:2,
 	miniDisplay:false,
-	transparency:1
+	transparency:1,
+	spreadCenter:{x:0,y:0,z:0}
 }
+
+let defaultDomain = {};
 
 // for multiple functions. domain refers to the 
 // current plot in question
 let domains = [];
+let globalExtrema = {
+	x:{min:-10,max:10},
+	y:{min:-10,max:10},
+	z:{min:-10,max:10}
+};
+let globalViewPoint = {
+	x:{min:-10,max:10},
+	y:{min:-10,max:10},
+	z:{min:-10,max:10},
+	center:{x:0,y:0,z:0}
+};
 
 var xQuat = quatNorm({w:1,x:0,y:0,z:0});
 var yQuat = quatNorm({w:1,x:0,y:0,z:0});
@@ -66,7 +81,8 @@ var skipDomain = false;
     
 var graphingError = false;
 
-let graphWorkers = [];
+let graphWorkersPool = [[]];
+let graphID = 0;
 
 var axes = [
 	{x:1,y:0,z:0},
@@ -263,13 +279,13 @@ $(function(){
 	$('#recenter-button').click(function(){
 		for(let a of ['x','y','z']){
 			for(let b of ['min','max']){
-				domain[a][b] = domain.extrema[a][b];
+				globalViewPoint[a][b] = globalExtrema[a][b];
 			}
 		}
-		domain.center = {
-			x: (domain.x.min+domain.x.max)/2,
-			y: (domain.y.min+domain.y.max)/2,
-			z: (domain.z.min+domain.z.max)/2
+		globalViewPoint.center = {
+			x: (globalViewPoint.x.min+globalViewPoint.x.max)/2,
+			y: (globalViewPoint.y.min+globalViewPoint.y.max)/2,
+			z: (globalViewPoint.z.min+globalViewPoint.z.max)/2
 		}
 		
 		plotPointsWebGL();
@@ -285,9 +301,10 @@ $(function(){
         //autoOperatorNames:'abs',
         handlers:{
             enter:function(mathField){
-                graph();
+                graphAll();
             },
             edit:function(mathField){
+				domain.expressionLatex = mathField.latex();
                 var result = characterizeExpression(parseLatex(mathField.latex(), animationVars));
                 var outputString;
                 if(parseLatex(mathField.latex(), animationVars).length === 0){
@@ -327,21 +344,29 @@ $(function(){
             '\\rho \\in \\left[0,10\\right],\\ \\ \\phi \\in \\left[0,2\\pi \\right],\\ \\ z\\in \\left[-10,10\\right]',
             'r\\in \\left[0,10\\right],\\ \\ \\theta \\in \\left[0,2\\pi \\right],\\ \\ \\phi \\in \\left[-\\frac{\\pi }{2},\\frac{\\pi }{2}\\right]',
             'u,\\ v\\in \\left[0,2\\pi \\right]'
-        ]
+        ];
+	
+	for(let i = 0; i < 4; i++){
+		domain[['cartesian','cylindrical','spherical','parametric'][i]+'DomainLatex'] = defaultValues[i];
+	}
+	domain.expressionLatex = '';
     
     for(var k = 0; k < 4; k++){
         var el = $('#'+['cart','cyl','sphere','par'][k]+'-domain-bar')[0];
-        MQ.MathField(el, {
-            handlers:{
-                enter: () => {graph();},
-                edit: (field) => {
-                    var latex = parseLatex(field.latex(), animationVars);
-                    var result = parseDomain(latex);
-                }
-            },
-            autoCommands: autoCommands+' in',
-            supSubsRequireOperand: true
-        });
+        (i=>{
+			MQ.MathField(el, {
+				handlers:{
+					enter: () => {graphAll();},
+					edit: (field) => {
+						domain[['cartesian','cylindrical','spherical','parametric'][i]+'DomainLatex'] = field.latex();
+						var latex = parseLatex(field.latex(), animationVars);
+						var result = parseDomain(latex);
+					}
+				},
+				autoCommands: autoCommands+' in',
+				supSubsRequireOperand: true
+			});
+		})(k);
     }
     
     //this seems to be a bug with mathquill. If I do any less than a second, I get weird artifacts 
@@ -393,7 +418,7 @@ $(function(){
 			deltaX = -2 * deltaX / canvas.width;
 			deltaY = 2 * deltaY / canvas.height;
 			
-			let clipCenter = simulateWebGLClipspace(domain.center).clipspace;
+			let clipCenter = simulateWebGLClipspace(globalViewPoint.center).clipspace;
 			let translate1 = inverseClipspace({
 				x: deltaX + clipCenter.x,
 				y: clipCenter.y,
@@ -405,16 +430,16 @@ $(function(){
 				z: clipCenter.z
 			});
 			
-			translate1 = sub(translate1, domain.center);
-			translate2 = sub(translate2, domain.center);
+			translate1 = sub(translate1, globalViewPoint.center);
+			translate2 = sub(translate2, globalViewPoint.center);
 			
 			for(let domainDim of ['x','y','z']){
 				for(let ext of ['min','max']){
-					domain[domainDim][ext] += translate1[domainDim] + translate2[domainDim];
+					globalViewPoint[domainDim][ext] += translate1[domainDim] + translate2[domainDim];
 				}
 			}
-			domain.center = add(domain.center, translate1);
-			domain.center = add(domain.center, translate2);
+			globalViewPoint.center = add(globalViewPoint.center, translate1);
+			globalViewPoint.center = add(globalViewPoint.center, translate2);
 			
 			if(magnitude(translate1) !== 0 || magnitude(translate2) !== 0){
 				activateReplotAtZoomPopup();
@@ -500,19 +525,19 @@ $(function(){
 		// find the intersection with all the domain edge planes (there should be 2),
 		// find the midpoint of these and make that the stationary point
 		
-		let xmax = domain.x.max,
-			xmin = domain.x.min,
-			ymax = domain.y.max,
-			ymin = domain.y.min,
-			zmax = domain.z.max,
-			zmin = domain.x.max;
-		if(domain.extrema){
-			xmax = domain.extrema.x.max,
-			xmin = domain.extrema.x.min,
-			ymax = domain.extrema.y.max,
-			ymin = domain.extrema.y.min,
-			zmax = domain.extrema.z.max,
-			zmin = domain.extrema.z.min
+		let xmax = globalViewPoint.x.max,
+			xmin = globalViewPoint.x.min,
+			ymax = globalViewPoint.y.max,
+			ymin = globalViewPoint.y.min,
+			zmax = globalViewPoint.z.max,
+			zmin = globalViewPoint.x.max;
+		if(globalExtrema.x){
+			xmax = globalExtrema.x.max,
+			xmin = globalExtrema.x.min,
+			ymax = globalExtrema.y.max,
+			ymin = globalExtrema.y.min,
+			zmax = globalExtrema.z.max,
+			zmin = globalExtrema.z.min
 		}
 		
 		// 6 faces => 6 polygon plane definitions with 4 points each
@@ -538,22 +563,22 @@ $(function(){
 			// convert this back from clipspace
 			stationaryPt = inverseClipspace(stationaryPt);
 		}else{
-			stationaryPt = domain.center;
+			stationaryPt = globalViewPoint.center;
 		}
 		
 		// we need to transform the domain such that stationaryPt doesn't move under transformation 
 		// this is essentially a scaling with stationaryPt as the origin 
 		for(let domainDim of ['x','y','z']){
 			for(let ext of ['min','max']){
-				domain[domainDim][ext] = (domain[domainDim][ext] - stationaryPt[domainDim]) * magnification + stationaryPt[domainDim];
+				globalViewPoint[domainDim][ext] = (globalViewPoint[domainDim][ext] - stationaryPt[domainDim]) * magnification + stationaryPt[domainDim];
 			}
 		}
 		
 		// reset domain center 
-		domain.center = {
-			x: (domain.x.min + domain.x.max)/2,
-			y: (domain.y.min + domain.y.max)/2,
-			z: (domain.z.min + domain.z.max)/2
+		globalViewPoint.center = {
+			x: (globalViewPoint.x.min + globalViewPoint.x.max)/2,
+			y: (globalViewPoint.y.min + globalViewPoint.y.max)/2,
+			z: (globalViewPoint.z.min + globalViewPoint.z.max)/2
 		};
         
         plotPointsWebGL();
@@ -566,16 +591,82 @@ $(function(){
         return false;
     }
 	
+	tabBehavior();
+	
 	domain.center = getRealDomainCenter();
-	updateAxisBuffer();
 	plotPointsWebGL();
 });
+
+function tabBehavior(){
+	defaultDomain = JSON.parse(JSON.stringify(domain));
+	domains = [domain];
+	
+	let newTabButton = document.getElementById('add-tab-button');
+	newTabButton.onclick = function(){
+		let newEl = document.createElement('div');
+		newEl.classList.add('tab');
+		document.getElementById('tabs-wrapper').insertBefore(newEl, newTabButton);
+		
+		// push a new default domain to domains 
+		domains.push(JSON.parse(JSON.stringify(defaultDomain)));
+		
+		updateGUIOnDomainSwitch();
+		
+		updateTabClicks();
+		
+		newEl.onclick();
+	}
+	updateTabClicks();
+}
+
+function updateTabClicks(){
+	let tabs = document.getElementsByClassName('tab');
+	let c = 0;
+	for(let a of [...tabs]){
+		((tab, domainIndex) => {
+			tab.onclick = function(){
+				for(let t of [...tabs]){
+					t.classList.remove('selected');
+				}
+				tab.classList.add('selected');
+				
+				domain = domains[domainIndex];
+				
+				updateGUIOnDomainSwitch();
+			};
+		})(a,c);
+		c++;
+	}
+}
+
+function updateGUIOnDomainSwitch(){
+	// domain items
+	for(let i = 0; i < 4; i++){
+		// ugly, but effective
+		MQ($('#'+['cart','cyl','sphere','par'][i]+'-domain-bar')[0]).latex(domain[['cartesian','cylindrical','spherical','parametric'][i]+'DomainLatex']);
+	}
+	
+	// expression 
+	MQ(document.getElementById('equation-input')).latex(domain.expressionLatex);
+	
+	// mutable options 
+	//   shade mesh
+	//   render mesh when shading
+	//   ignore normal 
+	//   opacity
+	//   mesh quality
+	document.getElementById('color-checkbox').checked = domain.coloring;
+	document.getElementById('show-mesh-while-coloring-checkbox').checked = domain.showMeshWhileColoring;
+	document.getElementById('ignore-normal-checkbox').checked = domain.ignoreNormal;
+	document.getElementById('transparency-input').value = domain.transparency+'';
+	document.getElementById('mesh-quality-input').value = domain.density;
+}
 
 function activateReplotAtZoomPopup(){
 	document.getElementById('replot-at-zoom-popup').classList.remove('graphing-progress-hidden');
 	document.getElementById('replot-at-zoom-button').onclick = function(){
 		skipDomain = true;
-		graph();
+		graphAll();
 		// domain stuff is an the beginning, and synchronous, so we don't have to wait for the workers
 		skipDomain = false;
 		document.getElementById('replot-at-zoom-popup').classList.add('graphing-progress-hidden');
@@ -707,11 +798,15 @@ function readURLParameters(){
 			}
 			if(val.indexOf('d') !== -1){
 				document.getElementById('directional-lighting-checkbox').checked = false;
-				domain.directionalLighting = false;
+				for(let d of domains){
+					d.directionalLighting = false;
+				}
 			}
 			if(val.indexOf('p') !== -1){
 				document.getElementById('perspective-checkbox').checked = false;
-				domain.perspective = false;
+				for(let d of domains){
+					d.perspective = false;
+				}
 			}
 			if(val.indexOf('r') !== -1){
 				document.getElementById('show-mesh-while-coloring-checkbox').checked = true;
@@ -723,11 +818,15 @@ function readURLParameters(){
 			}
 			if(val.indexOf('a') !== -1){
 				document.getElementById('axes-checkbox').checked = false;
-				domain.showAxes = false;
+				for(let d of domains){
+					d.showAxes = false;
+				}
 			}
 			if(val.indexOf('l') !== -1){
 				document.getElementById('show-axes-labels-checkbox').checked = false;
-				domain.showAxesLabels = false;
+				for(let d of domains){
+					d.showAxesLabels = false;
+				}
 			}
 			if(val.indexOf('s') !== -1){
 				domain.miniDisplay = true;
@@ -761,7 +860,7 @@ function readURLParameters(){
 		}
 		
 		// finally, graph the function
-		graph();
+		graphAll();
 	}
 }
 
@@ -783,7 +882,9 @@ $(window).resize(function(){
 });
 
 $('#axes-checkbox').change(function(){
-    domain.showAxes = $('#axes-checkbox').prop('checked');
+	for(let d of domains){
+		d.showAxes = $('#axes-checkbox').prop('checked');
+	}
     plotPointsWebGL();
 });
 
@@ -810,17 +911,23 @@ $('#ignore-normal-checkbox').change(function(){
 });
 
 $('#directional-lighting-checkbox').change(function(){
-    domain.directionalLighting = $('#directional-lighting-checkbox').prop('checked');
+	for(let d of domains){
+		d.directionalLighting = $('#directional-lighting-checkbox').prop('checked');
+	}
     plotPointsWebGL();
 })
 
 $('#show-axes-labels-checkbox').change(function(){
-    domain.showAxesLabels = $('#show-axes-labels-checkbox').prop('checked');
+	for(let d of domains){
+		d.showAxesLabels = $('#show-axes-labels-checkbox').prop('checked');
+	}
     plotPointsWebGL();
 })
 
 $('#perspective-checkbox').change(function(){
-    domain.perspective = $('#perspective-checkbox').prop('checked');
+	for(let d of domains){
+		d.perspective = $('#perspective-checkbox').prop('checked');
+	}
     plotPointsWebGL();
 });
 
@@ -1118,7 +1225,7 @@ function animate(){
     var progress = 1;
     $('#animation-progress-bar').prop('value', progress);
     
-    graph(function(){
+    graphAll(function(){
         progress++;
         $('#animation-progress-bar').prop('value', progress);
         var finished = false;
@@ -1135,7 +1242,7 @@ function animate(){
         
         if(finished === false){
             try{
-                graph(arguments.callee);
+                graphAll(arguments.callee);
             }catch(e){
                 displayCanvasError();
                 console.log(e.stack)
@@ -1348,74 +1455,163 @@ function evalDomain(string){
     
 }
 
+function graphAll(onFinish){
+	
+	// make the little box that says "Plotting..." out
+	document.getElementById('graphing-progress-popup').classList.remove('graphing-progress-hidden');
+	
+	let originalDomain = domain;
+	
+	if(skipDomain){
+		// clip the domains to globalViewPoint, if applicable
+		for(let d of domains){
+			for(let i of ['x','y','z']){
+				let spreadMin = antiSpread(d[i].original.min, d.spreadCenter[i], d[i].spread),
+					spreadMax = antiSpread(d[i].original.max, d.spreadCenter[i], d[i].spread);
+				// all domain spreads are the same
+				let gSpreadMin = antiSpread(globalViewPoint[i].min, d.spreadCenter[i], d[i].spread),
+					gSpreadMax = antiSpread(globalViewPoint[i].max, d.spreadCenter[i], d[i].spread);
+					
+				// obviously, the domain should shrink to fit inside globalViewPoint
+				if(spreadMin < gSpreadMin){
+					spreadMin = gSpreadMin;
+				}
+				if(spreadMax > gSpreadMax){
+					spreadMax = gSpreadMax;
+				}
+				
+				// however, it's slightly less obvious as to what should happen if globalViewPoint expands
+				// I've decided to expand any domain that touches the edge, otherwise expand to original size 
+				if(d[i].original.maxOnViewBorder){
+					spreadMax = gSpreadMax;
+				}
+				if(d[i].original.minOnViewBorder){
+					spreadMin = gSpreadMin;
+				}
+				
+				d[i].min = spreadMin;
+				d[i].max = spreadMax;
+			}
+			console.log(d.x,d.y,d.z);
+		}
+	}
+	
+	// read all the domains' inputs, deal with global spreads and such
+	let max = {x:null,y:null,z:null},
+		min = {x:null,y:null,z:null};
+	for(let d of domains){
+		domain = d;
+		updateGUIOnDomainSwitch();
+		if(!skipDomain){
+			readDomainInputs();
+		}
+		
+		for(let i of ['x','y','z']){
+			max[i] = max[i] === null || domain[i].max > max[i] ? domain[i].max : max[i];
+			min[i] = min[i] === null || domain[i].min < min[i] ? domain[i].min : min[i];
+		}
+	}
+	
+	// all functions should match spread and spread center
+	let spreadCenter = scalar(.5, add(min, max));
+	
+	globalViewPoint = {
+		x:{min: min.x, max: max.x},
+		y:{min: min.y, max: max.y},
+		z:{min: min.z, max: max.z}
+	};
+	globalViewPoint.center = {
+		x: spreadCenter.x,
+		y: spreadCenter.y,
+		z: spreadCenter.z
+	}
+	
+	let maxGap = Math.max(max.x - min.x, max.y - min.y, max.z - min.z);
+	for(let d of domains){
+		d.spreadCenter = spreadCenter;
+		d.globalViewPoint = globalViewPoint;
+		d.center = {};
+		
+		for(let i of ['x','y','z']){
+			d[i].spread = maxGap / (max[i] - min[i]);
+			d[i].min = spreadCoord(d[i].min, d.spreadCenter[i], d[i].spread);
+			d[i].max = spreadCoord(d[i].max, d.spreadCenter[i], d[i].spread);
+			d.center[i] = (d[i].min + d[i].max)/2;
+			
+			// for replot-on-zoom button
+			if(!skipDomain){
+				d[i].original = {
+					min: d[i].min,
+					max: d[i].max
+				};
+				// close enough to edge
+				if(Math.abs(d[i].min - min[i]) < (max[i]-min[i])/1000000){
+					d[i].original.minOnViewBorder = true;
+				}
+				if(Math.abs(d[i].max - max[i]) < (max[i]-min[i])/1000000){
+					d[i].original.maxOnViewBorder = true;
+				}
+			}
+		}
+	}	
+	
+	let graphsFinished = 0;
+	for(let d of domains){
+		domain = d;
+		updateGUIOnDomainSwitch();
+		graph(() => {
+			graphsFinished++;
+			// all the plots are finished
+			if(graphsFinished === domains.length){
+				// make the plotting popup disappear
+				document.getElementById('graphing-progress-popup').classList.add('graphing-progress-hidden');
+				setGlobalExtrema();
+				updateAxisBuffer();
+				
+				plotPointsWebGL();
+			}
+		});
+	}
+	domain = originalDomain;
+	updateGUIOnDomainSwitch();
+}
+
+function readDomainInputs(){
+	['cart','cyl','sphere','par'].forEach(val => {
+		var field = MQ($('#'+val+'-domain-bar')[0]);
+		var latex = parseLatex(field.latex(), animationVars);
+		var result = parseDomain(latex);
+		
+		// change z to height, phi to sphi in corresponding coordinate systems 
+		if(val === 'cyl'){
+			let zVal = result.filter(x => x.varName === 'z')[0];
+			if(zVal){
+				zVal.varName='height';
+			}
+		}
+		if(val === 'sphere'){
+			let phiVal = result.filter(x => x.varName === 'phi')[0];
+			if(phiVal){
+				phiVal.varName='sphi';
+			}
+		}
+		
+		result.forEach(val => {
+			domain[val.varName].min = math.eval(val.range.min);
+			domain[val.varName].max = math.eval(val.range.max);
+		});
+	});
+}
+
 function graph(onFinish){
     domain.stopAnimating = true;
     MQ = MathQuill.getInterface(2);
     if(!onFinish){
         onFinish = function(){};
     }
-    if(!skipDomain){
-        ['cart','cyl','sphere','par'].forEach(val => {
-            var field = MQ($('#'+val+'-domain-bar')[0]);
-            var latex = parseLatex(field.latex(), animationVars);
-            var result = parseDomain(latex);
-			
-			// change z to height, phi to sphi in corresponding coordinate systems 
-			if(val === 'cyl'){
-				let zVal = result.filter(x => x.varName === 'z')[0];
-				if(zVal){
-					zVal.varName='height';
-				}
-			}
-			if(val === 'sphere'){
-				let phiVal = result.filter(x => x.varName === 'phi')[0];
-				if(phiVal){
-					phiVal.varName='sphi';
-				}
-			}
-			
-            result.forEach(val => {
-                domain[val.varName].min = math.eval(val.range.min);
-                domain[val.varName].max = math.eval(val.range.max);
-            });
-        });
-		
-        var xWidth = domain.x.max - domain.x.min;
-        var yWidth = domain.y.max - domain.y.min;
-        var zWidth = domain.z.max - domain.z.min;
-        
-        var maxWidth = Math.max(xWidth, yWidth, zWidth);
-        var xSpread = maxWidth / xWidth;
-        var ySpread = maxWidth / yWidth;
-        var zSpread = maxWidth / zWidth;
-        
-        domain.x.spread = xSpread;
-        domain.y.spread = ySpread;
-        domain.z.spread = zSpread;
-        
-        //the spread is basically a function.
-        //it stretches the dimensions to fit the designated domain
-        var spread = {x:xSpread, y:ySpread, z:zSpread};
-        
-        var xCenter = (domain.x.min + domain.x.max)/2;
-        var yCenter = (domain.y.min + domain.y.max)/2;
-        var zCenter = (domain.z.min + domain.z.max)/2;
-        
-        domain.center = {x:xCenter,y:yCenter,z:zCenter};
-        
-        domain.x.max = xCenter + xSpread * xWidth/2;
-        domain.x.min = xCenter - xSpread * xWidth/2;
-        domain.y.max = yCenter + ySpread * yWidth/2;
-        domain.y.min = yCenter - ySpread * yWidth/2;
-        domain.z.max = zCenter + zSpread * zWidth/2;
-        domain.z.min = zCenter - zSpread * zWidth/2;
-		
-		console.log(domain);
-    }
     
     spread = {x:domain.x.spread, y:domain.y.spread, z:domain.z.spread}
-    
-    domain.showAxes = $('#axes-checkbox').prop('checked');
+	
     domain.coloring = $('#color-checkbox').prop('checked');
     
     var density = parseInt($('#mesh-quality-input').val(),10);
@@ -1461,9 +1657,6 @@ function graph(onFinish){
             inputs.z = 'x';
         }
         else if(domain.currentSystem.indexOf('cartesian') !== -1){
-            var realCenter = domain.center
-            var realWidth = getRealDomainWidth();
-            
             inputs[exp.vars[0]] = exp.body;
             
             var otherVars = ['x','y','z'].filter(x => x !== exp.vars[0]);
@@ -1471,11 +1664,12 @@ function graph(onFinish){
             inputs[otherVars[0]] = 'u';
             inputs[otherVars[1]] = 'v';
             
-            domain.u.max = realCenter[otherVars[0]] + realWidth[otherVars[0]]/2;
-            domain.u.min = realCenter[otherVars[0]] - realWidth[otherVars[0]]/2;
+            domain.u.max = antiSpread(domain[otherVars[0]].max, domain.spreadCenter[otherVars[0]], domain[otherVars[0]].spread);
+            domain.u.min = antiSpread(domain[otherVars[0]].min, domain.spreadCenter[otherVars[0]], domain[otherVars[0]].spread);
             
-            domain.v.max = realCenter[otherVars[1]] + realWidth[otherVars[1]]/2;
-            domain.v.min = realCenter[otherVars[1]] - realWidth[otherVars[1]]/2;
+            domain.v.max = antiSpread(domain[otherVars[1]].max, domain.spreadCenter[otherVars[1]], domain[otherVars[1]].spread);
+            domain.v.min = antiSpread(domain[otherVars[1]].min, domain.spreadCenter[otherVars[1]], domain[otherVars[1]].spread);
+			console.log(domain);
         }else if(domain.currentSystem.indexOf('cylindrical') !== -1 || domain.currentSystem.indexOf('spherical') !== -1){
 			
             var cyl = domain.currentSystem.indexOf('cylindrical') !== -1;
@@ -1523,10 +1717,6 @@ function cylindricalToCartesian(rho, phi, z){
     return {x: rho*Math.cos(phi), y: rho*Math.sin(phi), z:z};
 }
 
-$('#graph-button').click(function(){
-    graph();
-})
-
 function refreshMathJax(){
     MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
 }
@@ -1536,23 +1726,29 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	// call me lazy, but hey, it works with negligable overhead
 	initWebGL();
 	
-	// make the little box that says "Plotting..." out
-	document.getElementById('graphing-progress-popup').classList.remove('graphing-progress-hidden');
+	let graphDomain = domain;
 	
 	// give our webworker(s) some work to do 
-	domain.polyData = [];
-	domain.lineData = [];
-	domain.polyNumber = 0;
-	updateBuffer([],[]);
-	domain.extrema = null;
+	graphDomain.polyData = [];
+	graphDomain.lineData = [];
+	graphDomain.polyNumber = 0;
+	updateBuffer([],[], graphDomain);
+	graphDomain.extrema = null;
 	
 	let lastUpdateTime = Date.now();
 	
-	let graphID = Math.floor(Math.random() * 1e16);
+	graphID = Math.floor(Math.random() * 1e16);
 	
-	// 3 cores is a pretty good guess for a modern computer... maybe? (average of 2 and 4?)
+	let domainIndex = domains.indexOf(graphDomain);
+	
+	while(domainIndex > graphWorkersPool.length - 1){
+		graphWorkersPool.push([]);
+	}
+	
+	let graphWorkers = graphWorkersPool[domainIndex];
+	
 	let workerIndex = 0;
-	while(graphWorkers.length < (navigator.hardwareConcurrency - 1 | 2)){
+	while(graphWorkers.length < (Math.max((navigator.hardwareConcurrency - 1) / domains.length, 1) | 2)){
 		console.log('creating worker '+workerIndex);
 		// create a worker
 		graphWorkers.push({
@@ -1567,10 +1763,13 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	
 	document.getElementById('cancel-plot-button').onclick = function(e){
 		console.log('terminating all workers...');
-		for(let w of graphWorkers){
-			w.worker.terminate();
+		for(let k = 0; i < graphWorkersPool.length; k++){
+			for(let w of graphWorkersPool[k]){
+				w.worker.terminate();
+			}
+			graphWorkersPool[k] = [];
+			graphWorkers = graphWorkersPool[k];
 		}
-		graphWorkers = [];
 		document.getElementById('graphing-progress-popup').classList.add('graphing-progress-hidden');
 	}
 	
@@ -1578,8 +1777,8 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	let subdivisions = [];
 	let subSideCount = 3;
 	
-	let uGap = (domain.u.max - domain.u.min) / subSideCount;
-	let vGap = (domain.v.max - domain.v.min) / subSideCount;
+	let uGap = (graphDomain.u.max - graphDomain.u.min) / subSideCount;
+	let vGap = (graphDomain.v.max - graphDomain.v.min) / subSideCount;
 	let subdivisionCount = 0;
 	
 	for(let x = 0; x < subSideCount; x++){
@@ -1591,20 +1790,20 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 				index:subdivisionCount,
 				region:{
 					u:{
-						min: domain.u.min + x * uGap,
-						max: domain.u.min + (x + 1) * uGap
+						min: graphDomain.u.min + x * uGap,
+						max: graphDomain.u.min + (x + 1) * uGap
 					},
 					v:{
-						min: domain.v.min + y * vGap,
-						max: domain.v.min + (y + 1) * vGap
+						min: graphDomain.v.min + y * vGap,
+						max: graphDomain.v.min + (y + 1) * vGap
 					}
 				}
 			});
 			subdivisionCount++;
 			
 			// create a spot for the polyData 
-			domain.polyData.push([]);
-			domain.lineData.push([]);
+			graphDomain.polyData.push([]);
+			graphDomain.lineData.push([]);
 		}
 	}
 	
@@ -1627,15 +1826,10 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			// all sections have been completed
 			console.log('mesh complete');
 			graphWorker.worker.terminate();
-			graphWorkers = [];
+			graphWorkersPool[domainIndex] = [];
+			graphWorkers = graphWorkersPool[domainIndex];
 			
-			updateBuffer(domain.polyData, domain.lineData);
-			updateAxisBuffer();
-			plotPointsWebGL();
-			
-			// make the plotting popup disappear
-			document.getElementById('graphing-progress-popup').classList.add('graphing-progress-hidden');
-			
+			updateBuffer(graphDomain.polyData, graphDomain.lineData, graphDomain);
 			onFinish();
 		}else if(subIndex === -1){
 			// nothing more for this web worker to do, terminate it
@@ -1646,14 +1840,16 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			let workerSubdivision = subdivisions[subIndex];
 			
 			// copy domain to change it for the worker
-			let workerDomain = JSON.parse(JSON.stringify(domain));
+			let workerDomain = JSON.parse(JSON.stringify(graphDomain));
 			workerDomain.u = workerSubdivision.region.u;
 			workerDomain.v = workerSubdivision.region.v;
 			
 			graphWorker.subdivisionIndex = workerSubdivision.index;
 			workerSubdivision.tagged = true;
 			
-			console.log('worker '+graphWorker.index+' has been assigned');
+			console.log('worker '+graphWorker.index+' has been assigned',domains.indexOf(graphDomain));
+			
+			graphWorker.domain = graphDomain;
 			
 			// trigger the worker
 			graphWorker.worker.postMessage(['GRAPH', xFunc, yFunc, zFunc, workerDomain]);
@@ -1661,19 +1857,17 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			// handle responses
 			graphWorker.worker.onmessage = function(e){
 				let [responseType, ...args] = e.data;
-				if(graphWorker.graphID !== graphID){
-					return;
-				}
+				let d = graphWorker.domain;
 				if(responseType === 'POLYGON_UPDATE'){
 					// draw the updates
 					// expected args: [polydata, polygons.length]
-					domain.polyData[graphWorker.subdivisionIndex] = domain.polyData[graphWorker.subdivisionIndex].concat(args[0]);
-					domain.lineData[graphWorker.subdivisionIndex] = domain.lineData[graphWorker.subdivisionIndex].concat(args[1]);
+					d.polyData[graphWorker.subdivisionIndex] = d.polyData[graphWorker.subdivisionIndex].concat(args[0]);
+					d.lineData[graphWorker.subdivisionIndex] = d.lineData[graphWorker.subdivisionIndex].concat(args[1]);
 					
 					// since there are many webworkers about, there will be at least one update every 500ms,  
 					// (or however long it is), but probably many more. Thus we'll time actual redraws ourselves
 					if(Date.now() - lastUpdateTime > 1000){
-						updateBuffer(domain.polyData, domain.lineData);
+						updateBuffer(d.polyData, d.lineData, d);
 						plotPointsWebGL();
 						lastUpdateTime = Date.now();
 					}
@@ -1681,19 +1875,19 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 				}else if(responseType === 'FINISHED'){
 					console.log('worker '+graphWorker.index+' has finished');
 					
-					domain.polyData[graphWorker.subdivisionIndex] = args[0];
-					domain.lineData[graphWorker.subdivisionIndex] = args[1];
-					updateBuffer(domain.polyData, domain.lineData);
+					d.polyData[graphWorker.subdivisionIndex] = args[0];
+					d.lineData[graphWorker.subdivisionIndex] = args[1];
+					updateBuffer(d.polyData, d.lineData, d);
 					
 					// synthesize extrema result
 					let workerExtrema  = args[2];
-					if(!domain.extrema){
-						domain.extrema = workerExtrema;
+					if(!d.extrema){
+						d.extrema = workerExtrema;
 					}else{
 						let objs = ['x','y','z'];
 						for(let i of objs){
-							domain.extrema[i].max = domain.extrema[i].max < workerExtrema[i].max ? workerExtrema[i].max : domain.extrema[i].max;
-							domain.extrema[i].min = domain.extrema[i].min > workerExtrema[i].min ? workerExtrema[i].min : domain.extrema[i].min;
+							d.extrema[i].max = d.extrema[i].max < workerExtrema[i].max ? workerExtrema[i].max : d.extrema[i].max;
+							d.extrema[i].min = d.extrema[i].min > workerExtrema[i].min ? workerExtrema[i].min : d.extrema[i].min;
 						}
 					}
 					
@@ -1860,15 +2054,13 @@ function makeFiniteIfInfinate(pt){
     }
 }
 
-function spreadCoord(val, min, max, spread){
-    var center = (min+max)/2;
+function spreadCoord(val, center, spread){
     var valRel = val - center;
     return valRel*spread + center;
 }
 
 // inverse of spreadCoord
-function antiSpread(val, min, max, spread){
-	let center = (min + max)/2;
+function antiSpread(val, center, spread){
 	let valRel = val - center;
 	return valRel/spread + center;
 }
@@ -1979,7 +2171,7 @@ function initWebGL(){
 	
 }
 
-function updateBuffer(polyDatas, lineDatas){
+function updateBuffer(polyDatas, lineDatas, d){
 	let totalLength = 0;
 	for(let polyD of polyDatas){
 		totalLength += polyD.length;
@@ -2010,13 +2202,33 @@ function updateBuffer(polyDatas, lineDatas){
 	
 	// 3 for position, 3 for normal, 3 for barimetric data, per each point (of which 
 	// there are 3 per triangle)
-	domain.polyNumber = bufferData.length / 27;
+	d.polyNumber = bufferData.length / 27;
 	
 	// 3 for position times 2 points per line
-	domain.lineNumber = lineBufferData.length / 6;
+	d.lineNumber = lineBufferData.length / 6;
 	
-	webGLInfo.polyBuffer = bufferData;
-	webGLInfo.lineBuffer = lineBufferData;
+	d.polyBuffer = bufferData;
+	d.lineBuffer = lineBufferData;
+}
+
+function setGlobalExtrema(){
+	for(let i of ['x','y','z']){
+		globalExtrema[i].min = (domain[i].min+domain[i].max)/2;
+		globalExtrema[i].max = (domain[i].min+domain[i].max)/2;
+	}
+	for(let d of domains){
+		if(!d.extrema){
+			continue;
+		}
+		for(let i of ['x','y','z']){
+			if(d.extrema[i].min < globalExtrema[i].min){
+				globalExtrema[i].min = d.extrema[i].min;
+			}
+			if(d.extrema[i].max > globalExtrema[i].max){
+				globalExtrema[i].max = d.extrema[i].max;
+			}
+		}
+	}
 }
 
 function updateAxisBuffer(){
@@ -2032,14 +2244,14 @@ function updateAxisBuffer(){
 		domain.z.max
 	];
 	
-	if(domain.extrema){
+	if(globalExtrema.x){
 		ptArray = [
-			domain.extrema.x.min,
-			domain.extrema.x.max,
-			domain.extrema.y.min,
-			domain.extrema.y.max,
-			domain.extrema.z.min,
-			domain.extrema.z.max
+			globalExtrema.x.min,
+			globalExtrema.x.max,
+			globalExtrema.y.min,
+			globalExtrema.y.max,
+			globalExtrema.z.min,
+			globalExtrema.z.max
 		];
 	}
 	
@@ -2061,9 +2273,9 @@ function updateAxisBuffer(){
 			varyMax = domain[varyCoord].max;
 			
 		// use extrema if possible
-		if(domain.extrema){
-			varyMin = domain.extrema[varyCoord].min;
-			varyMax - domain.extrema[varyCoord].max;
+		if(globalExtrema){
+			varyMin = globalExtrema[varyCoord].min;
+			varyMax = globalExtrema[varyCoord].max;
 		}
 				
 		const maxGap = (varyMax - varyMin) / domain[varyCoord].spread;
@@ -2083,8 +2295,9 @@ function updateAxisBuffer(){
 			secondaryIndex === 2 ? (ptArray[5] - ptArray[4]) / 20 : 0;
 		
 		// a real characteristic
-		const c1Val = antiSpread(c1[varyIndex], varyMin, varyMax, domain[varyCoord].spread),
-			c2Val = antiSpread(c2[varyIndex], varyMin, varyMax, domain[varyCoord].spread);
+		const c1Val = antiSpread(c1[varyIndex], domain.spreadCenter[varyCoord], domain[varyCoord].spread),
+			c2Val = antiSpread(c2[varyIndex], domain.spreadCenter[varyCoord], domain[varyCoord].spread);
+			
 		const minVal = (Math.floor(c1Val / minStep) + 1) * minStep,
 			steps = Math.floor((c2Val - c1Val) / minStep) - 1;
 			
@@ -2124,7 +2337,7 @@ function updateAxisBuffer(){
 			// and finally draw the line
 			let base = [...c1];
 			// re-spread the coordinate to stretched form
-			base[varyIndex] = spreadCoord(varyVal, varyMin, varyMax, domain[varyCoord].spread);
+			base[varyIndex] = spreadCoord(varyVal, domain.spreadCenter[varyCoord], domain[varyCoord].spread);
 			
 			let end = [...base];
 			end[secondaryIndex] += maxLineLength * normalizedDecScore * (secondaryMax ? -1 : 1);
@@ -2175,7 +2388,7 @@ function updateAxisBuffer(){
 			textNode.text = varyValForText;
 			textNode.fontMultiplier = 1;
 			
-			if(decScore > .5){
+			if(decScore > 1){
 				textNodes.push(textNode);
 			}
 			
@@ -2238,7 +2451,7 @@ function updateAxisBuffer(){
 		axisSegment(a[0].map(x=>ptArray[x]), a[1].map(x=>ptArray[x]), 2, a[0][0] === 1, a[0][1] === 3);
 	}
 	
-	domain.textAxes = textAxes;
+	globalViewPoint.textAxes = textAxes;
 	
 	const axisData = [];
 	
@@ -2279,10 +2492,10 @@ function plotPointsWebGL(){
 	gl.uniform3fv(webGLInfo.axisOrientationYLocation, [axes[1].x, axes[1].y, axes[1].z]);
 	gl.uniform3fv(webGLInfo.axisOrientationZLocation, [axes[2].x, axes[2].y, axes[2].z]);
 	
-	gl.uniform3fv(webGLInfo.axisDomainCenterLocation, [(domain.x.max+domain.x.min)/2, (domain.y.max+domain.y.min)/2, (domain.z.max+domain.z.min)/2]);
-	gl.uniform1f(webGLInfo.axisDomainHalfWidthLocation, (domain.x.max - domain.x.min) / 2);
-	domain.aspectRatio = canvas.width/canvas.height;
-	gl.uniform1f(webGLInfo.axisAspectRatioLocation, domain.aspectRatio);
+	gl.uniform3fv(webGLInfo.axisDomainCenterLocation, [globalViewPoint.center.x, globalViewPoint.center.y, globalViewPoint.center.z]);
+	gl.uniform1f(webGLInfo.axisDomainHalfWidthLocation, (globalViewPoint.x.max - globalViewPoint.x.min) / 2);
+	globalViewPoint.aspectRatio = canvas.width/canvas.height;
+	gl.uniform1f(webGLInfo.axisAspectRatioLocation, globalViewPoint.aspectRatio);
 	
 	gl.uniform1f(webGLInfo.axisPerspectiveLocation, domain.perspective ? 1 : -1);
 	
@@ -2296,11 +2509,13 @@ function plotPointsWebGL(){
 	// LINES ---------
 	// conveniently, we can just reuse the axis program
 	
-	gl.uniform4fv(webGLInfo.axisColorLocation, [0,.9,.5,1]);
+	gl.uniform4fv(webGLInfo.axisColorLocation, [1,0,0,1]);
 	
-	if(webGLInfo.lineBuffer && webGLInfo.lineBuffer.length > 0){
-		gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.lineBuffer, gl.STATIC_DRAW);
-		gl.drawArrays(gl.LINES, 0, domain.lineNumber * 2);
+	for(let d of domains){
+		if(d.lineBuffer && d.lineBuffer.length > 0){
+			gl.bufferData(gl.ARRAY_BUFFER, d.lineBuffer, gl.STATIC_DRAW);
+			gl.drawArrays(gl.LINES, 0, d.lineNumber * 2);
+		}
 	}
 	
 	
@@ -2322,36 +2537,39 @@ function plotPointsWebGL(){
 	gl.uniform3fv(webGLInfo.orientationYLocation, [axes[1].x, axes[1].y, axes[1].z]);
 	gl.uniform3fv(webGLInfo.orientationZLocation, [axes[2].x, axes[2].y, axes[2].z]);
 	
-	gl.uniform3fv(webGLInfo.domainCenterLocation, [domain.center.x, domain.center.y, domain.center.z]);
-	gl.uniform1f(webGLInfo.domainHalfWidthLocation, (domain.x.max - domain.x.min) / 2);
+	gl.uniform3fv(webGLInfo.domainCenterLocation, [globalViewPoint.center.x, globalViewPoint.center.y, globalViewPoint.center.z]);
+	gl.uniform1f(webGLInfo.domainHalfWidthLocation, (globalViewPoint.x.max - globalViewPoint.x.min) / 2);
 	gl.uniform1f(webGLInfo.aspectRatioLocation, canvas.width / canvas.height);
-	
-	let transparency = domain.coloring ? domain.transparency : 0;
-	let showBorder = !domain.coloring || domain.showMeshWhileColoring;
-	
-	if(domain.coloring && transparency === 1){
-		gl.disable(gl.BLEND);
-		gl.enable(gl.DEPTH_TEST);
-		gl.depthFunc(gl.LEQUAL);
-	}else{
-		gl.disable(gl.DEPTH_TEST);
-		gl.enable(gl.BLEND);
-		gl.blendFunc(gl.SRC_ALPHA, gl.DST_ALPHA);
-	}
-	
-	gl.uniform1f(webGLInfo.transparencyLocation, transparency);
-	gl.uniform1f(webGLInfo.borderLocation, showBorder);
 	
 	gl.uniform1f(webGLInfo.perspectiveLocation, domain.perspective ? 1 : -1);
 	gl.uniform1f(webGLInfo.directionalLightingLocation, domain.directionalLighting ? 1 : -1);
-	gl.uniform1f(webGLInfo.ignoreNormalLocation, domain.ignoreNormal ? 1 : -1);
 	
-	gl.uniform1f(webGLInfo.normalMultiplierLocation, domain.normalMultiplier);
-	
-	gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.polyBuffer, gl.STATIC_DRAW);
-	if(domain.polyNumber && domain.polyNumber > 0){
-		// primitive type, offset, count
-		gl.drawArrays(gl.TRIANGLES, 0, domain.polyNumber * 3);
+	for(let d of domains){
+		gl.uniform1f(webGLInfo.normalMultiplierLocation, d.normalMultiplier);
+		gl.uniform1f(webGLInfo.ignoreNormalLocation, d.ignoreNormal ? 1 : -1);
+		
+		let transparency = d.coloring ? d.transparency : 0;
+		let showBorder = !d.coloring || d.showMeshWhileColoring;
+		
+		if(d.coloring && transparency === 1){
+			gl.disable(gl.BLEND);
+			gl.enable(gl.DEPTH_TEST);
+			gl.depthFunc(gl.LEQUAL);
+		}else{
+			gl.disable(gl.DEPTH_TEST);
+			gl.enable(gl.BLEND);
+			gl.blendFunc(gl.SRC_ALPHA, gl.DST_ALPHA);
+		}
+		
+		gl.uniform1f(webGLInfo.transparencyLocation, transparency);
+		gl.uniform1f(webGLInfo.borderLocation, showBorder);
+		
+		gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.polyBuffer, gl.STATIC_DRAW);
+		if(d.polyNumber && d.polyNumber > 0){
+			// primitive type, offset, count
+			gl.bufferData(gl.ARRAY_BUFFER, d.polyBuffer, gl.STATIC_DRAW); 
+			gl.drawArrays(gl.TRIANGLES, 0, d.polyNumber * 3);
+		}
 	}
 	
 	// axes labels text 
@@ -2369,7 +2587,7 @@ function plotPointsWebGL(){
 		let textNodesToDraw = [];
 		for(let i of [0, 1, 2]){
 			let getZ = x => simulateWebGLTranform(x.averagePt, 1, textCanvas, true).z;
-			let axesContenders = domain.textAxes.filter(x => x.axis === i);
+			let axesContenders = globalViewPoint.textAxes.filter(x => x.axis === i);
 			textNodesToDraw = textNodesToDraw.concat(
 				axesContenders.sort( (a,b) => getZ(a) - getZ(b) )[0].nodes
 			);
@@ -2394,10 +2612,10 @@ function plotPointsWebGL(){
 // for 2d context text rendering
 // simulates clipspace rendering in index.html GLSL files
 function simulateWebGLTranform(pt, height, canvas, ignoreOutOfBounds){
-	let centered = sub(pt, domain.center);
+	let centered = sub(pt, globalViewPoint.center);
 	let rotated = add(add(scalar(centered.x, axes[0]), scalar(centered.y, axes[1])), scalar(centered.z, axes[2]));
-	let clipspace = scalar(1/(1.75 * (domain.x.max - domain.x.min)/2), rotated);
-	clipspace.x /= domain.aspectRatio;
+	let clipspace = scalar(1/(1.75 * (globalViewPoint.x.max - globalViewPoint.x.min)/2), rotated);
+	clipspace.x /= globalViewPoint.aspectRatio;
 	clipspace.z += .3;
 	
 	let shrinkFactor = domain.perspective ? (clipspace.z + 1.0) / 2.0 + 0.10 : .6;
@@ -2421,10 +2639,10 @@ function simulateWebGLTranform(pt, height, canvas, ignoreOutOfBounds){
 }
 
 function simulateWebGLClipspace(pt){
-	let centered = sub(pt, domain.center);
+	let centered = sub(pt, globalViewPoint.center);
 	let rotated = add(add(scalar(centered.x, axes[0]), scalar(centered.y, axes[1])), scalar(centered.z, axes[2]));
-	let clipspace = scalar(1/(1.75 * (domain.x.max - domain.x.min)/2), rotated);
-	clipspace.x /= domain.aspectRatio;
+	let clipspace = scalar(1/(1.75 * (globalViewPoint.x.max - globalViewPoint.x.min)/2), rotated);
+	clipspace.x /= globalViewPoint.aspectRatio;
 	clipspace.z += .3;
 	
 	let shrinkFactor = domain.perspective ? (clipspace.z + 1.0) / 2.0 + 0.10 : .6;
@@ -2438,8 +2656,8 @@ function simulateWebGLClipspace(pt){
 // inverse of simulateWebGLClipspace
 function inverseClipspace(clip){
 	clip.z -= .3;
-	clip.x *= domain.aspectRatio;
-	let rotated = scalar(1.75 * (domain.x.max - domain.x.min)/2, clip);
+	clip.x *= globalViewPoint.aspectRatio;
+	let rotated = scalar(1.75 * (globalViewPoint.x.max - globalViewPoint.x.min)/2, clip);
 	// now we have a solid system of 3 equations with 3 variables...
 	// we have centered.x * axes[0] + centered.y * axes[1] + centered.z * axes[2] = rotated
 	// {
@@ -2455,7 +2673,7 @@ function inverseClipspace(clip){
 	]);
 	let [centeredx, centeredy, centeredz] = math.multiply([rotated.x, rotated.y, rotated.z], inverse);
 	let centered = {x: centeredx, y: centeredy, z: centeredz};
-	let pt = add(centered, domain.center);
+	let pt = add(centered, globalViewPoint.center);
 	return pt;
 }
 
@@ -2466,7 +2684,7 @@ function rotatePoints(pQuats, rot){
 }
 
 function rotate(point,rotQuat, rotCenter){
-    const center = rotCenter ? rotCenter : domain.center;
+    const center = rotCenter ? rotCenter : globalViewPoint.center;
     const quat = {w:0,x:point.x-center.x,y:point.y-center.y,z:point.z-center.z}
 	
 	// rotate the point
