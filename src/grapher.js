@@ -49,6 +49,7 @@ var domain = {
 }
 
 let defaultDomain = {};
+let transparencyBuffer = [];
 
 // for multiple functions. domain refers to the 
 // current plot in question
@@ -313,6 +314,9 @@ $(function(){
 		domain.color = rgbToHsl(...rgb)[0];
 		console.log(domain.color);
 		domain.colorString = colorText;
+		
+		// since color (hue) is an attribute, update the buffer
+		updateBuffer(domain.polyData, domain.lineData, domain);
 		
 		plotPointsWebGL();
 	});
@@ -974,6 +978,10 @@ $('#transparency-input').change(function(){
 	if(domain.transparency > 1){
 		domain.transparency = 1;
 	}
+	
+	// since transparency is an attribute to webgl, we ned to refresh the buffer
+	updateBuffer(domain.polyData, domain.lineData, domain);
+	
 	plotPointsWebGL();
 });
 
@@ -2140,6 +2148,8 @@ function initWebGL(){
 	webGLInfo.positionLocation = gl.getAttribLocation(program, 'a_position');
 	webGLInfo.normalLocation = gl.getAttribLocation(program, 'a_normal');
 	webGLInfo.bariLocation = gl.getAttribLocation(program, 'a_bari_coord');
+	webGLInfo.transparencyLocation = gl.getAttribLocation(program, 'a_transparency');
+	webGLInfo.colorHueLocation = gl.getAttribLocation(program, 'a_hue');
 	
 	webGLInfo.orientationXLocation = gl.getUniformLocation(program, 'u_orientation_x');
 	webGLInfo.orientationYLocation = gl.getUniformLocation(program, 'u_orientation_y');
@@ -2147,13 +2157,11 @@ function initWebGL(){
 	webGLInfo.domainCenterLocation = gl.getUniformLocation(program, 'u_domain_center');
 	webGLInfo.aspectRatioLocation = gl.getUniformLocation(program, 'u_aspect_ratio');
 	webGLInfo.domainHalfWidthLocation = gl.getUniformLocation(program, 'u_domain_halfwidth');
-	webGLInfo.transparencyLocation = gl.getUniformLocation(program, 'u_transparency');
 	webGLInfo.borderLocation = gl.getUniformLocation(program, 'u_draw_borders');
 	webGLInfo.perspectiveLocation = gl.getUniformLocation(program, 'u_perspective');
 	webGLInfo.directionalLightingLocation = gl.getUniformLocation(program, 'u_directional_lighting');
 	webGLInfo.normalMultiplierLocation = gl.getUniformLocation(program, 'u_normal_multiplier');
 	webGLInfo.ignoreNormalLocation = gl.getUniformLocation(program, 'u_ignore_normal');
-	webGLInfo.colorHueLocation = gl.getUniformLocation(program, 'u_color_hue');
 	
 	// make our buffer
 	let buffer = gl.createBuffer();
@@ -2210,15 +2218,25 @@ function initWebGL(){
 function updateBuffer(polyDatas, lineDatas, d){
 	let totalLength = 0;
 	for(let polyD of polyDatas){
-		totalLength += polyD.length;
+		totalLength += polyD.length + 2*(polyD.length)/9;
 	}
 	
 	let bufferData = new Float32Array(totalLength);
 	let i = 0;
 	for(let polyD of polyDatas){
+		let c = 0;
 		for(let item of polyD){
 			bufferData[i] = item;
 			i++;
+			c++;
+			// insert after every data point
+			if(c === 9){
+				bufferData[i] = d.transparency;
+				i++;
+				bufferData[i] = d.color;
+				i++;
+				c = 0;
+			}
 		}
 	}
 	
@@ -2236,9 +2254,9 @@ function updateBuffer(polyDatas, lineDatas, d){
 		}
 	}
 	
-	// 3 for position, 3 for normal, 3 for barimetric data, per each point (of which 
+	// 3 for position, 3 for normal, 3 for barimetric data, 1 for transparency, 1 for hue per each point (of which 
 	// there are 3 per triangle)
-	d.polyNumber = bufferData.length / 27;
+	d.polyNumber = bufferData.length / 33;
 	
 	// 3 for position times 2 points per line
 	d.lineNumber = lineBufferData.length / 6;
@@ -2559,14 +2577,20 @@ function plotPointsWebGL(){
 	gl.useProgram(webGLInfo.program);
 	
 	// location, size, type, normalize, stride, offset
-	gl.vertexAttribPointer(webGLInfo.positionLocation, 3, gl.FLOAT, false, 36, 0);
+	gl.vertexAttribPointer(webGLInfo.positionLocation, 3, gl.FLOAT, false, 44, 0);
 	gl.enableVertexAttribArray(webGLInfo.positionLocation);
 	
-	gl.vertexAttribPointer(webGLInfo.normalLocation, 3, gl.FLOAT, false, 36, 12);
+	gl.vertexAttribPointer(webGLInfo.normalLocation, 3, gl.FLOAT, false, 44, 12);
 	gl.enableVertexAttribArray(webGLInfo.normalLocation);
 	
-	gl.vertexAttribPointer(webGLInfo.bariLocation, 3, gl.FLOAT, false, 36, 24);
+	gl.vertexAttribPointer(webGLInfo.bariLocation, 3, gl.FLOAT, false, 44, 24);
 	gl.enableVertexAttribArray(webGLInfo.bariLocation);
+	
+	gl.vertexAttribPointer(webGLInfo.transparencyLocation, 1, gl.FLOAT, false, 44, 36);
+	gl.enableVertexAttribArray(webGLInfo.transparencyLocation);
+	
+	gl.vertexAttribPointer(webGLInfo.colorHueLocation, 1, gl.FLOAT, false, 44, 40);
+	gl.enableVertexAttribArray(webGLInfo.colorHueLocation);
 	
 	// set uniforms
 	gl.uniform3fv(webGLInfo.orientationXLocation, [axes[0].x, axes[0].y, axes[0].z]);
@@ -2580,28 +2604,72 @@ function plotPointsWebGL(){
 	gl.uniform1f(webGLInfo.perspectiveLocation, domain.perspective ? 1 : -1);
 	gl.uniform1f(webGLInfo.directionalLightingLocation, domain.directionalLighting ? 1 : -1);
 	
-	for(let d of domains){
+	// for transparency to work correctly, we need to draw all the solid surfaces first,
+	// then sort the remaining transparent polygons from back to front and draw them that way
+	let sortedDomains = domains.concat().sort((a,b) => b.transparency - a.transparency);
+	for(let d of sortedDomains){
 		gl.uniform1f(webGLInfo.normalMultiplierLocation, d.normalMultiplier);
 		gl.uniform1f(webGLInfo.ignoreNormalLocation, d.ignoreNormal ? 1 : -1);
-		gl.uniform1f(webGLInfo.colorHueLocation, d.color);
 		
 		let transparency = d.coloring ? d.transparency : 0;
 		let showBorder = !d.coloring || d.showMeshWhileColoring;
 		
+		let transparencyBuffer = [];
+		let transparentPolyLength = 0;
 		if(d.coloring && transparency === 1){
+			gl.depthMask(true);
 			gl.disable(gl.BLEND);
 			gl.enable(gl.DEPTH_TEST);
 			gl.depthFunc(gl.LEQUAL);
 		}else{
-			gl.disable(gl.DEPTH_TEST);
+			gl.depthMask(false);
 			gl.enable(gl.BLEND);
-			gl.blendFunc(gl.SRC_ALPHA, gl.DST_ALPHA);
+			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+			
+			// combine all remaining buffers, sort by z 
+			// one chunk for each poly, 33 floats
+			let remainingBuffers = domains.filter(x => x.transparency !== 1);
+			
+			chunkArray = new Array(remainingBuffers.reduce((a,b) => a + b.polyBuffer.length, 0) / 33);
+			let chunkCount = 0;
+			for(let k = 0; k < remainingBuffers.length; k++){
+				let b = remainingBuffers[k].polyBuffer;
+				for(let i = 0; i < b.length; i += 33){
+					// grab the buffer index and the average of the 3rd, 13th and 23rd element (z val)
+					let p1Z = simulateWebGLClipspace({x:b[i],y:b[i+1],z:b[i+2]}).clipspace.z,
+						p2Z = simulateWebGLClipspace({x:b[i+11],y:b[i+12],z:b[i+13]}).clipspace.z,
+						p3Z = simulateWebGLClipspace({x:b[i+22],y:b[i+23],z:b[i+24]}).clipspace.z
+					chunkArray[chunkCount] = [k, i, p1Z + p2Z + p3Z];
+					chunkCount++;
+				}
+			}
+			
+			// sort polygons by z
+			chunkArray.sort((a,b) => b[2] - a[2]);
+			
+			transparencyBuffer = new Float32Array(chunkArray.length * 33);
+			let count = 0;
+			// rebuild transparencyBuffer 
+			for(let el of chunkArray){
+				const remBuffIndex = el[0]
+				for(let i = el[1]; i < el[1] + 33; i++){
+					transparencyBuffer[count] = remainingBuffers[remBuffIndex].polyBuffer[i];
+					count++;
+				}
+			}
+			
+			transparentPolyLength = transparencyBuffer.length / 33;
 		}
 		
-		gl.uniform1f(webGLInfo.transparencyLocation, transparency);
 		gl.uniform1f(webGLInfo.borderLocation, showBorder);
 		
-		gl.bufferData(gl.ARRAY_BUFFER, webGLInfo.polyBuffer, gl.STATIC_DRAW);
+		// true transparency means we have to sort the transparent polygons and render them 
+		// all at once. Hence, when we have transparent polygons to draw we're done.
+		if(transparentPolyLength > 0){
+			gl.bufferData(gl.ARRAY_BUFFER, transparencyBuffer, gl.STATIC_DRAW);
+			gl.drawArrays(gl.TRIANGLES, 0, transparentPolyLength * 3);
+			break;
+		}
 		if(d.polyNumber && d.polyNumber > 0){
 			// primitive type, offset, count
 			gl.bufferData(gl.ARRAY_BUFFER, d.polyBuffer, gl.STATIC_DRAW); 

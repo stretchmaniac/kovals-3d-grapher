@@ -61,6 +61,8 @@
 		attribute vec4 a_position;
 		attribute highp vec3 a_normal;
 		attribute vec3 a_bari_coord;
+		attribute float a_transparency;
+		attribute float a_hue;
 		
 		uniform vec3 u_orientation_x;
 		uniform vec3 u_orientation_y;
@@ -71,16 +73,15 @@
 		// ratio of canvas width to canvas height
 		uniform float u_aspect_ratio;
 		
-		uniform float u_transparency;
 		// effectively booleans, true iff > 0
 		uniform float u_perspective;
 		uniform float u_directional_lighting;
 		uniform float u_ignore_normal;
-		uniform float u_color_hue;
 		
 		uniform float u_normal_multiplier;
 		
 		varying vec4 color;
+		varying float transparency;
 		// fun with barimetric coordinates!
 		varying vec3 v_bari_coord;
 		
@@ -147,9 +148,10 @@
 			// light2
 			luminosity += kaConst * imConst + kdConst * max(dot2a, 0.0) * imConst + ksConst * pow(max(dot2b, 0.0), aConst) * imConst;
 			
-			float h = u_color_hue;
+			float h = a_hue;
 			
-			color = vec4(hsl2rgb(vec3(h, 1, u_directional_lighting > 0.0 ? luminosity : 0.5)), u_transparency);
+			color = vec4(hsl2rgb(vec3(h, 1, u_directional_lighting > 0.0 ? luminosity : 0.5)), a_transparency);
+			transparency = a_transparency;
 			
 			v_bari_coord = a_bari_coord;
 		}
@@ -162,7 +164,7 @@
 		
 		// > 0 is true, <= 0 is false
 		uniform float u_draw_borders;
-		uniform float u_transparency;
+		varying float transparency;
 		
 		void main(){
 			gl_FragColor = color;
@@ -172,7 +174,7 @@
 			
 				float multiplier = 1.0 / (1.0 + pow(2.0, -100.0 * (bariMin - 0.03)));
 				
-				if(u_transparency > 0.0){
+				if(transparency > 0.0){
 					gl_FragColor = vec4(color.rgb * multiplier, 1.0*(1.0 - multiplier) + multiplier*color.a);
 				}else{
 					float val = (1.0 - multiplier) / 2.0;
