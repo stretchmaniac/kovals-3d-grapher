@@ -972,7 +972,9 @@
                     <input class='settings-input' id='transparency-input' value='1'>
                 </div>
                 <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>The opacity of the surface, with 0 being entirely transparent
-					(invisible) and 1 being entirely opaque (solid). 
+					(invisible) and 1 being entirely opaque (solid). Note that too many partially transparent polygons can lead to a decline in performance.
+					In addition, since all transparent polygons must be rendered using the same buffer, all partially transparent surfaces will share the 
+					same value for the "Ignore Normal when Shading" and "Render Mesh when Shading" settings above.
                 </span>
 				<div style='display:flex;flex-direction:row;margin-top:20px;margin-bottom:20px;padding:3px'>
                     <span class='checkbox-label' style='display:block;padding-bottom:4px'>Mesh Color</span>
