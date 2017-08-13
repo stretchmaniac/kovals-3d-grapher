@@ -362,8 +362,15 @@ $(function(){
                     }else{
                         domain.currentSystem=result.type;
                     }
-                    
-                    domain.expressionInfo = result;
+					
+					domain.expressionInfo = result;
+					
+					if(domain.currentSystem === 'spherical-parametric'){
+						domain.expressionInfo.expression.vars = domain.expressionInfo.expression.vars.map(x => x === 'phi' ? 'sphi' : x);
+					}
+					if(domain.currentSystem === 'cylindrical-parametric'){
+						domain.expressionInfo.expression.vars = domain.expressionInfo.expression.vars.map(x => x === 'z' ? 'height' : x);
+					}
                     
                     setDomainVisibility();
                 }
@@ -1826,7 +1833,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	
 	for(let x = 0; x < subSideCount; x++){
 		for(let y = 0; y < subSideCount; y++){
-			subdivisions.push({
+			let newSub = {
 				completed:false,
 				// if a worker is currently working on it
 				tagged:false,
@@ -1841,7 +1848,9 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 						max: graphDomain.v.min + (y + 1) * vGap
 					}
 				}
-			});
+			};
+			
+			subdivisions.push(newSub);
 			subdivisionCount++;
 			
 			// create a spot for the polyData 
@@ -1886,6 +1895,11 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			let workerDomain = JSON.parse(JSON.stringify(graphDomain));
 			workerDomain.u = workerSubdivision.region.u;
 			workerDomain.v = workerSubdivision.region.v;
+			workerDomain.global = {
+				u: graphDomain.u,
+				v: graphDomain.v,
+				subdivisionSideCount: subSideCount
+			};
 			
 			graphWorker.subdivisionIndex = workerSubdivision.index;
 			workerSubdivision.tagged = true;
@@ -1929,8 +1943,8 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 					}else{
 						let objs = ['x','y','z'];
 						for(let i of objs){
-							d.extrema[i].max = d.extrema[i].max < workerExtrema[i].max ? workerExtrema[i].max : d.extrema[i].max;
-							d.extrema[i].min = d.extrema[i].min > workerExtrema[i].min ? workerExtrema[i].min : d.extrema[i].min;
+							d.extrema[i].max = workerExtrema && d.extrema[i].max < workerExtrema[i].max ? workerExtrema[i].max : d.extrema[i].max;
+							d.extrema[i].min = workerExtrema && d.extrema[i].min > workerExtrema[i].min ? workerExtrema[i].min : d.extrema[i].min;
 						}
 					}
 					
@@ -2563,7 +2577,7 @@ function plotPointsWebGL(){
 	// LINES ---------
 	// conveniently, we can just reuse the axis program
 	
-	gl.uniform4fv(webGLInfo.axisColorLocation, [1,0,0,1]);
+	gl.uniform4fv(webGLInfo.axisColorLocation, [.3,.3,.3,1]);
 	
 	for(let d of domains){
 		if(d.lineBuffer && d.lineBuffer.length > 0){

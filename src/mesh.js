@@ -165,6 +165,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
     
     // center of domain, the seed point
     // note that this is NOT always foolproff ==> z = rho, rho in [-10, 10]
+	// IF YOU CHANGE THIS, change also the 1D global domain check (should be a few lines down)
     const uMiddle = (domain.u.max + domain.u.min) / 2,
         vMiddle = (domain.v.max + domain.v.min) / 2;
     
@@ -172,20 +173,43 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	
 	let pointFront = null;
 	
-	if(magnitude(initPoint.deriv1.du) === 0 || magnitude(initPoint.deriv1.dv) === 0){
-		// this is a one dimensional line, start it as such
+	let testPoint = plotPlus(xFunc, yFunc, zFunc, uMiddle + defaultXYZLength/5, vMiddle + defaultXYZLength/5);
+	// guess what? both deriv.du AND deriv.dv can be zero! 
+	// I sound happy but that just took me ~45 minutes to figure out :(
+	if((magnitude(initPoint.deriv1.du) === 0 && magnitude(testPoint.deriv1.du) === 0) || 
+			(magnitude(initPoint.deriv1.dv) === 0 && magnitude(testPoint.deriv1.dv) === 0)){
+		// this is a one dimensional line, start it as such 
+		let changeVar = magnitude(initPoint.deriv1.du) === 0 && magnitude(testPoint.deriv1.du) === 0 ? 'v' : 'u';
 		
-		let changeVar = magnitude(initPoint.deriv1.du) === 0 ? 'v' : 'u';
+		console.log(changeVar, initPoint, testPoint);
+		
+		// check the other parts of the global domain. If they plot to the same point, 
+		// only use the most minimal not-changeVar domain chunk
+		let notChangeVar = changeVar === 'v' ? 'u' : 'v';
+		let notVarStep = (domain.global[notChangeVar].max - domain.global[notChangeVar].min) / domain.global.subdivisionSideCount;
+		let val = changeVar === 'u' ? vMiddle : uMiddle;
+		console.log(changeVar);
+		if(Math.abs(domain.global[notChangeVar].min + notVarStep/2 - val) > notVarStep / 20){
+			console.log('letting another worker take up the slack...');
+			onFinish();
+			return;
+		}
+		
+		
+		
+		
 		
 		let dir = {
 			u:0,
 			v:0
 		}
-		dir[changeVar] += defaultXYZLength / 10;
+		dir[changeVar] += (defaultXYZLength / 10) / magnitude(initPoint.deriv1['d'+changeVar]);
 		
 		let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + dir.u, vMiddle + dir.v);
 		
 		makeConnection(initPoint2, initPoint);
+		initPoint.next = initPoint2;
+		initPoint2.prev = initPoint;
 		
 		initPoint.beginning = initPoint2;
 		initPoint.end = initPoint2;
@@ -255,7 +279,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				u:0,
 				v:0
 			};
-			dir[changeVar] = 1/magnitude(pt.deriv1['d'+changeVar]);
+			
+			let quasiNodeDist = defaultXYZLength / 5;
+			dir[changeVar] = quasiNodeDist/magnitude(pt.deriv1['d'+changeVar]);
 			
 			// continue in the same direction as pt 
 			if(!pt.oneDDir){
@@ -276,8 +302,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			// dimensional line is going to be blazing fast anyway, so just make
 			// is sufficiently small 
 			
-			let actualNewPt = makeNodeDist(pt, newPt, defaultXYZLength/10, dir, xFunc, yFunc, zFunc);
+			let actualNewPt = makeNodeDist(pt, newPt, quasiNodeDist, dir, xFunc, yFunc, zFunc);
 			makeConnection(pt, actualNewPt);
+			if(pt.oneDDir > 0){
+				pt.next = actualNewPt;
+				actualNewPt.prev = pt;
+			}else{
+				pt.prev = actualNewPt;
+				actualNewPt.next = pt;
+			}
 			if(!actualNewPt.outsideDomain){
 				lines.push({
 					pts:[pt,actualNewPt]
@@ -293,9 +326,13 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			// if outside uv domain, don't push 
 			let u = actualNewPt.u, 
 				v = actualNewPt.v;
-			if(u <= domain.u.max && u >= domain.u.min && v <= domain.v.max && v >= domain.v.min){
+			// overlap to prevent gaps
+			if(u <= domain.u.max + quasiNodeDist/4 && u >= domain.u.min - quasiNodeDist/4 
+					&& v <= domain.v.max + quasiNodeDist/4 && v >= domain.v.min - quasiNodeDist/4){
 				pushToPointFront(actualNewPt, pointFront);
 			}
+			
+			return;
 		}
 		
         // start point
@@ -859,7 +896,210 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		polygons.push(poly);
 	}
 	
+	if(lines.length === 0){
+		onFinish();
+		return;
+	}
+	
+	// turn lines into polygons
+	// start with the domain end point
+	let [pt1, pt2] = lines[0].pts;
+	let changeVar = pt2.v === pt1.v ? 'u' : 'v';
+	
+	let minPoint = null;
+	for(let line of lines){
+		for(let p of line.pts){
+			if(minPoint === null || p[changeVar] < minPoint[changeVar]){
+				minPoint = p;
+			}
+		}
+	}
+	
+	let resetNormals = p => {
+		let normal1 = null;
+		let p1 = p
+		let	p2 = p1.next;
+		let beforePt = add(p1, sub(p1,p2));
+		let v1 = sub(p2, p1);
+		v1 = scalar(1/magnitude(v1), v1);
+		if(v1.z > magnitude(v1) / 10){
+			normal1 = add(v1, {x: magnitude(v1), y: 0, z: 0});
+		}else{
+			normal1 = add(v1, {x: 0, y: 0, z: magnitude(v1)});
+		}
+		
+		normal1 = cross(normal1, v1);
+		normal1 = scalar(1/magnitude(normal1), normal1);
+		
+		let normal2 = cross(normal1, v1);
+		
+		normal2 = scalar(1/magnitude(normal2), normal2);
+		
+		return [beforePt, p1, p2, normal1, normal2];
+	}
+	
+	let validP = x => {
+		// if the direction of plot travel agrees with the walk direction
+		if(x.oneDDir < 0){
+			return !x.outsideDomain && x.real && !x.infinite && !x.discontinuous;
+		}else{
+			return !x.outsideDomain && x.real && !x.infinite && !x.next.discontinuous;
+		}
+	}
+	
+	let nextValid = x => {
+		while(x.next && !validP(x)){
+			x = x.next;
+		}
+		if(!x.next){
+			return null;
+		}
+		return x;
+	}
+	
+	if(!validP(minPoint)){
+		minPoint = nextValid(minPoint, minPoint.next);
+	}
+	
+	if(minPoint === null){
+		onFinish();
+		return;
+	}
+	
+	let [beforePt, p1, p2, normal1, normal2] = resetNormals(minPoint);
+	
+	let nextP = null;
+	
+	while(p2.neighbors.length === 2){
+		nextP = p2.next;
+		let result = null;
+		if(validP(p1)){
+			result = makePolysFromLine(normal1, normal2, beforePt, p1, p2, nextP, defaultXYZLength/10, 8);
+			polygons.push(...result.polys);
+		}
+		if(result){
+			normal1 = result.newNormal;
+			normal2 = result.newNormal2;
+			
+			beforePt = p1;
+			p1 = p2;
+			p2 = nextP;
+		}else{
+			let n = nextValid(p1);
+			let prevP1 = p1;
+			if(!n){
+				break;
+			}
+			[beforePt, p1, p2, normal1, normal2] = resetNormals(n);
+		}
+	}	
+	
+	lines = [];
+	
 	onFinish();
+}
+
+// approximates a cylinder with radius width connecting p1 to p2 with 
+// cross section having "faces" sides
+// beforeP1 is needed to align and clip faces with its neighbor
+function makePolysFromLine(seedVec, seedVec2, beforeP, p1, p2, afterP, width, faces){
+	// rotate seedVec by the change in the tangent vector
+	let v1 = sub(p1, beforeP),
+		v2 = sub(p2, p1);
+		
+	let prevSeed = {
+		x: seedVec.x,
+		y: seedVec.y,
+		z: seedVec.z
+	};
+	let prevSeed2 = {x: seedVec2.x, y: seedVec2.y, z: seedVec2.z};
+	// seedVec and seedVec2 are garunteed perpendicular to sub(p1, beforeP)
+	// and each other. Rotate to pass along
+	rotate(seedVec, quatRotBetween(v2, v1), {x:0, y:0, z:0});
+	rotate(seedVec2, quatRotBetween(v2, v1), {x:0, y:0, z:0});
+	
+	let nextSeed = {x: seedVec.x, y: seedVec.y, z: seedVec.z};
+	let nextSeed2 = {x: seedVec2.x, y: seedVec2.y, z: seedVec2.z};
+	
+	rotate(nextSeed, quatRotBetween(v2, sub(afterP, p2)), {x:0,y:0,z:0});
+	rotate(nextSeed2, quatRotBetween(v2, sub(afterP, p2)), {x:0,y:0,z:0});
+	
+	// make sure they are actually perpendicular, to prevent normal rot
+	seedVec = sub(seedVec, project(seedVec, v2));
+	seedVec2 = cross(seedVec, v2);
+	
+	if(dot(seedVec, seedVec2) > .1){
+		console.log(dot(seedVec,seedVec2));
+	}
+	
+	seedVec = scalar(1/magnitude(seedVec), seedVec);
+	seedVec2 = scalar(1/magnitude(seedVec2), seedVec2);
+	
+	let bAxis1 = add(prevSeed, seedVec);
+	bAxis1 = prevSeed;
+	bAxis1 = scalar(1/magnitude(bAxis1), bAxis1);
+	
+	let bAxis2 = add(prevSeed2, seedVec2);
+	bAxis2 = prevSeed2;
+	bAxis2 = scalar(1/magnitude(bAxis2), bAxis2);
+	
+	let aAxis1 = add(seedVec, nextSeed);
+	aAxis1 = seedVec;
+	aAxis1 = scalar(1/magnitude(aAxis1), aAxis1);
+	
+	let aAxis2 = add(seedVec2, nextSeed2);
+	aAxis2 = seedVec2;
+	aAxis2 = scalar(1/magnitude(aAxis2), aAxis2);		
+	
+	let polys = [];
+	
+	// now just connect the rectangles in the prism/frustum thingy
+	// .00001 for floating point error
+	for(let angle = 0; angle < 2*Math.PI; angle += 2*Math.PI / faces + .00001){
+		let bP1 = add(p1, add(scalar(width*Math.cos(angle), bAxis1), scalar(width*Math.sin(angle), bAxis2))),
+			bP2 = add(p1, add(scalar(width*Math.cos(angle+2*Math.PI/faces), bAxis1), scalar(width*Math.sin(angle+2*Math.PI/faces), bAxis2))),
+			aP1 = add(p2, add(scalar(width*Math.cos(angle), aAxis1), scalar(width*Math.sin(angle), aAxis2))),
+			aP2 = add(p2, add(scalar(width*Math.cos(angle+2*Math.PI/faces), aAxis1), scalar(width*Math.sin(angle+2*Math.PI/faces), aAxis2)));
+		
+		// for shading purposes, we're going to pretend like this is a true cylinder for deriv1
+		let commonBNorm = cross(bAxis1, bAxis2);
+		let commonANorm = cross(aAxis1, aAxis2);
+		// the other normal depends on the angle 
+		let bP1Norm = cross(commonBNorm, sub(bP1, p1)),
+			bP2Norm = cross(commonBNorm, sub(bP2, p1)),
+			aP1Norm = cross(commonANorm, sub(aP1, p2)),
+			aP2Norm = cross(commonANorm, sub(aP2, p2));
+		
+		bP1.deriv1 = {
+			du: commonBNorm,
+			dv: bP1Norm
+		};
+		bP2.deriv1 = {
+			du: commonBNorm,
+			dv: bP2Norm
+		};
+		aP1.deriv1 = {
+			du: commonANorm,
+			dv: aP1Norm
+		};
+		aP2.deriv1 = {
+			du: commonANorm,
+			dv: aP2Norm
+		};
+		
+		// two triangles per rectangle... 
+		polys.push({
+			pts:[bP1, bP2, aP1]
+		});
+		polys.push({
+			pts:[aP1, aP2, bP2]
+		});
+	}
+	return {
+		polys: polys,
+		newNormal: seedVec,
+		newNormal2: seedVec2
+	}
 }
 
 function makeNodeDist(base, pt, nodeDist, dir, xFunc, yFunc, zFunc){
@@ -1225,6 +1465,10 @@ function plot(cX, cY, cZ, u,v){
                 point.y = point.r * Math.sin(point.theta) * Math.cos(point.sphi);
                 point.z = point.r * Math.sin(point.sphi);
             }
+			if(isNaN(point.x)){
+				console.log(domain.expressionInfo.expression.vars);
+				console.log(point,point.x,point.y,point.z);
+			}
         }else{
             cX.eval(scope);
             cY.eval(scope);
@@ -1237,7 +1481,6 @@ function plot(cX, cY, cZ, u,v){
 				z:getRealPart(scope.z, nonRealCanary)
 			};
         }
-		
         point.x = spreadCoord(point.x, domain.spreadCenter.x, domain.x.spread);
         point.y = spreadCoord(point.y, domain.spreadCenter.y, domain.y.spread);
         point.z = spreadCoord(point.z, domain.spreadCenter.z, domain.z.spread);
@@ -1288,6 +1531,9 @@ function plot(cX, cY, cZ, u,v){
 		
 		for(let attr of ['x','y','z']){
 			if(!isFinite(point[attr])){
+				console.log(u,v);
+				console.log(point[attr]);
+				console.log('here');
 				point[attr] = domain[attr].max;
 				point.infinite = true;
 			}
@@ -1386,6 +1632,92 @@ function getRealPart(val, canary){
 		return val.re;
 	}
     return val;
+}
+
+function rotate(point,rotQuat, rotCenter){
+    const center = rotCenter ? rotCenter : globalViewPoint.center;
+    const quat = {w:0,x:point.x-center.x,y:point.y-center.y,z:point.z-center.z}
+	
+	// rotate the point
+    const quatOut = quatMult(quatMult(rotQuat,quat),quatConj(rotQuat));
+    
+    point.x=quatOut.x + center.x;
+    point.y=quatOut.y + center.y;
+    point.z=quatOut.z + center.z;
+	
+	if(!point.neighbors){
+		return;
+	}
+	
+	// now rotate all the control points of its neighbors
+	for(let n of point.neighbors){
+		const q = {
+			w: 0,
+			x: n.controlPt.x - center.x,
+			y: n.controlPt.y - center.y,
+			z: n.controlPt.z - center.z
+		};
+		
+		const result = quatMult(quatMult(rotQuat, q), quatConj(rotQuat));
+		
+		n.controlPt.x = result.x + center.x;
+		n.controlPt.y = result.y + center.y;
+		n.controlPt.z = result.z + center.z;
+	}
+}
+
+function quatRotBetween(v1, v2){
+	let rotStep = cross(v1, v2);
+	if(magnitude(rotStep) < magnitude(v1)*magnitude(v2)/100000){
+		return {w:1,x:0,y:0,z:0};
+	}
+	let rotQuat = {
+		w: Math.sqrt(magnitude(v1)**2 * magnitude(v2)**2) + dot(v1, v2),
+		x: rotStep.x,
+		y: rotStep.y,
+		z: rotStep.z
+	}
+	
+	rotQuat = quatNorm(rotQuat);
+	return rotQuat;
+}
+
+// check it out: http://www.cprogramming.com/tutorial/3d/quaternions.html
+// remember that quaternions are not communative
+function quatMult(q1,q2){
+    return {
+        w: q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z,
+        x: q1.w*q2.x + q1.x*q2.w + q1.y*q2.z - q1.z*q2.y,
+        y: q1.w*q2.y + q1.y*q2.w - q1.x*q2.z + q1.z*q2.x,
+        z: q1.w*q2.z + q1.z*q2.w + q1.x*q2.y - q1.y*q2.x
+    }
+}
+
+function quatScalar(q,n){
+    return {
+        w: q.w*n,
+        x: q.x*n,
+        y: q.y*n,
+        z: q.z*n
+    }
+} 
+
+function quatConj(q){
+    return{
+        w:q.w,
+        x:-q.x,
+        y:-q.y,
+        z:-q.z
+    };
+}
+
+function quatNorm(q){
+    var mag = Math.sqrt(q.w*q.w+q.x*q.x+q.y*q.y+q.z*q.z);
+    q.w /= mag;
+    q.x /= mag;
+    q.y /= mag;
+    q.z /= mag;
+    return q;
 }
 
 
