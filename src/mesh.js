@@ -181,8 +181,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		// this is a one dimensional line, start it as such 
 		let changeVar = magnitude(initPoint.deriv1.du) === 0 && magnitude(testPoint.deriv1.du) === 0 ? 'v' : 'u';
 		
-		console.log(changeVar, initPoint, testPoint);
-		
 		// check the other parts of the global domain. If they plot to the same point, 
 		// only use the most minimal not-changeVar domain chunk
 		let notChangeVar = changeVar === 'v' ? 'u' : 'v';
@@ -1465,10 +1463,6 @@ function plot(cX, cY, cZ, u,v){
                 point.y = point.r * Math.sin(point.theta) * Math.cos(point.sphi);
                 point.z = point.r * Math.sin(point.sphi);
             }
-			if(isNaN(point.x)){
-				console.log(domain.expressionInfo.expression.vars);
-				console.log(point,point.x,point.y,point.z);
-			}
         }else{
             cX.eval(scope);
             cY.eval(scope);
