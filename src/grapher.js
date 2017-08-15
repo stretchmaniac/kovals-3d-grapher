@@ -1821,7 +1821,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	
 	document.getElementById('cancel-plot-button').onclick = function(e){
 		console.log('terminating all workers...');
-		for(let k = 0; i < graphWorkersPool.length; k++){
+		for(let k = 0; k < graphWorkersPool.length; k++){
 			for(let w of graphWorkersPool[k]){
 				w.worker.terminate();
 			}

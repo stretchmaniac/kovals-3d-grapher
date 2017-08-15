@@ -10,6 +10,7 @@ let lineUpdateIndex = 0;
 let domain = {};
 let distFunc = null;
 let extrema = null;
+let eqs = {xFunc:null, yFunc:null, zFunc:null};
 
 onmessage = function(e){
 	let [requestType, ...args] = e.data;
@@ -149,6 +150,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
     yFunc = math.compile('y='+yFunc);
     zFunc = math.compile('z='+zFunc);
 	
+	eqs.xFunc = xFunc;
+	eqs.yFunc = yFunc;
+	eqs.zFunc = zFunc;
+	
 	
     //for non-real points, how far to go
     var defaultDeltaU = (domain.u.max - domain.u.min) / domain.density, 
@@ -193,10 +198,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			return;
 		}
 		
-		
-		
-		
-		
 		let dir = {
 			u:0,
 			v:0
@@ -223,7 +224,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		
 		pointFront = [initPoint, initPoint2];
 	}else{
-		
 		//we have (x(u,v), y(u,v), z(u,v)) ≈ u du + v dv, so a linear transformation (a plane)
 		//in order for a parameterization (x(s,t), y(s,t), z(s,t)) such that a change in s and t corresponds to 
 		//an equal change in x,y and z, we need s = u du, t = v dv, or (u(s,t), v(s,t)) = (s / |du|, t / |dv|)
@@ -232,8 +232,12 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		let vec = dir(initPoint, defaultXYZLength, 0);
 		
 		let initPoint2 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v);
-		vec = dir(initPoint, defaultXYZLength*.5, defaultXYZLength*Math.sqrt(3)/2)
+		initPoint2 = makeNodeDist(initPoint, initPoint2, defaultXYZLength, vec, xFunc, yFunc, zFunc);
+		
+		vec = dir(initPoint, defaultXYZLength*.5, defaultXYZLength*Math.sqrt(3)/2);
+		
 		let initPoint3 = plotPlus(xFunc, yFunc, zFunc, uMiddle + vec.u, vMiddle + vec.v)
+		initPoint3 = makeNodeDist(initPoint, initPoint3, defaultXYZLength, vec, xFunc, yFunc, zFunc);
 		
 		defaultXYZLength *= 5;
 		
@@ -713,6 +717,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		}
 	}
 	
+	
 	let overlapUDelta = (domain.u.max - domain.u.min) / 1e3,
 		overlapVDelta = (domain.v.max - domain.v.min) / 1e3;
     // move all the edge points back into the domain
@@ -843,13 +848,27 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				edges:[],
 				pt:testP
 			};
-			if(xyzDist(p,testP) > defaultXYZLength*2){
+			if(xyzDist(p,testP) > defaultXYZLength*2 || true){
 				// check for discontinuity
-				let edge1 = findParametricEdge(p, testP, x => xyzDist(p, x) < xyzDist(testP, x), xFunc, yFunc, zFunc, 20),
-					edge2 = findParametricEdge(testP, p, x => xyzDist(p, x) > xyzDist(testP, x), xFunc, yFunc, zFunc, 20);
-				edge1.deriv1 = safeDeriv(edge1, xFunc, yFunc, zFunc);
-				edge2.deriv1 = safeDeriv(edge2, xFunc, yFunc, zFunc);
-				if(xyzDist(edge1, edge2) > defaultXYZLength){
+				let edge1 = null, edge2 = null,
+					gap = 0;
+				findParametricEdge(p, testP, (t, b, a) => {
+					edge1 = b;
+					edge2 = a;
+					// determine end point derivative better approximates the middle point
+					let bGuess = add(add(b, scalar(t.u-b.u, b.deriv1.du)), scalar(t.v-b.v, b.deriv1.dv));
+					let aGuess = add(add(a, scalar(t.u-a.u, a.deriv1.du)), scalar(t.v-a.v, a.deriv1.dv));
+					return xyzDist(t, aGuess) > xyzDist(t, bGuess);
+				}, xFunc, yFunc, zFunc, 20);
+				gap = xyzDist(edge1, edge2);
+				
+				let guess = add(add(p, scalar(testP.u-p.u, p.deriv1.du)), scalar(testP.v-p.v, p.deriv1.dv));
+				
+				// the second condition is to combat situations where the path between p and testP goes off a cliff and comes back
+				// before hitting testP
+				if(gap > xyzDist(p, testP)/200 && xyzDist(guess, testP) > gap / 8){
+					edge1.deriv1 = safeDeriv(edge1, xFunc, yFunc, zFunc);
+					edge2.deriv1 = safeDeriv(edge2, xFunc, yFunc, zFunc);
 					hasDisc = true;
 					newPtInfo.discontinuous = true;
 					newPtInfo.edges.push(edge1, edge2);
@@ -868,14 +887,25 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					pts:[discPts[0].pt, discPts[1].pt, discPts[0].edges[1]]
 				});
 				discPolysToAdd.push({
-					pts:[discPts[0].pt, discPts[1].pt, discPts[1].edges[1]]
+					pts:[discPts[0].edges[1], discPts[1].pt, discPts[1].edges[1]]
 				});
 			}else{
 				// then only a single pt is
 				let otherPt = discPts[0].pt === np ? lp : np;
-				let newEdge = findParametricEdge(discPts[0].pt, otherPt, x => xyzDist(discPts[0].pt, x) < xyzDist(otherPt, x), xFunc, yFunc, zFunc, 20);
+				
+				let newEdge = null,
+					newEdge2 = null;
+					
+				findParametricEdge(discPts[0].pt, otherPt, (t, b, a) => {
+					newEdge = b;
+					newEdge2 = a;
+					
+					let bGuess = add(add(b, scalar(t.u-b.u, b.deriv1.du)), scalar(t.v-b.v, b.deriv1.dv));
+					let aGuess = add(add(a, scalar(t.u-a.u, a.deriv1.du)), scalar(t.v-a.v, a.deriv1.dv));
+					return xyzDist(t, aGuess) > xyzDist(t, bGuess);
+				}, xFunc, yFunc, zFunc, 20);
+				
 				newEdge.deriv1 = safeDeriv(newEdge, xFunc, yFunc, zFunc);
-				let newEdge2 = findParametricEdge(otherPt, discPts[0].pt, x => xyzDist(otherPt, x) < xyzDist(discPts[0].pt, x), xFunc, yFunc, zFunc, 20);
 				newEdge2.deriv1 = safeDeriv(newEdge2, xFunc, yFunc, zFunc);
 				discPolysToAdd.push({
 					pts:[discPts[0].pt, discPts[0].edges[1], newEdge]
@@ -884,7 +914,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					pts:[p, discPts[0].edges[0], otherPt]
 				});
 				discPolysToAdd.push({
-					pts:[otherPt, p, newEdge2]
+					pts:[otherPt, discPts[0].edges[0], newEdge2]
 				});
 			}
 			polygons.splice(i, 1);
@@ -1357,11 +1387,11 @@ function makeConnection(pt1, pt2){
 	
     pt1.neighbors.push({
         draw:true,
-        pt:pt2,
+        pt:pt2
     });
     pt2.neighbors.push({
         draw:false,
-        pt:pt1,
+        pt:pt1
     });
 }
 
@@ -1575,7 +1605,7 @@ function findParametricEdge(realP, nonRealP, testFunc, xFunc, yFunc, zFunc, iter
     let inBetween = plotPlus(xFunc, yFunc, zFunc, u, v);
     
     //return new interval
-    if(!testFunc(inBetween)){
+    if(!testFunc(inBetween, realP, nonRealP)){
         return findParametricEdge(realP, inBetween, testFunc, xFunc, yFunc, zFunc, iterations - 1);
     }else{
         return findParametricEdge(inBetween, nonRealP, testFunc, xFunc, yFunc, zFunc, iterations - 1);
