@@ -1499,22 +1499,43 @@ function plot(cX, cY, cZ, u,v){
 		// one method of doing this is a projection onto a sphere with a 'height' component
 		// off the surface of the sphere based on the distance from the center of the domain
 		
-		// check if distance to center is less than dist to corner * 1.1
-		let cornerDist = Math.sqrt((domain.x.max-domain.center.x)**2+(domain.y.max-domain.center.y)**2+(domain.z.max-domain.center.z)**2);
-		let ptDist = xyzDist(domain.center, point);
-		const cornerMultiplier = 1.2;
-		if(ptDist > cornerDist * cornerMultiplier){
-			let sphereRadius= cornerDist * cornerMultiplier;
-			let normalizedCenterVec = scalar(1/sphereRadius, sub(point, domain.center));
-			let oldHeight = magnitude(normalizedCenterVec);
-			// see https://www.desmos.com/calculator/tuohw1zvuw
-			let newHeight = 2*((Math.E**3+1)/(Math.E**3-1))*(1/(1+Math.E**(-3*oldHeight))-0.5);
-			normalizedCenterVec = scalar(1/magnitude(normalizedCenterVec), normalizedCenterVec);
-			let newPos = add(scalar(newHeight*sphereRadius, normalizedCenterVec), domain.center);
-			point.x = newPos.x;
-			point.y = newPos.y;
-			point.z = newPos.z;
+		// however, this method has the detriment that a finite length line sweeping to infinity 
+		// (think 1/x, y in [-10, 10]) converges to a single point, which is only slightly less 
+		// annoying as the previous situation.
+		
+		// I've decided on a "rounded cube" approach, so identical to the 
+		// bounding approach except points that used to map to a single corner now map to 
+		// an 1/8th sphere at the corner and edges map to rounded edges. It still has the flaw that slanted asymptotes 
+		// that pass through these spheres will still converge to a point, but this 
+		// is likely to be a minority of plots
+		
+		// clip domain, as normal
+		let newP = {x: point.x, y: point.y, z: point.z};
+		let boundedVars = [];
+		for(let dim of ['x','y','z']){
+			if(newP[dim] < domain[dim].min){
+				newP[dim] = domain[dim].min;
+				boundedVars.push(dim);
+			}
+			if(newP[dim] > domain[dim].max){
+				newP[dim] = domain[dim].max;
+				boundedVars.push(dim);
+			}
 		}
+		
+		let d = xyzDist(point, newP);
+		let sphereR = (domain.x.max - domain.x.min) * (1/10) * (1 / (1 + Math.E**(-d)) - 1/2);
+		if(boundedVars.length > 1){
+			let v = sub(point, newP);
+			v = scalar(sphereR / magnitude(v), v);
+			newP = add(newP, v);
+		}else if(boundedVars.length === 1){
+			newP[boundedVars[0]] += Math.sign(point[boundedVars[0]]-newP[boundedVars[0]]) * sphereR;
+		}
+		
+		point.x = newP.x;
+		point.y = newP.y;
+		point.z = newP.z;
 		
 		// make all the points outside of the **cubic** domain dissappear
 		if( point.x > domain.x.max || point.x < domain.x.min || 
