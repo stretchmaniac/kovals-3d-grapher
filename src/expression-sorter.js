@@ -64,7 +64,7 @@ function characterizeExpression(expr){
                 return type;
             }
             
-            var containsVar = body.indexOf(varName) !== -1;
+            var containsVar = body.indexOf('('+varName+')') !== -1;
             if(containsVar){
                 return {
                     error: varName.substring(1,varName.length-1)+' should not be present in the rest of your expression'

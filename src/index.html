@@ -82,7 +82,7 @@
 		
 		varying vec4 color;
 		varying float transparency;
-		// fun with barimetric coordinates!
+		// fun with barycentric coordinates!
 		varying vec3 v_bari_coord;
 		
 		void main(){
@@ -225,17 +225,18 @@
 			<div class='popup-header'>Koval's 3D Grapher Reference</div>
 			<div class='popup-inner-content' id='help-inner-content'>
 				<div id='help-menu'>
-					<a id='help-menu-basics' href='#help-intro' class='help-menu-button'>Introduction</a>
-					<a id='help-menu-basics' href='#help-quick-start' class='help-menu-button'>Quick Start Guide</a>
-					<a id='help-menu-basics' href='#help-domain' class='help-menu-button'>Changing the Plotting Domain</a>
-					<a id='help-menu-basics' href='#help-coordinate-systems' class='help-menu-button'>Changing Coordinate Systems</a>
-					<a id='help-menu-basics' href='#help-parametric' class='help-menu-button'>Using Parametric Variables</a>
-					<a id='help-menu-basics' href='#help-equation-forms' class='help-menu-button'>Acceptable Equation Forms</a>
-					<a id='help-menu-basics' href='#help-normals' class='help-menu-button'>Rendering and Normal Vectors</a>
-					<a id='help-menu-basics' href='#help-faq' class='help-menu-button'>FAQ</a>
-					<a id='help-menu-basics' href='#help-funcs' class='help-menu-button'>Function and Operator Reference</a>
-					<a id='help-menu-basics' href='#help-how-it-works' class='help-menu-button'>A Primer on the Underlying Algorithms</a>
-					<a id='help-menu-basics' href='#help-about' class='help-menu-button'>About the Developer</a>
+					<a href='#help-intro' class='help-menu-button'>Introduction</a>
+					<a href='#help-quick-start' class='help-menu-button'>Quick Start Guide</a>
+					<a href='#help-domain' class='help-menu-button'>Changing the Plotting Domain</a>
+					<a href='#help-coordinate-systems' class='help-menu-button'>Changing Coordinate Systems</a>
+					<a href='#help-parametric' class='help-menu-button'>Using Parametric Variables</a>
+					<a href='#help-equation-forms' class='help-menu-button'>Acceptable Equation Forms</a>
+					<a href='#help-normals' class='help-menu-button'>Rendering and Normal Vectors</a>
+					<a href='#help-faq' class='help-menu-button'>FAQ</a>
+					<a href='#help-funcs' class='help-menu-button'>Function and Operator Reference</a>
+					<a href='#help-how-it-works' class='help-menu-button'>A Primer on the Underlying Algorithms</a>
+					<a href='#help-about' class='help-menu-button'>About the Developer</a>
+					<a href='#help-acknowledgements' class='help-menu-button'>Acknowledgements</a>
 				</div>
 				<div id='help-info'>
 					<div id='help-intro'>
@@ -251,12 +252,96 @@
 						<p>
 							This is a short guide to plotting a simple function, \(z=\sin{x}+\sin{y}\).
 						</p>
+						<h3>1. Load or reload alankoval.com/3dgrapher</h3>
+						<p>
+							Start with a fresh start by navigating to alankoval.com/3dgrapher. Be sure the expression input is 
+							empty and the domain input (the box below "enter expression") contains "\(x, y, z \in [-10, 10]\)" (type "in" for \(\in\) symbol).
+						</p>
+						<img src='http://i.imgur.com/rAxUd6x.png' class='help-menu-image-wide'>
+						<h3>2. Enter the equation</h3>
+						<p>
+							In the box immediately above "enter expression," type the following: "z=sin(x)+sin(y)". It will render as such:
+						</p>
+						<img class='help-menu-image-wide' src='http://i.imgur.com/OWCDCOk.png'>
+						<h3>3. Plot</h3>
+						<p>
+							With the cursor in the expression input, press the enter key. The plot will take a few seconds to complete.
+						</p>
+						<img class='help-menu-image' src='http://i.imgur.com/ffayml4.png'>
+						<h3>4. Rotate, pan and zoom</h3>
+						<p>
+							Click and drag to rotate the plot about the center of view, use the mouse wheel to zoom, and right-click and drag
+							to pan.
+						</p>
+						<div class='menu-item-flexbox'>
+							<img class='menu-item-flexbox-image' src='http://i.imgur.com/LY3xkFS.png'>
+							<img class='menu-item-flexbox-image' src='http://i.imgur.com/0xvcvaq.png'>
+							<img class='menu-item-flexbox-image' src='http://i.imgur.com/I8BOflO.png'>
+						</div>
 					</div>
 					<div id='help-domain'>
 						<h1>Changing the Plotting Domain</h1>
 						<p>
 							This section outlines how to view different sections of the plot by changing the 
 							domain of the input variables.
+						</p>
+						<h3>Domain definitions</h3>
+						<p>
+							There are 11 separate variables in Koval's 3D Grapher, three for each coordinate system and two parametric 
+							variables. Each variable has a domain associated with it, written in the form \(a \in [b, c]\), where \(a\)
+							is a variable and \(b\) and \(c\) are real numbers with \(b &lt; c\). (In order to get the \(\in\) symbol, type 
+							"in".)
+						</p>
+						<img src='http://i.imgur.com/eapDoUY.png' class='help-menu-image-wide'>
+						<p>
+							Above you can see six variables' domains defined, with \(a, b, c \in [i, j]\) being shorthand 
+							for \(a \in [i, j], b \in [i, j], c \in [i, j]\). The relevant domains will automatically appear 
+							based on the equation typed in the expression input.
+						</p>
+						<p>
+							In order to change a domain definition, simply click on the definition and edit normally. Domain definitions 
+							may go in any order. However, <b>Do not mix domain definitions of different 
+							coordinate systems.</b> Since some coordinate systems share variable names, mixing definitions would 
+							result in ambiguity.
+						</p>
+						<img src='http://i.imgur.com/ObDXa0X.png' style='margin-bottom:3px' class='help-menu-image-wide'>
+						<img src='http://i.imgur.com/m48lP2G.png' class='help-menu-image-wide'>
+						<h3>Domain meaning</h3>
+						<p>
+							In general, the domain specifies the extent to which the plot will reach in that variable. For example, 
+							if \(x\) is bounded between -5 and 5 (\(x \in [-5, 5]\), no section of the plot will be plotted before \(x=-5\) or
+							after \(x=5\). Likewise, for \(r \in [1, 2]\), no plotted point will satisfy \(x^2 + y^2 + z^2 &lt; 1\) or \(x^2 +y^2 +z^2 &gt; 4\).
+						</p>
+						<p>
+							However, as one might notice, while the \(r, \theta, \phi, u, v\) and \(\rho\) domain definitions come and 
+							go depending on the expression input, the \(x, y,\) and \(z\) definitions never leave. This is because these 
+							domain definitions also specify the viewing area. For example, a combination of \(r \in [0, 1]\) and 
+							\(x,y,z \in [-10, 10]\) would result in a tiny plot, since \(x^2 +y^2 +z^2 &lt; 1\) is such a small volume in
+							a 20 by 20 by 20 cube. 
+						</p>
+						<div class='menu-item-flexbox'>
+							<img class='menu-item-flexbox-image' src='http://i.imgur.com/m3sD8Nw.png'>
+							<img class='menu-item-flexbox-image' src='http://i.imgur.com/M4Bpjx3.png'>
+							<img class='menu-item-flexbox-image' src='http://i.imgur.com/3Wo68tw.png'>
+						</div>
+						<h3>Non-cubic domains</h3>
+						<p>
+							It is also possible for the viewing area to be non-cubic, for example \(x,y \in [-10, 10], z \in [-5, 5]\). 
+							Note that this is distinct from the bounding box shown on screen being rectangular. A non-cubic domain will
+							result in a stretched graph, in this case a two-times stretch in the \(z\) direction only. See the result 
+							of this stretching on a sphere, \(r = 7\):
+						</p>
+						<img src='http://i.imgur.com/GgAgmWn.png' class='help-menu-image-wide'>
+						<h3>Domains with multiple plots</h3>
+						<p>
+							Each plot has its own separate domain definitions. On switching plots (via the tabs above the expression input), the 
+							domain input automatically updates values. 
+						</p>
+						<p>
+							However, since the \(x,y,z\) domain definitions also specify viewing area (and clearly there can only be one of them),
+							the viewing area is decided by the extreme values of the domain definitions across all plots. For example, if in plot 
+							one there exists a definition \(x,y,z \in [-10, 10]\) and in plot two there is \(x,y \in [-20, -5], z \in [-12, 5]\), 
+							the final viewing are would be \( x,y \in [-20, 10], z \in [-12, 10]\).
 						</p>
 					</div>
 					<div id='help-coordinate-systems'>
@@ -265,12 +350,76 @@
 							This section gives a basic overview of the three types of supported coordinate systems (cartesian, cylindrical and spherical) and 
 							how to use them in Koval's 3D Grapher.
 						</p>
+						<h3>Cartesian system</h3>
+						<p>
+							<b>Variables: \(x, y, z\)</b>
+						</p>
+						<p>
+							The three coordinates of the cartesian coordinate system relate the perpendicular distance to the \(yz\), 
+							\(xz\) and \(xy\) planes, respectively. It is a natural extension of the \(xy\) plane in 2D, with a \(z\) 
+							axis coming out of the page. 
+						</p>
+						<p>
+							To use cartesian coordinates, type an equation governed by cartesian coordinates, such as 
+							\(z=\sin \left(\sqrt{x^2-y^2}\right)\).
+						</p>
+						<img src='http://i.imgur.com/xZuh3xM.png' class='help-menu-image'>
+						<h3>Cylindrical system</h3>
+						<p>
+							<b>Variables: \(\rho, \phi, z\)</b>
+							<br><span style='font-size:12px'>("rho", "phi", "z") in input</span>
+						</p>
+						<p>
+							The cylindrical coordinate system is defined by the following transformations to cartesian coordinates:
+							\[x = \rho \cos{\phi}\]
+							\[y = \rho \sin{\phi}\]
+							\[z = z\]
+							Thus the cylindrical system is a direct extension of polar coordinates in 2D, where
+							\(r = 1\) is a circle in polar, \(\rho = 1\) is an infinite-length hollow cylinder (hence 
+							the name "cylindrical coordinates"). 
+						</p>
+						<p>
+							To use cylindrical coordinates, type an equation governed by cylindrical variables, such as 
+							\(\rho=3+\phi+\text{abs}(z)\).
+						</p>
+						<img src='http://i.imgur.com/3DCIseG.png' class='help-menu-image'>
+						<h3>Spherical system</h3>
+						<p>
+							<b>Variables: \(r, \theta, \phi\)</b>
+							<br><span style='font-size:12px'>("r", "theta", "phi") in input</span>
+						</p>
+						<p>
+							The spherical coordinate system is defined by the following transformations to cartesian coordinates:
+							\[x=r\cos \left(\theta \right)\sin \left(\phi \right)\]
+							\[y=r\sin \left(\theta \right)\sin \left(\phi \right)\]
+							\[z=r\cos \left(\phi \right)\]
+							Spherical coordinates are another extension of the 2D polar coordinates, but \(\phi\) specifies an angle 
+							with the \(z\) axis, as opposed to height in cylindrical coordinates. Where \(r = 1\) is the unit circle in 
+							polar coordinates, \(r = 1\) is the unit sphere in spherical coordinates (hence the name).
+						</p>
+						<p>
+							To use spherical coordinates, type an equation governed by the three spherical variables, such as 
+							\(r=\sin 4\theta +\sin 8\phi +5\)
+						</p>
+						<img src='http://i.imgur.com/8KuOCER.png' class='help-menu-image'>
 					</div>
 					<div id='help-parametric'>
 						<h1>Using Parametric Variables</h1>
 						<p>
-							This section defines the usage of parametricly defined plots using the extra variables /(u/) and /(v/).
+							This section defines the usage of parametrically defined plots using the extra variables \(u\) and \(v\).
 						</p>
+						<p>
+							Koval's 3D Grapher supports both one dimensional lines and two dimensional surfaces. For a line, set a 
+							coordinate vector (one of \([x,y,z]\), \([\rho, \phi, z]\) and \([r, \theta, \phi]\)) equal to a vector 
+							of equal size comprised of a single variable ((\u\)  or \(v\)). For example, \([x,y,z]=u[1,1,1]\) is a 
+							line passing through \((0,0,0)\) and \((1,1,1)\):
+						</p>
+						<img src='http://i.imgur.com/HidnJ9V.png' class='help-menu-image'>
+						<p>
+							For a surface, set a coordinate vector equal to a vector of equal size comprised of both \(u\) and \(v\). 
+							Here's \(\left[x,y,z\right]=\frac{1}{3}\left[\sin u,0,\cos u\right]+\left[0,v,\sin v+\frac{\cos 4v}{3}\right]\):
+						</p>
+						<img src='http://i.imgur.com/wh8nsMG.png' class='help-menu-image'>
 					</div>
 					<div id='help-equation-forms'>
 						<h1>Acceptable Equation Forms</h1>
@@ -278,23 +427,163 @@
 							This section outlines all the acceptable equation forms that may be entered into Koval's 3D Grapher, such as 
 							\(y = 4x + z\) and \([r,\theta,\phi]=[u,v,\sin{u}]\).
 						</p>
+						<table>
+							<tr>
+								<th>Form</th>
+								<th>Coordinate System</th>
+								<th>Examples</th>
+								<th>Notes</th>
+							</tr>
+							<tr>
+								<td>\(z=f(x,y)\)</td>
+								<td>cartesian, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(z=\sqrt{x}+y^2\)</div>
+									<div class='table-eq'>\(\sin{x}+e^{xy}=z\)</div>
+								</td>
+								<td></td>
+							</tr>
+							<tr>
+								<td>\(x=f(y,z)\)</td>
+								<td>cartesian, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(x=y+z\)</div>
+									<div class='table-eq'>\(\text{floor}(z) = x\)</div>
+								</td>
+								<td></td>
+							</tr>
+							<tr>
+								<td>\(y=f(x,z)\)</td>
+								<td>cartesian, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(y=\log{x+z}\)</div>
+									<div class='table-eq'>\(e^{-x^2-z^2}=y\)</div>
+								</td>
+								<td></td>
+							</tr>
+							<tr>
+								<td>\([x,y,z]=f(u,v)\)</td>
+								<td>cartesian, parametric</td>
+								<td>
+									<div class='table-eq'>\([x,y,z]=[1,1,1]+u[2,0,0]\)</div>
+									<div class='table-eq'>\(\left[\cos \left(u\right)\cos \left(v\right),\sin \left(u\right)\cos \left(v\right),\sin \left(v\right)\right]=\left[x,y,z\right]\)</div>
+									<div class='table-eq'>\(\left[z,x,y\right]=\left[u,v,u\right]\)</div>
+								</td>
+								<td>Vector arithmetic is supported. See Function and Operator Reference.</td>
+							</tr>
+							<tr>
+								<td>\(\rho=f(\phi,z)\)</td>
+								<td>cylindrical, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(\rho=3+\phi+\text{abs}(z)\)</div>
+									<div class='table-eq'>\(\frac{1}{1+\phi ^2}\left(\sin z+2\right)=\rho\)</div>
+								</td>
+								<td>Type "rho" for \(\rho\), "phi" for \(\phi\)</td>
+							</tr>
+							<tr>
+								<td>\(\phi = f(\rho, z)\)</td>
+								<td>cylindrical, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(\phi =z+\sin \rho \)</div>
+									<div class='table-eq'>\(\phi =\frac{\rho z}{5}\)</div>
+								</td>
+								<td>Type "rho" for \(\rho\), "phi" for \(\phi\)</td>
+							</tr>
+							<tr>
+								<td>\(z=f(\rho, \phi)\)</td>
+								<td>cylindrical, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(z=\cos \rho +\sin 4\phi \)</div>
+									<div class='table-eq'>\(\operatorname{floor}\rho +\phi =z\)</div>
+								</td>
+								<td>Type "rho" for \(\rho\), "phi" for \(\phi\)</td>
+							</tr>
+							<tr>
+								<td>\([\rho,\phi,z]=f(u,v)\)</td>
+								<td>cylindrical, parametric</td>
+								<td>
+									<div class='table-eq'>\(\left[\rho ,\phi ,z\right]=\left[v+u,v+\sin u,\sin u\right]\)</div>
+									<div class='table-eq'>\(5\left[u,u,u\right]=\left[z,\rho ,\phi \right]\)</div>
+								</td>
+								<td>
+									Type "rho" for \(\rho\), "phi" for \(\phi\).
+									<br>Vector arithmetic is supported. See Function and Operator Reference.
+								</td>
+							</tr>
+							<tr>
+								<td>\(r=f(\theta,\phi)\)</td>
+								<td>spherical, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(r=\theta +\sin 3\phi \)</div>
+									<div class='table-eq'>\(\operatorname{abs}\left(\operatorname{floor}\phi \right)+5+\sin 3\theta =r\)</div>
+								</td>
+								<td>Type "theta" for \(\theta\), "phi" for \(\phi\).</td>
+							</tr>
+							<tr>
+								<td>\(\theta=f(r,\phi)\)</td>
+								<td>spherical, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(\theta =\sqrt{r}+\sqrt{\phi }\)</div>
+									<div class='table-eq'>\(\frac{r}{\frac{1}{2}+\phi ^2}=\theta \)</div>
+								</td>
+								<td>Type "theta" for \(\theta\), "phi" for \(\phi\).</td>
+							</tr>
+							<tr>
+								<td>\(\phi=f(\theta,r)\)</td>
+								<td>spherical, non-parametric</td>
+								<td>
+									<div class='table-eq'>\(\phi =\sin r\)</div>
+									<div class='table-eq'>\(\operatorname{floor}\frac{\left(r-\theta \right)}{4}=\phi \)</div>
+								</td>
+								<td>Type "theta" for \(\theta\), "phi" for \(\phi\).</td>
+							</tr>
+							<tr>
+								<td>\([r,\theta,\phi]=f(u,v)\)</td>
+								<td>spherical, parametric</td>
+								<td>
+									<div class='table-eq'>\(\left[r,\phi ,\theta \right]=\left[7,u,\sin 5u\right]+\left[\cos v,0,\frac{\sin v}{6}\right]\)</div>
+									<div class='table-eq'>\(\operatorname{cross}\left(\left[1,0,3\right],\left[u,v,u\right]\right)=\left[\theta ,r,\phi \right]\)</div>
+								</td>
+								<td>Type "theta" for \(\theta\), "phi" for \(\phi\). Vector arithmetic is supported. See Function and Operator Reference.</td>
+							</tr>
+						</table>
 					</div>
 					<div id='help-normals'>
-						<h1>Rendering and Normal Forms</h1>
+						<h1>Rendering and Normals</h1>
 						<p>
 							This section provides background about the rendering of the 3D plotted surface and how the "invert 
 							normals" button illuminates the opposite side of the surface.
+						</p>
+						<p>
+							Koval's 3D Grapher relies heavily on the partial derivatives with respect to \(u\) and \(v\), that is, 
+							\(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right)\) and 
+							\(\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\). Since every 
+							function (that can be plotted here) can be represented as a parametric function in cartesian coordinates, these values 
+							are universal. They give an indication of the amount that each of the coordinate values change as \(u\) and \(v\) changes. 
+						</p>
+						<p>
+							With these vectors, one can derive a normal vector, \(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right) \times 
+							\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\), that is perpendicular to the surface when evaluated 
+							at a point \((x,y,z)\). This normal gives a way to compute directional lighting via the <a target='_blank' href='https://en.wikipedia.org/wiki/Phong_reflection_model'>Phong Reflection Model</a>.
+							Due to the nature of this model, the "back" of the surface (the normal vector is pointing away from the screen) appears differently from the front. 
+						</p>
+						<p>
+							Hence there exists a button to flip all the normal vectors in a plot, to make the "back" the front and vice versa. 
+						</p>
+						<img class='help-menu-image-wide' src='http://i.imgur.com/DenEefC.png'>
+						<p>
+							However in the case where both sides of the surface must be lit equally, there is an option to ignore the normal direction in the settings menu ("Ignore Normal when Shading").
 						</p>
 					</div>
 					<div id='help-faq'>
 						<h1>Frequently Asked Questions</h1>
 						<p>
-							This section adresses some common misunderstandings and pitfalls when using Koval's 3D Grapher.
+							This section addresses some common misunderstandings and pitfalls when using Koval's 3D Grapher.
 						</p>
 						<h3>My function got stuck plotting. What happened?</h3>
 						<p>
 							Unfortunately, although a great effort has been made to prevent hangups, occasionally a function never seems to 
-							finish plotting. This often is an unforseen breakdown of the mesh at a discontinuity or other feature. Try changing 
+							finish plotting. This often is an unforeseen breakdown of the mesh at a discontinuity or other feature. Try changing 
 							the mesh quality slightly to "retry" with a different mesh structure.
 						</p>
 						<h3>
@@ -304,7 +593,7 @@
 						</p>
 						<img class='help-menu-image' src='http://i.imgur.com/V8QA76w.png'>
 						<p>
-							Congradulations, you have discovered a superposition of two surfaces, one face up and one face down. 
+							Congratulations, you have discovered a superposition of two surfaces, one face up and one face down. 
 							Usually this is caused by incorrect domain bounds (in this above case, \(r=7\), \(\phi\) had a maximum of \(\pi\) 
 							instead of \(\pi/2\)). You can negate its effects by checking the "Ignore Normals" checkbox in the settings menu.
 						</p>
@@ -319,6 +608,17 @@
 							This is a direct consequence of the setting. For example, a perspective-enabled plot displayed with a 
 							perspective-disabled plot would result in identical points mapping to different screen coordinates. 
 						</p>
+						<h3>I want to use randomness. Is there a random function?</h3>
+						<p>
+							Yes. Type "\random(1)" to get a random number between zero and one. 
+						</p>
+						<p>
+							<b>However</b>, there is a reason this function isn't listed in the function reference. If 
+							the random function is used, Koval's 3D Grapher will crash and burn. It is a core assumption that 
+							the plotting process is deterministic. This way, sampling can be used to find out more local information
+							about a plot (the input is re-evaluated at every point). If a random function is used, Koval's 3D Grapher 
+							can't agree with itself, and so fails miserably.
+						</p>
 					</div>
 					<div id='help-funcs'>
 						<h1>Function and Operator Reference</h1>
@@ -326,470 +626,564 @@
 							This section enumerates a list of operators and functions and their definitions that may be 
 							used in expressions.
 						</p>
+						<table class='center' style='margin-bottom:40px'>
+							<tr>
+								<th>Operator</th>
+								<th>Description</th>
+								<th>Example</th>
+								<th>Notes</th>
+							</tr>
+							<tr>
+								<td>\(+\)</td>
+								<td>Addition</td>
+								<td>\(x+y\)</td>
+								<td></td>
+							</tr>
+							<tr>
+								<td>\(-\)</td>
+								<td>Subtraction</td>
+								<td>\(x-y\)</td>
+								<td></td>
+							</tr>
+							<tr>
+								<td>\(*\)</td>
+								<td>Multiplication</td>
+								<td>\(x*y\)</td>
+								<td>\(xy\) also works</td>
+							</tr>
+							<tr>
+								<td>\(/\)</td>
+								<td>Division</td>
+								<td>\(\frac{x}{y}\)</td>
+								<td></td>
+							</tr>
+							<tr>
+								<td>\(\wedge\)</td>
+								<td>Exponentiation</td>
+								<td>\(x^y\)</td>
+								<td></td>
+							</tr>
+							<tr>
+								<td>\(&lt;&lt;\)</td>
+								<td>Bit shift left</td>
+								<td>\(x&lt;&lt;y\)</td>
+								<td>\(x\) and \(y\) must be integers. See leftShift below.</td>
+							</tr>
+							<tr>
+								<td>\(&gt;&gt;\)</td>
+								<td>Bit shift right</td>
+								<td>\(x&gt;&gt;y\)</td>
+								<td>\(x\) and \(y\) must be integers. See rightShift below.</td>
+							</tr>
+							<tr>
+								<td>\(!\)</td>
+								<td>Factorial</td>
+								<td>\(x!\)</td>
+								<td>\(x\) must be a positive integer.</td>
+							</tr>
+							<tr>
+								<td>\(\&#37;\)</td>
+								<td>Modulus</td>
+								<td>\(x\&#37;y\)</td>
+								<td>\(y\) must be positive</td>
+							</tr>
+						</table>
 						<table class='center'>
 						<tr>
-							<th>Function Name</th>
-							<th>Meaning</th>
-							<th>Need Backslash?</th>
+							<th>Function</th>
+							<th>Description</th>
+							<th>Notes</th>
 						</tr>
 						<tr>
 							<td>\(\text{abs}(x)\)</td>
 							<td>Absolute Value</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{acos}(x)\)</td>
 							<td>Arccosine (or inverse cosine)</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{acosh}(x)\)</td>
 							<td>Inverse hyperbolic cosine function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{acot}(x)\)</td>
 							<td>Inverse cotangent function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{acoth}(x)\)</td>
 							<td>Inverse hyperbolic cotangent function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{acsc}(x)\)</td>
 							<td>Inverse cosecant function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{acsch}(x)\)</td>
 							<td>Inverse hyperbolic cosecant function</td>
-							<td>Yes</td>
-						</tr>
-						<tr>
-							<td>\(\text{add}(x,y)\)</td>
-							<td>Adds two numbers or matrices together. I have no idea
-							when you would ever use this because it is identical to \(+\)</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{asec}(x)\)</td>
 							<td>Inverse secant function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{asech}(x)\)</td>
 							<td>Inverse hyperbolic secant function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{asin}(x)\)</td>
 							<td>Inverse sine function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{asinh}(x)\)</td>
 							<td>Inverse hyperbolic sine function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{atan}(x)\)</td>
 							<td>Inverse tangent function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{atan2}(y,x)\)</td>
 							<td>Inverse tangent function, extends \(\text{atan}(x)\) function
 							to account for all angles.</td>
-							<td>Yes</td>
+							<td>One <b>must</b> type a backslash, followed by "atan2" followed by a space to use this function.</td>
 						</tr>
 						<tr>
 							<td>\(\text{atanh}(x)\)</td>
 							<td>Inverse hyperbolic tangent function</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{bellNumbers}(n)\)</td>
 							<td>Returns the \(n^{\text{th}}\) 
 							<a target="_blank" href='https://en.wikipedia.org/wiki/Bell_number'>Bell Number</a>.
 							This function only accepts positive integers.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{bitAnd}(x,y)\)</td>
 							<td>Bitwise AND function.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{bitNot}(x,y)\)</td>
 							<td>Bitwise NOT function.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{bitOr}(x,y)\)</td>
 							<td>Bitwise OR function.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{bitXor}(x,y)\)</td>
 							<td>Bitwise XOR function.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{catalan}(n)\)</td>
 							<td>Returns the \(n^{\text{th}}\) 
 							<a target="_blank" href='https://en.wikipedia.org/wiki/Catalan_number'>Catalan Number</a>.
 							This function only accepts positive integers.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{cbrt}(x)\)</td>
 							<td>Cube root function. Equivalent to raising to the \(1/3\) power.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{ceil}(x)\)</td>
 							<td>Ceiling function. Returns the smallest integer greater than \(x\)</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{combinations}(n,k)\)</td>
 							<td>Number of combinations of picking \(k\) items from \(n\) items.
 							Note that \(k\leq n\) and both \(k\) and \(n\) are positive integers.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{complex}(r, im)\)</td>
 							<td>creates a complex number from a real and imaginary part.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{composition}(n,k)\)</td>
 							<td>The number of ways to represent \(n\) as the sum of \(k\) numbers.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{concat}(x,y,z...)\)</td>
 							<td>Concatenates two or more matrices together.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{conj}(x)\)</td>
 							<td>Returns the conjugate of a complex number.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{cos}(x)\)</td>
 							<td>Cosine function</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{cosh}(x)\)</td>
 							<td>Hyperbolic cosine function</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{cot}(x)\)</td>
 							<td>Cotangent function</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{coth}(x)\)</td>
 							<td>Hyperbolic cotangent function</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{cross}(x,y)\)</td>
 							<td>Returns the cross product of two vectors.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{csc}(x)\)</td>
 							<td>Cosecant function</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{csch}(x)\)</td>
 							<td>Hyperbolic cosecant function.</td>
-							<td>No</td>
+							<td></td>
 						</tr>
-						<!--<tr>
-							<td>\(\text{cube}(x)\)</td>
-							<td>Cubes the input. It is equal to \(x^3\). BUGGY</td>
-							<td>Yes</td>
-						</tr>
-						-->
 						<tr>
 							<td>\(\text{det}(x)\)</td>
 							<td>Calculates the determinant of a matrix. The matrix must be square.</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{distance}(x,y)\)</td>
-							<td>Calculates the Euclidian distance between two points. The points may
+							<td>Calculates the Euclidean distance between two points. The points may
 							be two or three dimensional.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{dot}(x)\)</td>
 							<td>Calculates the dot product of two vectors.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{dotDivide}(x,y)\)</td>
 							<td>Calculates the element-wise division of two matrices.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{dotMultiply}(x,y)\)</td>
 							<td>Calculates the element-wise multiplication of two matrices.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{dotPow}(x,y)\)</td>
 							<td>Calculates the element-wise power (\(x^y\)) of two matrices.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{exp}(x)\)</td>
 							<td>Calculates \(e^x\).</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{factorial}(x)\)</td>
 							<td>Calculates the factorial of a number. This is the same as the \(!\) operator.
 							\(x\) must be positive</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{fix}(x)\)</td>
 							<td>Rounds \(x\) toward zero.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{floor}(x)\)</td>
 							<td>Rounds \(x\) toward negative infinity.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{gamma}(x)\)</td>
 							<td>The Gamma function. An extension of the factorial function.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{gcd}(x,y)\)</td>
 							<td>Computes the greatest common divisor among \(x\) and \(y\)</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{hypot}(x,y,...)\)</td>
 							<td>Calculates the hypotenuse of the values. This is equal to 
 							\(\sqrt{x^2+y^2...}\)</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{im}(x)\)</td>
 							<td>Returns the imaginary portion of \(x\).</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{inv}(x)\)</td>
 							<td>Calculates the inverse of a matrix. The matrix must be square.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{kldivergence}(x,y)\)</td>
 							<td>Computes the <a target="_blank" href='https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence'>Kullback-Leibler</a>
 							divergence between two distributions</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{lcm}(x)\)</td>
 							<td>Calculates the least common multiple of two numbers.</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{leftShift}(x, y)\)</td>
 							<td>Bitwise shifts \(x\) left by \(y\) bits. For all you programmers it is equal 
 							to \(x &lt;&lt; y\)</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{log}(x, y)\)</td>
-							<td>Calculates \(\log_y{x}\). If \(y\) is ommitted, then 
+							<td>Calculates \(\log_y{x}\). If \(y\) is omitted, then 
 							it defaults to \(\log_{e}{x}\).</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{max}(x, y, ...)\)</td>
 							<td>Calculates the maximum value out of the inputs.</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{mean}(x, y,...)\)</td>
 							<td>Calculates the mean of the inputs.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{median}(x, y,...)\)</td>
-							<td>Calculates the mediam of the inputs.</td>
-							<td>Yes</td>
+							<td>Calculates the median of the inputs.</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{min}(x, y, ...)\)</td>
 							<td>Calculates the minimum value out of the inputs.</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{mod}(x, y)\)</td>
 							<td>Calculates \(x\,\%\,y\) (for programmers), also known as the modulus.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{mode}(x, y, ...)\)</td>
 							<td>Calculates the most common value among the inputs.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{nthRoot}(x, n)\)</td>
 							<td>Calculates the \(n^{\text{th}}\) root of \(x\). \(n\) defaults to 
 							two if not provided.</td>
-							<td>Yes</td>
-						</tr>
-						<tr>
-							<td>\(\text{pickRandom}(x)\)</td>
-							<td>Picks a random element from the 1-dimensional array \(x\)</td>
-							<td>Yes</td>
-						</tr>
-						<tr>
-							<td>\(\text{random}(x,y)\)</td>
-							<td>Picks a random number between \(x\) and \(y\) (inclusive only on minimum). 
-							It defaults to zero if \(x\) is not provided, and \([0,1]\) if neither 
-							\(x\) nor \(y\) is provided.</td>
-							<td>Yes</td>
-						</tr>
-						<tr>
-							<td>\(\text{randomInt}(x,y)\)</td>
-							<td>Picks a random integer between \(x\) and \(y\) (inclusive only on minimum). 
-							It defaults to zero if \(x\) is not provided.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{re}(x)\)</td>
 							<td>Returns the real part of the complex number \(x\)</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{rightArithShift}(x, y)\)</td>
 							<td>Bitwise shifts \(x\) right arithmetically by \(y\) bits. For all you programmers it is equal 
 							to \(x &gt;&gt; y\)</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{rightLogShift}(x, y)\)</td>
 							<td>Bitwise shifts \(x\) right logically by \(y\) bits. It is equal to 
 							\(x &gt;&gt;&gt; y\)</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
-						<!--<tr>
+						<tr>
 							<td>\(\text{round}(x, n)\)</td>
 							<td>Rounds \(x\) to \(n\) decimal places. Default for \(n\) is zero. BUGGY</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
-						-->
 						<tr>
 							<td>\(\text{sec}(x)\)</td>
 							<td>Calculates the secant of \(x\).</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{sech}(x)\)</td>
 							<td>Calculates the hyperbolic secant of \(x\).</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{sign}(x)\)</td>
 							<td>Calculates the sign of \(x\). This is \(-1\) when \(x&lt;1\), 
 							\(1\) when \(x&gt;1\) and \(0\) when \(x=0\).</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{sin}(x)\)</td>
 							<td>Calculates the sine of \(x\)</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{sinh}(x)\)</td>
 							<td>Calculates the hyperbolic sine of \(x\)</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{sqrt}(x)\)</td>
 							<td>Calculates the square root of \(x\)</td>
-							<td>No</td>
+							<td></td>
 						</tr>
-						<!--<tr>
-							<td>\(\text{square}(x)\)</td>
-							<td>Calculates \(x^2\). BUGGY</td>
-							<td>Yes</td>
-						</tr>
-						-->
 						<tr>
 							<td>\(\text{std}(x,y,...)\)</td>
 							<td>Calculates the standard deviation of the inputs.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{stirlingS2}(x,y)\)</td>
 							<td>Calculates the 
 							<a href='https://en.wikipedia.org/wiki/Stirling_numbers_of_the_second_kind' target="_blank"></a>stirling number of the second kind</td>
-							<td>Yes</td>
+							<td>One <b>must</b> type a backslash, followed by "stirlingS2", then a space to use this function.</td>
 						</tr>
 						<tr>
 							<td>\(\text{tan}(x)\)</td>
 							<td>Calculates tangent of \(x\).</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{tanh}(x)\)</td>
 							<td>Calculates hyperbolic tangent of \(x\).</td>
-							<td>No</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{trace}(x)\)</td>
 							<td>Calculates trace of matrix \(x\), the sum 
 							of the elements on the main diagonal. \(x\)
 							must be square.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{transpose}(x)\)</td>
 							<td>Reflects each element of the square matrix \(x\) over 
 							its main diagonal.</td>
-							<td>Yes</td>
+							<td></td>
 						</tr>
-						<!--
 						<tr>
 							<td>\(\text{var}(x,y,...)\)</td>
-							<td>Computes the varience of the inputs as a list. BUGGY</td>
-							<td>Yes</td>
+							<td>Computes the variance of the inputs as a list.</td>
+							<td></td>
 						</tr>
-						-->
 					</table>
 					
-											<p>
-							Don't see the function you'd like? Check out the full list of functions from 
-							<a href='http://mathjs.org/docs/reference/functions/alphabetical.html'>mathjs.org</a>,
-							at your own risk, of course.
-						</p>
+					<p>
+						Don't see the function you'd like? Check out the full list of functions from 
+						<a href='http://mathjs.org/docs/reference/functions/alphabetical.html'>mathjs.org</a>,
+						at your own risk, of course.
+					</p>
 					</div>
 					<div id='help-how-it-works'>
 						<h1>A Primer on the Underlying Algorithms</h1>
 						<p>
 							This sections illuminates some of the algorithms that drive the mesh generation and graphing mechanism
-							of Koval's 3D Grapher.
+							of Koval's 3D Grapher. So what happens when you press enter?
 						</p>
+						<h3>1. Parameterize equation</h3>
+						<p>
+							Based on the type of equation, the expression is converted into a parametric form via straightforward transformations between 
+							coordinate systems. For example \(r=1\) becomes \(\left[x,y,z\right]=\left[\cos u\sin v,\sin u\sin v,\cos v\right]\). 
+						</p>
+						<h3>2. Compute domain</h3>
+						<p>
+							All domain definitions are read. The bounds of parametric variables, if not explicitly defined, are computed based on 
+							the domains of the dependant variables in the equation.
+						</p>
+						<h3>3. Divide the work</h3>
+						<p>
+							The domain is separated into nine square (in \(uv\) coordinates) chunks, which are sent to web workers to plot separately 
+							in the background. This is why one can see a 3 by 3 grid if "show mesh while rendering" is checked. 
+						</p>
+						<h3>4. Seed</h3>
+						<p>
+							Each worker plots a few points in the center of the domain. If the numerically calculated value of 
+							\(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right)\) or 
+							\(\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\) is equal 
+							to \((0,0,0)\), a one dimensional line is constructed, else a surface.
+						</p>
+						<h3>5. Spread</h3>
+						<p>
+							A front is created of active points -- the points on the edge of the surface. These points are dealt with in order 
+							of \(uv\) distance from the seed point.  
+						</p>
+						<p>
+							As each point is considered, the partial derivatives at that point 
+							are calculated and used to judge the \(uv\) distance at which new neighbors are to be created. The angle formed by 
+							the surrounding front is used to determine how many neighbors to add. These neighbors are tentatively plotted, and the 
+							result is used to compute a value indicating how small the distance to the neighbors 
+							should be. 
+						</p>
+						<p>
+							All of the neighbors are then replotted at this newly calculated distance, and a several-pass 
+							spacing algorithm is used to spread out neighbors that may be compressed by curvature. Crucially, 
+							some neighbors are added or culled to prevent an excess or shortage of connecting points over time. 
+						</p>
+						<p>
+							These neighbors are then officially plotted and added to the point front. They will later compute their
+							own neighbors, and the cycle continues until the entire domain has been covered.
+						</p>
+						<h3>6. Map points outside domain to inside</h3>
+						<p>
+							Using a carefully chosen function, points outside the \(xyz\) domain are mapped into a region 
+							just outside the domain, so that the mesh can quickly spread past regions outside the domain and 
+							back into important territory. 
+						</p>
+						<h3>7. Account for discontinuities and imaginary points</h3>
+						<p>
+							Functions like \(z=\operatorname{round}x\) are unique in that there are discontinuities between successive integers 
+							in the \(x\) direction. After plotting is finished, edges that have a length greater than expected are re-examined. 
+							If successively tests fail to find a point that bisects the distance between the nodes at the end of the edge, the edge 
+							is removed as a discontinuity.
+						</p>
+						<p>
+							Points which have an imaginary component are also removed at roughly the same time.
+						</p>
+						<h3>8. Clean rough edges</h3>
+						<p>
+							Removing edges and points can leave ugly, rough surfaces. A binary search is used to find the boundaries between 
+							real points and imaginary points and at discontinuities.
+						</p>
+						<h3>9. Render the completed mesh</h3>
+						<p>
+							The mesh is compiled into a polygon buffer and sent back to the main thread. When drawing, perspective and directional 
+							lighting are applied as the point is rotated and scaled to the correct position, as specified by the view point. If there 
+							is transparency, all the partially opaque polygons are sorted and compiled into a single buffer for rendering by WebGL. 
+						</p>
+						<img class='help-menu-image-wide' src='http://i.imgur.com/Feeh25s.png'>
 					</div>
 					<div id='help-about'>
 						<h1>About The Developer</h1>
@@ -799,9 +1193,20 @@
 							<a href='https://alankoval.com'>alankoval.com</a>
 						</p>
 					</div>
-					<div id='attribution'>
-						<a href='http://www.danilodemarco.com/'>link icon</a>
-						<a href='https://fonts.google.com/specimen/Source+Serif+Pro'>font</a>
+					<div id='help-acknowledgements'>
+						<h1>Acknowledgements</h1>
+						<p> 
+							Math library: <a href='http://mathjs.org/'>math.js</a>
+						</p>
+						<p>
+							Latex rendering and input boxes: <a href='http://mathquill.com/'>Mathquill</a>
+						</p>
+						<p>
+							Font: <a href='https://fonts.google.com/specimen/Source+Serif+Pro'>Frank Grie&#223;hammer</a>
+						</p>
+						<p>
+							Link icon: <a href='http://www.danilodemarco.com/'>Danilo De Marco</a>
+						</p>
 					</div>
 				</div>
 			</div>
@@ -876,7 +1281,7 @@
             <div class='popup-header'>
                 Animation Result
             </div>
-            <duv class='popup-inner-content'>
+            <div class='popup-inner-content'>
                 <canvas id='animation-canvas'></canvas>
                 <div>
                     <div class='animation-result-inputs'>
@@ -894,7 +1299,7 @@
                     <progress id='export-gif-progress-bar' class='hidden' value='0' max='1'></progress>
                     <button id='animation-result-exit-button'>Exit</button>
                 </div>
-            </duv>
+            </div>
         </div>
     </div>
     <div id='settings-popup' class='popup hidden'>
@@ -1079,7 +1484,7 @@
 					</div>
 					<div id='embed-mathematica-button' class='extra-options-option-wrapper'>
 						<img class='extra-options-option-icon'>
-						<div id='embed-mathematica-text' class='extra-options-option-text'>embed in mathematica workbook</div>
+						<div id='embed-mathematica-text' class='extra-options-option-text'>embed in Mathematica workbook</div>
 					</div>
 				</div>
 				<div id='tabs-wrapper'>

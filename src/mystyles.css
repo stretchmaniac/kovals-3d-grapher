@@ -174,8 +174,10 @@ button:active{
     display:none;
 }
 #help-inner-content{
+	overflow:auto;
     display:flex;
     flex-direction:row;
+	padding: 20px 0px 20px 20px;
 }
 .popup-content{
     position: absolute;
@@ -189,8 +191,7 @@ button:active{
     overflow-y:auto;
 }
 #help-menu{
-    height:100%;
-	min-width:130px;
+    
 }
 #help-info{
     background-color:white;
@@ -198,6 +199,8 @@ button:active{
     flex-grow:1;
 	min-width:1000px;
     padding:20px;
+	margin-bottom: -20px;
+    margin-top: -20px;
 }
 .help-menu-button{
     cursor:pointer;
@@ -679,6 +682,11 @@ hr + span{
 	max-width:50%;
 	margin:auto;
 }
+.help-menu-image-wide{
+	display:block;
+	max-width:75%;
+	margin:auto;
+}
 #tabs-wrapper{
 	position:absolute;
 	top:0px;
@@ -742,6 +750,19 @@ hr + span{
 .mesh-color-option-selected{
 	border:5px solid black;
 	height: 150%;
+}
+.menu-image-flexbox{
+	display:flex;
+	flex-direction:row;
+	max-width:100%;
+	align-items:center;
+}
+.menu-item-flexbox-image{
+	margin:5px;
+	max-width:calc(33% - 10px);
+}
+.table-eq{
+	padding:3px;
 }
 
 

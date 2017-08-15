@@ -336,7 +336,7 @@ $(function(){
 							'atanh bellNumbers bitAnd bitNot bitOr bitXor catalan cbrt ceil '+
 							'combinations complex composition concat conj cos cosh cot coth cross csc csch det distance dot dotDivide '+
 							'dotMultiply dotPow exp factorial fix floor gamma gcd hypot im inv kldivergence lcm leftShift log max mean median min mod '+
-							'mode nthRoot re rightArithShift rightLogShift sec sech sign sin sinh sqrt std tan tanh trace transpose',
+							'mode nthRoot re rightArithShift rightLogShift round sec sech sign sin sinh sqrt std tan tanh trace transpose var',
         handlers:{
             enter:function(mathField){
                 graphAll();
@@ -958,6 +958,10 @@ $('#ignore-normal-checkbox').change(function(){
 	}
 	
 	plotPointsWebGL();
+});
+
+$('#mesh-quality-input').change(function(){
+	domain.density = parseFloat($('#mesh-quality-input').val());
 });
 
 $('#directional-lighting-checkbox').change(function(){
