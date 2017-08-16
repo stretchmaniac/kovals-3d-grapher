@@ -650,6 +650,13 @@ function tabBehavior(){
 	newTabButton.onclick = function(){
 		let newEl = document.createElement('div');
 		newEl.classList.add('tab');
+		
+		let closeImg = document.createElement('img');
+		closeImg.src='../imgs/close-icon.svg';
+		closeImg.classList.add('tab-close-button');
+		
+		newEl.appendChild(closeImg);
+		
 		document.getElementById('tabs-wrapper').insertBefore(newEl, newTabButton);
 		
 		// push a new default domain to domains 
@@ -668,6 +675,7 @@ function updateTabClicks(){
 	let tabs = document.getElementsByClassName('tab');
 	let c = 0;
 	for(let a of [...tabs]){
+		console.log(a);
 		((tab, domainIndex) => {
 			tab.onclick = function(){
 				for(let t of [...tabs]){
@@ -679,6 +687,28 @@ function updateTabClicks(){
 				
 				updateGUIOnDomainSwitch();
 			};
+			// image on click
+			if(domainIndex > 0){
+				tab.children[0].onclick = function(e){
+					// select previous tab, remove domain, then remove tab
+					if(tab.classList.contains('selected')){
+						console.log('here');
+						console.log(tabs, domainIndex-1);
+						tabs[domainIndex - 1].onclick();
+						
+						domain = domains[domainIndex - 1];
+					}
+					
+					domains.splice(domainIndex, 1);
+					
+					tab.parentElement.removeChild(tab);
+					
+					updateGUIOnDomainSwitch();
+					updateTabClicks();
+					e.stopPropagation();
+					return false;
+				}
+			}
 		})(a,c);
 		c++;
 	}
