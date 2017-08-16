@@ -725,10 +725,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
         const pt = edgePoints[k];
         let u = pt.u, v = pt.v;
 		
-		u = u > domain.u.max ? domain.u.max + overlapUDelta : u;
-		u = u < domain.u.min ? domain.u.min - overlapUDelta : u;
-		v = v > domain.v.max ? domain.v.max + overlapVDelta : v;
-		v = v < domain.v.min ? domain.v.min - overlapVDelta : v;
+		u = u > domain.u.max + overlapUDelta ? domain.u.max + overlapUDelta : u;
+		u = u < domain.u.min - overlapUDelta ? domain.u.min - overlapUDelta : u;
+		v = v > domain.v.max + overlapVDelta ? domain.v.max + overlapVDelta : v;
+		v = v < domain.v.min - overlapVDelta ? domain.v.min - overlapVDelta : v;
         
         pt.u = u;
         pt.v = v;
@@ -778,6 +778,11 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				// in case they're already connected
 				removeConnection(bestV, bestU);
 				makeConnection(bestV, bestU);
+				
+				cornerPoint.outsideDomain = false;
+				// so the polygon isn't considered invalid later
+				bestU.outsideDomain = false;
+				bestV.outsideDomain = false;
 				
 				polygons.push({
 					pts:[bestU, bestV, cornerPoint]

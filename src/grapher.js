@@ -692,8 +692,6 @@ function updateTabClicks(){
 				tab.children[0].onclick = function(e){
 					// select previous tab, remove domain, then remove tab
 					if(tab.classList.contains('selected')){
-						console.log('here');
-						console.log(tabs, domainIndex-1);
 						tabs[domainIndex - 1].onclick();
 						
 						domain = domains[domainIndex - 1];
