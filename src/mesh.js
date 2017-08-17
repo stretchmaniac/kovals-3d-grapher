@@ -863,6 +863,11 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					// determine end point derivative better approximates the middle point
 					let bGuess = add(add(b, scalar(t.u-b.u, b.deriv1.du)), scalar(t.v-b.v, b.deriv1.dv));
 					let aGuess = add(add(a, scalar(t.u-a.u, a.deriv1.du)), scalar(t.v-a.v, a.deriv1.dv));
+					
+					if(xyzDist(t, aGuess) < defaultXYZLength/100){
+						return null;
+					}
+					
 					return xyzDist(t, aGuess) > xyzDist(t, bGuess);
 				}, xFunc, yFunc, zFunc, 20);
 				gap = xyzDist(edge1, edge2);
@@ -907,6 +912,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					
 					let bGuess = add(add(b, scalar(t.u-b.u, b.deriv1.du)), scalar(t.v-b.v, b.deriv1.dv));
 					let aGuess = add(add(a, scalar(t.u-a.u, a.deriv1.du)), scalar(t.v-a.v, a.deriv1.dv));
+					
 					return xyzDist(t, aGuess) > xyzDist(t, bGuess);
 				}, xFunc, yFunc, zFunc, 20);
 				
@@ -1610,7 +1616,11 @@ function findParametricEdge(realP, nonRealP, testFunc, xFunc, yFunc, zFunc, iter
     let inBetween = plotPlus(xFunc, yFunc, zFunc, u, v);
     
     //return new interval
-    if(!testFunc(inBetween, realP, nonRealP)){
+	let val = !testFunc(inBetween, realP, nonRealP);
+	if(val === null){
+		return realP;
+	}
+    if(val){
         return findParametricEdge(realP, inBetween, testFunc, xFunc, yFunc, zFunc, iterations - 1);
     }else{
         return findParametricEdge(inBetween, nonRealP, testFunc, xFunc, yFunc, zFunc, iterations - 1);

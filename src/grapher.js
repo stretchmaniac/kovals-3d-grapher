@@ -45,6 +45,7 @@ var domain = {
 	axisPrecision:2,
 	miniDisplay:false,
 	transparency:1,
+	shininess:150,
 	spreadCenter:{x:0,y:0,z:0}
 }
 
@@ -675,7 +676,6 @@ function updateTabClicks(){
 	let tabs = document.getElementsByClassName('tab');
 	let c = 0;
 	for(let a of [...tabs]){
-		console.log(a);
 		((tab, domainIndex) => {
 			tab.onclick = function(){
 				for(let t of [...tabs]){
@@ -733,6 +733,7 @@ function updateGUIOnDomainSwitch(){
 	document.getElementById('show-mesh-while-coloring-checkbox').checked = domain.showMeshWhileColoring;
 	document.getElementById('ignore-normal-checkbox').checked = domain.ignoreNormal;
 	document.getElementById('transparency-input').value = domain.transparency+'';
+	document.getElementById('shininess-input').value = domain.shininess+'';
 	document.getElementById('mesh-quality-input').value = domain.density;
 	for(let i of [...document.getElementsByClassName('mesh-color-option')]){
 		i.classList.remove('mesh-color-option-selected');
@@ -819,6 +820,7 @@ function readURLParameters(){
 	//    s - miniDomain for embedding
 	// q - mesh quality
 	// t - transparency
+	// s - shininess
 	
 	// if the url has a 'function' parameter, autofill the box 
 	let urlUtils = new URLSearchParams(window.location.search.substring(1));
@@ -937,6 +939,11 @@ function readURLParameters(){
 			document.getElementById('transparency-input').value = parseFloat(val);
 		}
 		
+		if(urlUtils.has('s')){
+			let val = urlUtils.get('s');
+			document.getElementById('shininess-input').value = parseFloat(val);
+		}
+		
 		// finally, graph the function
 		graphAll();
 	}
@@ -1024,6 +1031,14 @@ $('#transparency-input').change(function(){
 	
 	// since transparency is an attribute to webgl, we ned to refresh the buffer
 	updateBuffer(domain.polyData, domain.lineData, domain);
+	
+	plotPointsWebGL();
+});
+$('#shininess-input').change(function(){
+	domain.shininess = parseFloat(document.getElementById('shininess-input').value);
+	if(domain.shininess < 0){
+		domain.shininess = 0;
+	}
 	
 	plotPointsWebGL();
 });
@@ -2212,6 +2227,7 @@ function initWebGL(){
 	webGLInfo.directionalLightingLocation = gl.getUniformLocation(program, 'u_directional_lighting');
 	webGLInfo.normalMultiplierLocation = gl.getUniformLocation(program, 'u_normal_multiplier');
 	webGLInfo.ignoreNormalLocation = gl.getUniformLocation(program, 'u_ignore_normal');
+	webGLInfo.shininessLocation = gl.getUniformLocation(program, 'u_shininess');
 	
 	// make our buffer
 	let buffer = gl.createBuffer();
@@ -2660,6 +2676,7 @@ function plotPointsWebGL(){
 	for(let d of sortedDomains){
 		gl.uniform1f(webGLInfo.normalMultiplierLocation, d.normalMultiplier);
 		gl.uniform1f(webGLInfo.ignoreNormalLocation, d.ignoreNormal ? 1 : -1);
+		gl.uniform1f(webGLInfo.shininessLocation, d.shininess);
 		
 		let transparency = d.coloring ? d.transparency : 0;
 		let showBorder = !d.coloring || d.showMeshWhileColoring;
