@@ -253,9 +253,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		
 		connectLoop(initPoint, initPoint2, initPoint3);
 		
-		polygons.push({
-			pts:[initPoint, initPoint2, initPoint3]
-		});
+		pushToPolygons(initPoint, initPoint2, initPoint3);
 		
 		pointFront = [initPoint, initPoint2, initPoint3];
 	}
@@ -555,19 +553,15 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			}
 			
 			if(!isEntirelyInvalid([pt, p, pointList[i-1]])){
-				polygons.push({
-					pts:[pt, p, pointList[i-1]]
-				});
-				}
+				pushToPolygons(pt, p, pointList[i-1]);
+			}
 		}
 		
 		ePoint.beginning = pointList[pointList.length - 2];
 		
 		makeConnection(ePoint, pointList[pointList.length-2]);
 		if(!isEntirelyInvalid([pt, ePoint, pointList[pointList.length-2]])){
-			polygons.push({
-				pts:[pt, ePoint, pointList[pointList.length-2]]
-			});
+			pushToPolygons(pt, ePoint, pointList[pointList.length-2]);
 		}
     }
     
@@ -622,6 +616,11 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
     }
 	
 	// now a little post processing
+	// 1. delauney triangulation (all polygons)
+	// 2. move edges in (edgepoints only)
+	// 3. corners (4 points)
+	// 4. find non-real edges, etc (all polygons)
+	// 5. fix discontinuities (all polygons)
 	
 	let polysToRemove = [];
 	let polysToAdd = [];
@@ -629,18 +628,18 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	// A bit of semi-delauney triangulation
 	// find triangles in which the circumcenter lies outside the polygon, 
 	// find corresponding diamond then see if switching diagonals is a worthy decision
+	let time = Date.now();
 	for(let k = polygons.length - 1; k >= 0; k--){
 		let poly = polygons[k];
 		
 		// don't use "deleted" polygons (this duplicates some of the actions)
-		let moveOn = false;
-		for(let deleted of polysToRemove){
-			if(poly.pts.indexOf(deleted[0]) !== -1 && poly.pts.indexOf(deleted[1]) !== -1){
-				moveOn = true;
-				break;
+		let deletedPtCount = 0;
+		for(let j of poly.pts){
+			if(j.delauneyDeleted){
+				deletedPtCount++;
 			}
 		}
-		if(moveOn){
+		if(deletedPtCount >= 2){
 			continue;
 		}
 		
@@ -684,6 +683,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					
 					// remove the offending polygons and add new ones
 					polysToRemove.push([p1,  p2]);
+					p1.delauneyDeleted = true;
+					p2.delauneyDeleted = true;
 					
 					if(!isEntirelyInvalid([p1, ...common])){
 						polysToAdd.push({
@@ -702,20 +703,27 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	}
 	
 	for(let poly of polysToAdd){
-		polygons.push(poly);
+		pushToPolygons(...poly.pts);
 	}
 	
+	let subTime = Date.now();
 	// it is very important that the appropriate polygons be removed AFTER the other polygons 
 	// have been added. This way, the order can be preserved while getting rid of 
 	// polygons that were created at a previous step in the above logic
-	let polyLengthB = polygons.length;
+	let polyIndicesToRemove = [];
 	for(let [p1, p2] of polysToRemove){
-		for(var k = polygons.length - 1; k >= 0; k--){
-			if(polygons[k].pts.indexOf(p1) !== -1 && polygons[k].pts.indexOf(p2) !== -1){
-				polygons.splice(k, 1);
-			}
+		for(let poly of p1.polys.filter(x => p2.polys.indexOf(x) !== -1)){
+			polyIndicesToRemove.push(poly.polyIndex);
 		}
 	}
+	polyIndicesToRemove = [...(new Set(polyIndicesToRemove))];
+	polyIndicesToRemove.sort((a,b) => b-a);
+	for(let j of polyIndicesToRemove){
+		polygons.splice(j,1);
+	}
+	
+	console.log('triangle delauney time: '+(Date.now() - time),'splice time: '+(Date.now()-subTime));
+	time = Date.now();
 	
 	
 	let overlapUDelta = (domain.u.max - domain.u.min) / 1e3,
@@ -739,6 +747,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
         pt.z = newPt.z;
 		pt.deriv1 = newPt.deriv1;
     }
+	
+	console.log('move edges in time: ' + (Date.now() - time));
+	time = Date.now();
 	
 	// there were some issues with the corners not being filled in. 
 	// this solution checks each corner to see if it is in pointFront, 
@@ -784,12 +795,13 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				bestU.outsideDomain = false;
 				bestV.outsideDomain = false;
 				
-				polygons.push({
-					pts:[bestU, bestV, cornerPoint]
-				});
+				pushToPolygons(bestU, bestV, cornerPoint);
 			}
 		}
 	}
+	
+	console.log('corner time: '+(Date.now() - time));
+	time = Date.now();
 	
 	// remove all polygons that are entirely nonreal, outside the domain or infinite
 	let ptsToFix = new Set();
@@ -834,6 +846,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		p.discontinuous = newP.discontinuous;
 		p.deriv1 = valid.pt.deriv1;
 	}
+	
+	console.log('non-real, outside, infinite fixing time: ' + (Date.now() - time));
+	time = Date.now();
 	
 	let discPolysToAdd = [];	
 	// fix any points that "gave up" in makeNodeDist
@@ -934,6 +949,9 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	for(let poly of discPolysToAdd){
 		polygons.push(poly);
 	}
+	
+	console.log('discontinuity time: '+(Date.now() - time));
+	
 	
 	if(lines.length === 0){
 		onFinish();
@@ -1036,6 +1054,21 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	lines = [];
 	
 	onFinish();
+}
+
+function pushToPolygons(p1, p2, p3){
+	let poly = {
+		pts:[p1, p2, p3],
+		polyIndex: polygons.length
+	};
+	polygons.push(poly);
+	for(let i of [p1, p2, p3]){
+		if(!i.polys){
+			i.polys = [];
+		}
+		i.polys.push(poly);
+	}
+	
 }
 
 // approximates a cylinder with radius width connecting p1 to p2 with 
