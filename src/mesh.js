@@ -871,7 +871,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			if(xyzDist(p,testP) > defaultXYZLength*2 || true){
 				// check for discontinuity
 				let edge1 = null, edge2 = null,
-					gap = 0;
+					gap = 0, nulledOut = false;;
 				findParametricEdge(p, testP, (t, b, a) => {
 					edge1 = b;
 					edge2 = a;
@@ -879,7 +879,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					let bGuess = add(add(b, scalar(t.u-b.u, b.deriv1.du)), scalar(t.v-b.v, b.deriv1.dv));
 					let aGuess = add(add(a, scalar(t.u-a.u, a.deriv1.du)), scalar(t.v-a.v, a.deriv1.dv));
 					
-					if(xyzDist(t, aGuess) < defaultXYZLength/100){
+					if(xyzDist(t, aGuess) < defaultXYZLength/100 && xyzDist(t, bGuess) < defaultXYZLength/100){
+						nulledOut = true;
 						return null;
 					}
 					
@@ -891,7 +892,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				
 				// the second condition is to combat situations where the path between p and testP goes off a cliff and comes back
 				// before hitting testP
-				if(gap > xyzDist(p, testP)/200 && xyzDist(guess, testP) > gap / 8){
+				if(gap > xyzDist(p, testP)/200 && xyzDist(guess, testP) > gap / 8 && nulledOut === false){
 					edge1.deriv1 = safeDeriv(edge1, xFunc, yFunc, zFunc);
 					edge2.deriv1 = safeDeriv(edge2, xFunc, yFunc, zFunc);
 					hasDisc = true;
@@ -1636,28 +1637,28 @@ function plot(cX, cY, cZ, u,v){
 // this was originally designed to find the boundary between a real and non-real point, but 
 // it works just as well with any criteria
 function findParametricEdge(realP, nonRealP, testFunc, xFunc, yFunc, zFunc, iterations){
-    //when we have completed the necessary amount of iterations,
-    //  return the real end of the interval containing the boundary
-    if(iterations === 0){
-        return realP;
-    }
-    
-    //find the midpoint of realP and nonRealP in terms of parameterized variables
-    var u = (realP.u + nonRealP.u)/2;
-    var v = (realP.v + nonRealP.v)/2;
-    
-    let inBetween = plotPlus(xFunc, yFunc, zFunc, u, v);
-    
-    //return new interval
-	let val = !testFunc(inBetween, realP, nonRealP);
-	if(val === null){
+	if(iterations === 0){
 		return realP;
 	}
-    if(val){
-        return findParametricEdge(realP, inBetween, testFunc, xFunc, yFunc, zFunc, iterations - 1);
-    }else{
-        return findParametricEdge(inBetween, nonRealP, testFunc, xFunc, yFunc, zFunc, iterations - 1);
-    }
+	while(iterations > 0){
+		let u = (realP.u + nonRealP.u)/2,
+			v = (realP.v + nonRealP.v)/2;
+		let inBetween = plotPlus(xFunc, yFunc, zFunc, u, v);
+		
+		let val = testFunc(inBetween, realP, nonRealP);
+		
+		if(val === null){
+			return realP;
+		}
+		if(!val){
+			nonRealP = inBetween;
+		}else{
+			realP = inBetween;
+		}
+		iterations--;
+	}
+	
+	return realP;
 }
 
 function spreadCoord(val, center, spread){
