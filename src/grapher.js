@@ -317,7 +317,7 @@ $(function(){
 		domain.colorString = colorText;
 		
 		// since color (hue) is an attribute, update the buffer
-		updateBuffer(domain.polyData, domain.lineData, domain);
+		updateBuffer(domain.polyData, domain.polySkipData, domain.lineData, domain);
 		
 		plotPointsWebGL();
 	});
@@ -1030,7 +1030,7 @@ $('#transparency-input').change(function(){
 	}
 	
 	// since transparency is an attribute to webgl, we ned to refresh the buffer
-	updateBuffer(domain.polyData, domain.lineData, domain);
+	updateBuffer(domain.polyData, domain.polySkipData, domain.lineData, domain);
 	
 	plotPointsWebGL();
 });
@@ -1833,7 +1833,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	graphDomain.polyData = [];
 	graphDomain.lineData = [];
 	graphDomain.polyNumber = 0;
-	updateBuffer([],[], graphDomain);
+	updateBuffer([],[],[], graphDomain);
 	graphDomain.extrema = null;
 	
 	let lastUpdateTime = Date.now();
@@ -1882,6 +1882,8 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	let vGap = (graphDomain.v.max - graphDomain.v.min) / subSideCount;
 	let subdivisionCount = 0;
 	
+	graphDomain.polySkipData = [];
+	
 	for(let x = 0; x < subSideCount; x++){
 		for(let y = 0; y < subSideCount; y++){
 			let newSub = {
@@ -1906,6 +1908,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			
 			// create a spot for the polyData 
 			graphDomain.polyData.push([]);
+			graphDomain.polySkipData.push([]);
 			graphDomain.lineData.push([]);
 		}
 	}
@@ -1932,7 +1935,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			graphWorkersPool[domainIndex] = [];
 			graphWorkers = graphWorkersPool[domainIndex];
 			
-			updateBuffer(graphDomain.polyData, graphDomain.lineData, graphDomain);
+			updateBuffer(graphDomain.polyData, graphDomain.polySkipData, graphDomain.lineData, graphDomain);
 			onFinish();
 		}else if(subIndex === -1){
 			// nothing more for this web worker to do, terminate it
@@ -1975,20 +1978,38 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 					// since there are many webworkers about, there will be at least one update every 500ms,  
 					// (or however long it is), but probably many more. Thus we'll time actual redraws ourselves
 					if(Date.now() - lastUpdateTime > 1000){
-						updateBuffer(d.polyData, d.lineData, d);
+						updateBuffer(d.polyData, d.polySkipData, d.lineData, d);
 						plotPointsWebGL();
 						lastUpdateTime = Date.now();
 					}
 					
+				}else if(responseType === 'UPDATE_MODIFY_REMOVE'){
+					// instead of passing every polygon's data (again) after post-processing, 
+					// only deal with the polygons that are updated, modified, or removed
+					let [updateData, modificationData, removalData] = args;
+					d.polyData[graphWorker.subdivisionIndex] = d.polyData[graphWorker.subdivisionIndex].concat(updateData);
+					
+					for(let mod of modificationData){
+						// 9 per point, 3 pts per polygon (other attribs are included in updateBuffer)
+						let index = mod.polyIndex * 27;
+						let replacement = mod.data;
+						for(let k = 0; k < 27; k++){
+							d.polyData[graphWorker.subdivisionIndex][index + k] = replacement[k];
+						}
+					}
+					
+					// make ourselves a new data array
+					// removalDataIndex is sorted (handily enough)
+					d.polySkipData[graphWorker.subdivisionIndex] = removalData;
+					
 				}else if(responseType === 'FINISHED'){
 					console.log('worker '+graphWorker.index+' has finished');
 					
-					d.polyData[graphWorker.subdivisionIndex] = args[0];
-					d.lineData[graphWorker.subdivisionIndex] = args[1];
-					updateBuffer(d.polyData, d.lineData, d);
+					d.lineData[graphWorker.subdivisionIndex] = args[0];
+					updateBuffer(d.polyData, d.polySkipData, d.lineData, d);
 					
 					// synthesize extrema result
-					let workerExtrema  = args[2];
+					let workerExtrema  = args[1];
 					if(!d.extrema){
 						d.extrema = workerExtrema;
 					}else{
@@ -2281,17 +2302,29 @@ function initWebGL(){
 	
 }
 
-function updateBuffer(polyDatas, lineDatas, d){
+function updateBuffer(polyDatas, skipDatas, lineDatas, d){
+	let j = 0;
 	let totalLength = 0;
 	for(let polyD of polyDatas){
-		totalLength += polyD.length + 2*(polyD.length)/9;
+		totalLength += (polyD.length - skipDatas[j].length) + 2*(polyD.length - skipDatas[j].length)/9;
+		j++;
 	}
 	
 	let bufferData = new Float32Array(totalLength);
 	let i = 0;
+	j = 0;
 	for(let polyD of polyDatas){
 		let c = 0;
-		for(let item of polyD){
+		let skipArray = skipDatas[j];
+		let skipArrayIndex = 0;
+		for(let k = 0; k < polyD.length; k++){
+			if(skipArrayIndex < skipArray.length && k === skipArray[skipArrayIndex] * 27){
+				k += 26;
+				c = 0;
+				skipArrayIndex++;
+				continue;
+			}
+			let item = polyD[k]
 			bufferData[i] = item;
 			i++;
 			c++;
@@ -2304,6 +2337,7 @@ function updateBuffer(polyDatas, lineDatas, d){
 				c = 0;
 			}
 		}
+		j++;
 	}
 	
 	totalLength = 0;

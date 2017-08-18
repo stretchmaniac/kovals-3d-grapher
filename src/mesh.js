@@ -16,9 +16,29 @@ onmessage = function(e){
 	let [requestType, ...args] = e.data;
 	if(requestType === 'GRAPH'){
 		graphParametricFunction2(...args, function(){
-			postMessage(['FINISHED', getTotalPolyData(), getTotalLineData(), extrema]);
+			postMessage(['FINISHED', getTotalLineData(), extrema]);
 		});
 	}
+}
+
+function updateModifyRemove(modificationIndices, removalIndices){
+	// we want to pass to the main thread:
+	//  1. new data (getPartialPolyData())
+	//  2. modification data: indices of data buffer to replace, new data
+	//  3. removal; indices of data buffer to remove
+	let newData = getPartialPolyData();
+	
+	let modificationData = [];
+	for(let j of modificationIndices){
+		let replacement = [];
+		polyDataPt(replacement, polygons[j]);
+		modificationData.push({
+			polyIndex: j,
+			data: replacement
+		});
+	}
+	
+	postMessage(['UPDATE_MODIFY_REMOVE', newData, modificationData, removalIndices]);
 }
 
 function updateMainThread(){
@@ -615,6 +635,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		}
     }
 	
+	updateMainThread();
+	
 	// now a little post processing
 	// 1. delauney triangulation (all polygons)
 	// 2. move edges in (edgepoints only)
@@ -624,6 +646,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	
 	let polysToRemove = [];
 	let polysToAdd = [];
+	let globalPolyIndicesToRemove = [];
+	let globalModificationIndices = [];
 	
 	// A bit of semi-delauney triangulation
 	// find triangles in which the circumcenter lies outside the polygon, 
@@ -716,14 +740,10 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 			polyIndicesToRemove.push(poly.polyIndex);
 		}
 	}
-	polyIndicesToRemove = [...(new Set(polyIndicesToRemove))];
-	polyIndicesToRemove.sort((a,b) => b-a);
-	for(let j of polyIndicesToRemove){
-		polygons.splice(j,1);
-	}
+	globalPolyIndicesToRemove = globalPolyIndicesToRemove.concat(polyIndicesToRemove);
 	
-	console.log('triangle delauney time: '+(Date.now() - time),'splice time: '+(Date.now()-subTime));
-	time = Date.now();
+	//console.log('triangle delauney time: '+(Date.now() - time),'splice time: '+(Date.now()-subTime));
+	//time = Date.now();
 	
 	
 	let overlapUDelta = (domain.u.max - domain.u.min) / 1e3,
@@ -746,10 +766,12 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
         pt.y = newPt.y;
         pt.z = newPt.z;
 		pt.deriv1 = newPt.deriv1;
+		
+		globalModificationIndices.push(...pt.polys.map(x => x.polyIndex));
     }
 	
-	console.log('move edges in time: ' + (Date.now() - time));
-	time = Date.now();
+	//console.log('move edges in time: ' + (Date.now() - time));
+	//time = Date.now();
 	
 	// there were some issues with the corners not being filled in. 
 	// this solution checks each corner to see if it is in pointFront, 
@@ -800,8 +822,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		}
 	}
 	
-	console.log('corner time: '+(Date.now() - time));
-	time = Date.now();
+	//console.log('corner time: '+(Date.now() - time));
+	//time = Date.now();
 	
 	// remove all polygons that are entirely nonreal, outside the domain or infinite
 	let ptsToFix = new Set();
@@ -822,7 +844,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		}
 		
 		if(entirelyNonValid){
-			polygons.splice(i, 1);
+			globalPolyIndicesToRemove.push(i);
 		}else if(invalidPts.length > 0){
 			// move the points 'till they're valid again
 			for(let p of invalidPts){
@@ -845,10 +867,11 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		p.base = newP.base;
 		p.discontinuous = newP.discontinuous;
 		p.deriv1 = valid.pt.deriv1;
+		globalModificationIndices.push(...p.polys.map(x => x.polyIndex));
 	}
 	
-	console.log('non-real, outside, infinite fixing time: ' + (Date.now() - time));
-	time = Date.now();
+	//console.log('non-real, outside, infinite fixing time: ' + (Date.now() - time));
+	//time = Date.now();
 	
 	let discPolysToAdd = [];	
 	// fix any points that "gave up" in makeNodeDist
@@ -944,14 +967,20 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 					pts:[otherPt, discPts[0].edges[0], newEdge2]
 				});
 			}
-			polygons.splice(i, 1);
+			globalPolyIndicesToRemove.push(i);
 		}
 	}
 	for(let poly of discPolysToAdd){
-		polygons.push(poly);
+		pushToPolygons(...poly.pts);
 	}
 	
-	console.log('discontinuity time: '+(Date.now() - time));
+	// remove duplicates
+	globalPolyIndicesToRemove = [...(new Set(globalPolyIndicesToRemove))];
+	globalPolyIndicesToRemove.sort((a,b) => a-b);
+	
+	updateModifyRemove(globalModificationIndices, globalPolyIndicesToRemove);
+	
+	//console.log('discontinuity time: '+(Date.now() - time));
 	
 	
 	if(lines.length === 0){
@@ -1241,7 +1270,6 @@ function isEntirelyInvalid(pts){
 			invalid = false;
 		}
 	}
-	return false;
 	return invalid;
 }
 
