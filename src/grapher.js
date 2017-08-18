@@ -1036,8 +1036,8 @@ $('#transparency-input').change(function(){
 });
 $('#shininess-input').change(function(){
 	domain.shininess = parseFloat(document.getElementById('shininess-input').value);
-	if(domain.shininess < 0){
-		domain.shininess = 0;
+	if(domain.shininess < 1){
+		domain.shininess = 1;
 	}
 	
 	plotPointsWebGL();

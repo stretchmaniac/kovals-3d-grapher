@@ -767,7 +767,11 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
         pt.z = newPt.z;
 		pt.deriv1 = newPt.deriv1;
 		
-		globalModificationIndices.push(...pt.polys.map(x => x.polyIndex));
+		// edge points don't necessarily have to be a part of a polygon. If it's not, then 
+		// there's no point in modifying a polygon that isn't there. (Plus it doesn't exist...)
+		if(pt.polys){
+			globalModificationIndices.push(...pt.polys.map(x => x.polyIndex));
+		}
     }
 	
 	//console.log('move edges in time: ' + (Date.now() - time));
