@@ -1946,7 +1946,20 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			let workerSubdivision = subdivisions[subIndex];
 			
 			// copy domain to change it for the worker
+			// we don't want to pass polyData or anything like that to the worker
+			let tempAttribNames = ['polyData', 'lineData', 'polySkipData', 'polyBuffer', 'lineBuffer'];
+			let tempAttribValues = tempAttribNames.map(x => graphDomain[x]);
+			
+			for(let name of tempAttribNames){
+				graphDomain[name] = null;
+			}
+			
 			let workerDomain = JSON.parse(JSON.stringify(graphDomain));
+			
+			for(let j = 0; j < tempAttribNames.length; j++){
+				graphDomain[tempAttribNames[j]] = tempAttribValues[j];
+			}
+			
 			workerDomain.u = workerSubdivision.region.u;
 			workerDomain.v = workerSubdivision.region.v;
 			workerDomain.global = {
@@ -1967,49 +1980,45 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			
 			// handle responses
 			graphWorker.worker.onmessage = function(e){
-				let [responseType, ...args] = e.data;
+				let responseType = e.data.type,
+					data = e.data.data;
 				let d = graphWorker.domain;
 				if(responseType === 'POLYGON_UPDATE'){
 					// draw the updates
 					// expected args: [polydata, polygons.length]
-					d.polyData[graphWorker.subdivisionIndex] = d.polyData[graphWorker.subdivisionIndex].concat(args[0]);
-					d.lineData[graphWorker.subdivisionIndex] = d.lineData[graphWorker.subdivisionIndex].concat(args[1]);
-					
-					// since there are many webworkers about, there will be at least one update every 500ms,  
-					// (or however long it is), but probably many more. Thus we'll time actual redraws ourselves
-					if(Date.now() - lastUpdateTime > 1000){
-						updateBuffer(d.polyData, d.polySkipData, d.lineData, d);
-						plotPointsWebGL();
-						lastUpdateTime = Date.now();
+					for(let el of (new Float32Array(data))){
+						d.polyData[graphWorker.subdivisionIndex].push(el);
 					}
 					
-				}else if(responseType === 'UPDATE_MODIFY_REMOVE'){
-					// instead of passing every polygon's data (again) after post-processing, 
-					// only deal with the polygons that are updated, modified, or removed
-					let [updateData, modificationData, removalData] = args;
-					d.polyData[graphWorker.subdivisionIndex] = d.polyData[graphWorker.subdivisionIndex].concat(updateData);
+				}else if(responseType === 'LINE_UPDATE'){
 					
-					for(let mod of modificationData){
-						// 9 per point, 3 pts per polygon (other attribs are included in updateBuffer)
-						let index = mod.polyIndex * 27;
-						let replacement = mod.data;
-						for(let k = 0; k < 27; k++){
-							d.polyData[graphWorker.subdivisionIndex][index + k] = replacement[k];
+					for(let el of (new Float32Array(data))){
+						d.lineData[graphWorker.subdivisionIndex].push(el);
+					}
+					
+				}else if(responseType === 'POLYGON_MODIFY'){
+					// one can only call this function ONCE! (the polygon indices will get messed up)
+					let modificationData = new Float32Array(data);
+					
+					// the modification buffer is comprised of 28 element-length blocks
+					// the first float is the position in the polygon index, the next 
+					// 27 floats is the replacement data
+					let time = Date.now();
+					let baseIndex = 0;
+					for(let j = 0; j < modificationData.length; j++){
+						if(j % 28 === 0){
+							baseIndex = Math.round(modificationData[j]) * 27;
+						}else{
+							d.polyData[graphWorker.subdivisionIndex][baseIndex + j % 28 - 1] = modificationData[j];
 						}
 					}
+				}else if(responseType === 'POLYGON_REMOVE'){
 					
-					// make ourselves a new data array
-					// removalDataIndex is sorted (handily enough)
-					d.polySkipData[graphWorker.subdivisionIndex] = removalData;
+					d.polySkipData[graphWorker.subdivisionIndex] = new Float32Array(data);
 					
-				}else if(responseType === 'FINISHED'){
-					console.log('worker '+graphWorker.index+' has finished');
-					
-					d.lineData[graphWorker.subdivisionIndex] = args[0];
-					updateBuffer(d.polyData, d.polySkipData, d.lineData, d);
-					
+				}else if(responseType === 'EXTREMA'){
 					// synthesize extrema result
-					let workerExtrema  = args[1];
+					let workerExtrema = data;
 					if(!d.extrema){
 						d.extrema = workerExtrema;
 					}else{
@@ -2019,11 +2028,23 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 							d.extrema[i].min = workerExtrema && d.extrema[i].min > workerExtrema[i].min ? workerExtrema[i].min : d.extrema[i].min;
 						}
 					}
+				}else if(responseType === 'FINISHED'){
+					console.log('worker '+graphWorker.index+' has finished');	
+					updateBuffer(d.polyData, d.polySkipData, d.lineData, d);
 					
 					workerSubdivision.completed = true;
-					
 					// reassign this worker
 					onIdleWorker(graphWorker);
+					plotPointsWebGL();
+				}
+				
+				// since there are many webworkers about, there will be at least one update every 500ms,  
+				// (or however long it is), but probably many more. Thus we'll time actual redraws ourselves
+				if(Date.now() - lastUpdateTime > 500){
+					updateBuffer(d.polyData, d.polySkipData, d.lineData, d);
+					plotPointsWebGL();
+					lastUpdateTime = Date.now();
+					plotPointsWebGL();
 				}
 			}
 		}
@@ -2306,7 +2327,7 @@ function updateBuffer(polyDatas, skipDatas, lineDatas, d){
 	let j = 0;
 	let totalLength = 0;
 	for(let polyD of polyDatas){
-		totalLength += (polyD.length - skipDatas[j].length) + 2*(polyD.length - skipDatas[j].length)/9;
+		totalLength += (polyD.length - skipDatas[j].length*27) + 2*(polyD.length - skipDatas[j].length*27)/9;
 		j++;
 	}
 	
@@ -2320,11 +2341,10 @@ function updateBuffer(polyDatas, skipDatas, lineDatas, d){
 		for(let k = 0; k < polyD.length; k++){
 			if(skipArrayIndex < skipArray.length && k === skipArray[skipArrayIndex] * 27){
 				k += 26;
-				c = 0;
 				skipArrayIndex++;
 				continue;
 			}
-			let item = polyD[k]
+			let item = polyD[k];
 			bufferData[i] = item;
 			i++;
 			c++;
@@ -2341,28 +2361,32 @@ function updateBuffer(polyDatas, skipDatas, lineDatas, d){
 	}
 	
 	totalLength = 0;
-	for(let lineD of lineDatas){
-		totalLength += lineD.length;
-	}
-	
-	let lineBufferData = new Float32Array(totalLength);
-	i = 0;
-	for(let lineD of lineDatas){
-		for(let item of lineD){
-			lineBufferData[i] = item;
-			i++;
+	if(lineDatas){
+		for(let lineD of lineDatas){
+			totalLength += lineD.length;
 		}
+		
+		let lineBufferData = new Float32Array(totalLength);
+		i = 0;
+		for(let lineD of lineDatas){
+			for(let item of lineD){
+				lineBufferData[i] = item;
+				i++;
+			}
+		}
+		
+		// 3 for position times 2 points per line
+		d.lineNumber = lineBufferData.length / 6;
+		
+		d.lineBuffer = lineBufferData;
 	}
 	
 	// 3 for position, 3 for normal, 3 for barimetric data, 1 for transparency, 1 for hue per each point (of which 
 	// there are 3 per triangle)
 	d.polyNumber = bufferData.length / 33;
 	
-	// 3 for position times 2 points per line
-	d.lineNumber = lineBufferData.length / 6;
-	
 	d.polyBuffer = bufferData;
-	d.lineBuffer = lineBufferData;
+	
 }
 
 function setGlobalExtrema(){
@@ -2730,7 +2754,6 @@ function plotPointsWebGL(){
 			// combine all remaining buffers, sort by z 
 			// one chunk for each poly, 33 floats
 			let remainingBuffers = domains.filter(x => x.transparency !== 1);
-			
 			chunkArray = new Array(remainingBuffers.reduce((a,b) => a + b.polyBuffer.length, 0) / 33);
 			let chunkCount = 0;
 			for(let k = 0; k < remainingBuffers.length; k++){

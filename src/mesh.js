@@ -16,7 +16,9 @@ onmessage = function(e){
 	let [requestType, ...args] = e.data;
 	if(requestType === 'GRAPH'){
 		graphParametricFunction2(...args, function(){
-			postMessage(['FINISHED', getTotalLineData(), extrema]);
+			let lineData = new Float32Array(getTotalLineData());
+			postMessage({type:'EXTREMA', data:extrema});
+			postMessage({type:'FINISHED'});
 		});
 	}
 }
@@ -26,23 +28,28 @@ function updateModifyRemove(modificationIndices, removalIndices){
 	//  1. new data (getPartialPolyData())
 	//  2. modification data: indices of data buffer to replace, new data
 	//  3. removal; indices of data buffer to remove
-	let newData = getPartialPolyData();
 	
 	let modificationData = [];
 	for(let j of modificationIndices){
+		modificationData.push(j);
 		let replacement = [];
 		polyDataPt(replacement, polygons[j]);
-		modificationData.push({
-			polyIndex: j,
-			data: replacement
-		});
+		modificationData.push(...replacement);
 	}
 	
-	postMessage(['UPDATE_MODIFY_REMOVE', newData, modificationData, removalIndices]);
+	removalIndices = new Float32Array(removalIndices);
+	modificationData = new Float32Array(modificationData);
+	
+	updateMainThread();
+	postMessage({type:'POLYGON_MODIFY', data:modificationData.buffer}, [modificationData.buffer]);
+	postMessage({type:'POLYGON_REMOVE', data:removalIndices.buffer}, [removalIndices.buffer]);
 }
 
 function updateMainThread(){
-	postMessage(['POLYGON_UPDATE', getPartialPolyData(), getPartialLineData()]);
+	let updateData = new Float32Array(getPartialPolyData());
+	let lineData = new Float32Array(getPartialLineData());
+	postMessage({type:'POLYGON_UPDATE', data:updateData.buffer}, [updateData.buffer]);
+	postMessage({type:'LINE_UPDATE', data:lineData.buffer}, [lineData.buffer]);
 }
 
 function getTotalPolyData(){
@@ -211,7 +218,6 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 		let notChangeVar = changeVar === 'v' ? 'u' : 'v';
 		let notVarStep = (domain.global[notChangeVar].max - domain.global[notChangeVar].min) / domain.global.subdivisionSideCount;
 		let val = changeVar === 'u' ? vMiddle : uMiddle;
-		console.log(changeVar);
 		if(Math.abs(domain.global[notChangeVar].min + notVarStep/2 - val) > notVarStep / 20){
 			console.log('letting another worker take up the slack...');
 			onFinish();
@@ -1086,6 +1092,8 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 	}	
 	
 	lines = [];
+	
+	updateMainThread();
 	
 	onFinish();
 }
