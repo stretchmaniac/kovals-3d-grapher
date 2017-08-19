@@ -264,7 +264,7 @@ $(function(){
     
     $('#settings-icon').click(function(){
         $('#settings-popup').removeClass('hidden');
-        $(document).mouseup(function (e){
+        $(document).mousedown(function (e){
             var container = $("#settings-content");
             if (!container.is(e.target) && container.has(e.target).length === 0){
                 $('#settings-popup').addClass('hidden');
@@ -2753,7 +2753,7 @@ function plotPointsWebGL(){
 			
 			// combine all remaining buffers, sort by z 
 			// one chunk for each poly, 33 floats
-			let remainingBuffers = domains.filter(x => x.transparency !== 1);
+			let remainingBuffers = domains.filter(x => x.transparency !== 1 && x.transparency !== 0);
 			chunkArray = new Array(remainingBuffers.reduce((a,b) => a + b.polyBuffer.length, 0) / 33);
 			let chunkCount = 0;
 			for(let k = 0; k < remainingBuffers.length; k++){
