@@ -313,7 +313,6 @@ $(function(){
 		let colorText = e.target.style.backgroundColor;
 		let rgb = colorText.split(',').map(x=>parseInt(x.replace(/\D/g,'')));
 		domain.color = rgbToHsl(...rgb)[0];
-		console.log(domain.color);
 		domain.colorString = colorText;
 		
 		// since color (hue) is an attribute, update the buffer
@@ -661,7 +660,14 @@ function tabBehavior(){
 		document.getElementById('tabs-wrapper').insertBefore(newEl, newTabButton);
 		
 		// push a new default domain to domains 
-		domains.push(JSON.parse(JSON.stringify(defaultDomain)));
+		let newDomain = JSON.parse(JSON.stringify(defaultDomain));
+		// copy global settings over 
+		newDomain.perspective = domain.perspective;
+		newDomain.directionalLighting = domain.directionalLighting;
+		newDomain.showAxes = domain.showAxes;
+		newDomain.showAxesLabels = domain.showAxesLabels;
+		
+		domains.push(newDomain);
 		
 		updateGUIOnDomainSwitch();
 		
@@ -729,9 +735,10 @@ function updateGUIOnDomainSwitch(){
 	//   opacity
 	//   mesh quality
 	//   color
-	document.getElementById('color-checkbox').checked = domain.coloring;
+	//   shininess
 	document.getElementById('show-mesh-while-coloring-checkbox').checked = domain.showMeshWhileColoring;
 	document.getElementById('ignore-normal-checkbox').checked = domain.ignoreNormal;
+	document.getElementById('invert-normal-button').style.opacity = domain.ignoreNormal ? .2 : 1;
 	document.getElementById('transparency-input').value = domain.transparency+'';
 	document.getElementById('shininess-input').value = domain.shininess+'';
 	document.getElementById('mesh-quality-input').value = domain.density;
@@ -795,18 +802,8 @@ function linePolyIntersection(poly, lp1, lp2){
 
 function readURLParameters(){
 	// URL encoding reference:
-	// f - function, what goes in the main box
-	// x - string - "xmin, xmax"
-	// y
-	// z
-	// u
-	// v 
-	// r 
-	// t - theta  
-	// phi
-	// rh - rho 
-	// ...
-	// n - normal multiplier
+	// f{n}n - nth function, what goes in the main box
+	// n{n} - normal multiplier, 0 if -1 else not present
 	// r - a 24 digit string, representing 3 components of the 
 	//  x vector and 3 of the y
 	// op - a string representing the selected options
@@ -818,95 +815,88 @@ function readURLParameters(){
 	//    a - don't show axes
 	//    l - don't show axes labels
 	//    s - miniDomain for embedding
-	// q - mesh quality
-	// t - transparency
-	// s - shininess
+	// q{n} - mesh quality
+	// t{n} - transparency
+	// s{n} - shininess
+	// c{n} - color
 	
 	// if the url has a 'function' parameter, autofill the box 
 	let urlUtils = new URLSearchParams(window.location.search.substring(1));
-	if(urlUtils.has('f')){
-		let funcValue = urlUtils.get('f');
+	
+	for(let funcNum = 0; urlUtils.has('f'+funcNum); funcNum++){
+		// create a new domain
+		if(funcNum > 0){
+			document.getElementById('add-tab-button').onclick();
+		}
+		let newDomain = domains[domains.length - 1];
+		
+		let funcValue = urlUtils.get('f'+funcNum);
 		// write function value to function input
+		// the input was compressed in a very home-spun way. Don't look at me like that, it works!
+		
+		funcValue = funcValue.replace(/~l/g, '\\left');
+		funcValue = funcValue.replace(/~r/g, '\\right');
+		funcValue = funcValue.replace(/~\./g, ' ');
+		funcValue = funcValue.replace(/~_/g, '{');
+		funcValue = funcValue.replace(/~!/g, '}');
+		funcValue = funcValue.replace(/~~/g,',');
+		funcValue = funcValue.replace(/~/g, '\\');
+		
 		console.log('writing url value', funcValue);
-		MQ(document.getElementById('equation-input')).latex(funcValue);
+		newDomain.expressionLatex = funcValue;
 		
 		// read domain values, if any
-		for(let key of [['dca','cart'],['dcy','cyl'],['ds','sphere'],['dp','par']]){
+		for(let key of [['da','cart'],['db','cyl'],['dc','sphere'],['dd','par']]){
+			
 			let [urlKey, elementIDPart] = key;
-			if(urlUtils.has(urlKey)){
-				let val = urlUtils.get(urlKey);
-				MQ(document.getElementById(elementIDPart+'-domain-bar')).latex(val);
+			if(urlUtils.has(urlKey+''+funcNum)){
+				let val = urlUtils.get(urlKey+''+funcNum);
+				// more fun compression! Brought to you by Alan himself!
+				
+				val = val.replace(/~l/g, '\\left');
+				val = val.replace(/~r/g, '\\right');
+				val = val.replace(/~in/g, ' \\in');
+				val = val.replace(/~\./g, ',');
+				val = val.replace(/~/g, ' ');
+				
+				let fullElName = elementIDPart === 'cart' ? 'cartesian' :
+								elementIDPart === 'cyl' ? 'cylindrical' :
+								elementIDPart === 'sphere' ? 'spherical':
+								'parametric';
+				newDomain[fullElName+'DomainLatex'] = val; 
 			}
 		}
 		
 		// get any options
 		// normal multiplier
-		if(urlUtils.has('n')){
-			domain.normalMultiplier = parseFloat(urlUtils.get('n'));
-		}
-		
-		// rotation
-		// while it is technically possible to get away with only 5 components (x and y 
-		// are perpendicular), you run into issues when x.y ~= 0 and |y| ~= 0
-		if(urlUtils.has('r')){
-			let val = urlUtils.get('r');
-			let xString = val.substr(0, 12);
-			let yString = val.substr(12, 12);
-			let xData = [xString.substr(0,4), xString.substr(4,4), xString.substr(8,4)].map(x => parseInt(x)/(x.substr(0,1)==='-' ? 100 : 1000));
-			let yData = [yString.substr(0,4), yString.substr(4,4), yString.substr(8,4)].map(x => parseInt(x)/(x.substr(0,1)==='-' ? 100 : 1000));
-			let xVec = {x: xData[0], y: xData[1], z: xData[2]};
-			// for rounding errors
-			xVec = scalar(1/magnitude(xVec), xVec);
-			
-			// yVec needs to be perpendicular to xVec, hence yVec . xVec == 0
-			let yVec = {x: yData[0], y:yData[1], z:yData[2]};
-			
-			yVec = scalar(1/magnitude(yVec), yVec);
-			
-			let zVec = cross(xVec, yVec); // obviously
-			axes = [xVec, yVec, zVec];
-
-			console.log(axes);
+		if(urlUtils.has('n'+funcNum)){
+			newDomain.normalMultiplier = -1;
 		}
 		
 		// menu options
-		if(urlUtils.has('op')){
-			let val = urlUtils.get('op');
-			if(val.indexOf('m') !== -1){
-				document.getElementById('color-checkbox').checked = false;
-				domain.coloring = false;
-			}
+		if(urlUtils.has('op'+funcNum)){
+			let val = urlUtils.get('op'+funcNum);
 			if(val.indexOf('d') !== -1){
+				newDomain.directionalLighting = false;
 				document.getElementById('directional-lighting-checkbox').checked = false;
-				for(let d of domains){
-					d.directionalLighting = false;
-				}
 			}
 			if(val.indexOf('p') !== -1){
+				newDomain.perspective = false;
 				document.getElementById('perspective-checkbox').checked = false;
-				for(let d of domains){
-					d.perspective = false;
-				}
 			}
 			if(val.indexOf('r') !== -1){
-				document.getElementById('show-mesh-while-coloring-checkbox').checked = true;
-				domain.showMeshWhileColoring = true;
+				newDomain.showMeshWhileColoring = true;
 			}
 			if(val.indexOf('n') !== -1){
-				document.getElementById('ignore-normal-checkbox').checked = true;
-				domain.ignoreNormal = true;
+				newDomain.ignoreNormal = true;
 			}
 			if(val.indexOf('a') !== -1){
+				newDomain.showAxes = false;
 				document.getElementById('axes-checkbox').checked = false;
-				for(let d of domains){
-					d.showAxes = false;
-				}
 			}
 			if(val.indexOf('l') !== -1){
+				newDomain.showAxesLabels = false;
 				document.getElementById('show-axes-labels-checkbox').checked = false;
-				for(let d of domains){
-					d.showAxesLabels = false;
-				}
 			}
 			if(val.indexOf('s') !== -1){
 				domain.miniDisplay = true;
@@ -929,24 +919,177 @@ function readURLParameters(){
 		}
 		
 		// mesh quality
-		if(urlUtils.has('q')){
-			let val = urlUtils.get('q');
-			document.getElementById('mesh-quality-input').value = parseFloat(val);
+		if(urlUtils.has('q'+funcNum)){
+			let val = urlUtils.get('q'+funcNum);
+			newDomain.density = parseFloat(val);
 		}
 		
-		if(urlUtils.has('t')){
-			let val = urlUtils.get('t');
-			document.getElementById('transparency-input').value = parseFloat(val);
+		if(urlUtils.has('t'+funcNum)){
+			let val = urlUtils.get('t'+funcNum);
+			newDomain.transparency = parseFloat(val);
 		}
 		
-		if(urlUtils.has('s')){
-			let val = urlUtils.get('s');
-			document.getElementById('shininess-input').value = parseFloat(val);
+		if(urlUtils.has('s'+funcNum)){
+			let val = urlUtils.get('s'+funcNum);
+			newDomain.shininess = parseFloat(val);
 		}
+		
+		if(urlUtils.has('c'+funcNum)){
+			let colorVal = urlUtils.get('c'+funcNum);
+			let c1 = colorVal.substr(0, 3),
+				c2 = colorVal.substr(3, 3),
+				c3 = colorVal.substr(6, 3);
+			newDomain.colorString = 'rgb('+[c1,c2,c3].map(x=>parseInt(x)).join(', ')+')';
+			newDomain.color = rgbToHsl(...[c1,c2,c3].map(x=>parseInt(x)))[0];
+		}
+		
+		domain = newDomain;
+		updateGUIOnDomainSwitch();
+	}
+	
+	// rotation
+	// while it is technically possible to get away with only 5 components (x and y 
+	// are perpendicular), you run into issues when x.y ~= 0 and |y| ~= 0
+	if(urlUtils.has('r')){
+		let val = urlUtils.get('r');
+		let xString = val.substr(0, 12);
+		let yString = val.substr(12, 12);
+		let xData = [xString.substr(0,4), xString.substr(4,4), xString.substr(8,4)].map(x => parseInt(x)/(x.substr(0,1)==='-' ? 100 : 1000));
+		let yData = [yString.substr(0,4), yString.substr(4,4), yString.substr(8,4)].map(x => parseInt(x)/(x.substr(0,1)==='-' ? 100 : 1000));
+		let xVec = {x: xData[0], y: xData[1], z: xData[2]};
+		// for rounding errors
+		xVec = scalar(1/magnitude(xVec), xVec);
+		
+		// yVec needs to be perpendicular to xVec, hence yVec . xVec == 0
+		let yVec = {x: yData[0], y:yData[1], z:yData[2]};
+		
+		yVec = scalar(1/magnitude(yVec), yVec);
+		
+		let zVec = cross(xVec, yVec); // obviously
+		axes = [xVec, yVec, zVec];
+		
+		domain = domains[0];
+		updateGUIOnDomainSwitch();
 		
 		// finally, graph the function
-		graphAll();
+		graphAll();	
 	}
+}
+
+function getLinkUrl(){
+	// create url (see readURLParameters for reference)
+	let url = '?'
+	
+	let funcNum = 0;
+	for(let d of domains){
+		domain = d;
+		updateGUIOnDomainSwitch();
+		
+		url += (funcNum > 0 ? '&' : '') +'f'+funcNum+'=';
+		let func = MQ(document.getElementById('equation-input')).latex();
+		// we'll replace these later
+		func = func.replace(/\\left/g, '~l');
+		func = func.replace(/\\right/g, '~r');
+		func = func.replace(/ /g, '~.');
+		func = func.replace(/\\/g,'~');
+		func = func.replace(/{/g, '~_');
+		func = func.replace(/}/g, '~!');
+		func = func.replace(/\,/g,'~~');
+		url += encodeURIComponent(func);
+		
+		let domainLayers = [];
+		// get the visible domain items
+		for(let k of [['da','cart'],['db','cyl'],['dc','sphere'],['dd','par']]){
+			let [code, id] = k;
+			let el = document.getElementById(id+'-domain-bar');
+			let style = window.getComputedStyle(el);
+			if(style.display !== 'none'){
+				domainLayers.push({
+					code:code,
+					val:MQ(el).latex()
+				});
+			}
+		}
+		
+		for(let domainItem of domainLayers){
+			let val = domainItem.val;
+			val = val.replace(/\\left/g, '~l');
+			val = val.replace(/\\right/g, '~r');
+			val = val.replace(/\\ /g, '');
+			val = val.replace(/\\in/g,' in');
+			val = val.replace(/\,/g, '~.');
+			val = val.replace(/ /g, '~');
+			url += '&'+domainItem.code+''+funcNum+'='+encodeURIComponent(val);
+		}
+		
+		if(domain.normalMultiplier !== 1){
+			url += '&n'+funcNum+'='+encodeURIComponent('0');
+		}
+		
+		// options
+		//    d - don't use directional lighting
+		//    p - don't use perspective
+		//    r - render mesh when shading
+		//    n - ignore normals
+		//    a - don't show axes
+		//    l - don't show axes labels
+		//    s - miniDisplay (for embedding)
+		let optionsString = ''
+		if(!domain.directionalLighting){
+			optionsString += 'd';
+		}
+		if(!domain.perspective){
+			optionsString += 'p';
+		}
+		if(domain.showMeshWhileColoring){
+			optionsString += 'r';
+		}
+		if(!domain.showAxes){
+			optionsString += 'a';
+		}
+		if(!domain.showAxesLabels){
+			optionsString += 'l';
+		}
+		if(domain.ignoreNormal){
+			optionsString += 'n';
+		}
+		if(domain.miniDisplay){
+			optionsString += 's';
+		}
+		
+		if(optionsString !== ''){
+			url += '&op'+funcNum+'='+encodeURIComponent(optionsString);
+		}
+		
+		url += '&q'+funcNum+'='+encodeURIComponent(domain.density+'');
+		url += '&t'+funcNum+'='+encodeURIComponent(domain.transparency+'');
+		url += '&s'+funcNum+'='+encodeURIComponent(domain.shininess+'');
+		
+		let colorEncoded = domain.colorString.replace(/ /g, '');
+		let colors = colorEncoded.replace(/rgb\(/g, '').replace(/\)/g,'').split(',');
+		for(let j = 0; j < colors.length; j++){
+			while((colors[j]+'').length < 3){
+				colors[j] = '0'+colors[j];
+			}
+		}
+		
+		url += '&c'+funcNum+'='+encodeURIComponent(colors.join(''));
+		
+		funcNum++;
+	}
+	
+	// rotation
+	let get4Digits = x => {
+		let num = (x+'').replace(/\./g, '');
+		while(num.length < 4){
+			num += '0';
+		}
+		return num.substr(0,4);
+	}
+	let rotVal = get4Digits(axes[0].x) + get4Digits(axes[0].y) + get4Digits(axes[0].z) + 
+		get4Digits(axes[1].x) + get4Digits(axes[1].y) + get4Digits(axes[1].z);
+	url += '&r='+encodeURIComponent(rotVal);
+	return url;
 }
 
 $(window).resize(function(){
@@ -1147,7 +1290,6 @@ function onGetLinkClicked(){
 	document.getElementById('get-link-text').textContent = 'https://alankoval.com/3dgrapher'+url;
 	
 	selectText('get-link-text');
-	console.log('click');
 	document.getElementById('get-link-button').onclick = function(){
 		return false;
 	};
@@ -1172,88 +1314,6 @@ function onMathematicaEmbedClicked(){
 	document.getElementById('embed-mathematica-button').onclick = function(){
 		return false;
 	}
-}
-
-function getLinkUrl(){
-	// create url (see readURLParameters for reference)
-	let url = '?'
-	let func = MQ(document.getElementById('equation-input')).latex();
-	url += 'f=' + encodeURIComponent(func);
-	
-	let domainLayers = [];
-	// get the visible domain items
-	for(let k of [['dca','cart'],['dcy','cyl'],['ds','sphere'],['dp','par']]){
-		let [code, id] = k;
-		let el = document.getElementById(id+'-domain-bar');
-		let style = window.getComputedStyle(el);
-		if(style.display !== 'none'){
-			domainLayers.push({
-				code:code,
-				val:MQ(el).latex()
-			});
-		}
-	}
-	
-	for(let domainItem of domainLayers){
-		url += '&'+domainItem.code+'='+encodeURIComponent(domainItem.val);
-	}
-	
-	url += '&n='+encodeURIComponent(domain.normalMultiplier < 0 ? '-1' : '1');
-	
-	// rotation
-	let get4Digits = x => {
-		let num = (x+'').replace(/\./g, '');
-		while(num.length < 4){
-			num += '0';
-		}
-		return num.substr(0,4);
-	}
-	let rotVal = get4Digits(axes[0].x) + get4Digits(axes[0].y) + get4Digits(axes[0].z) + 
-		get4Digits(axes[1].x) + get4Digits(axes[1].y) + get4Digits(axes[1].z);
-	url += '&r='+encodeURIComponent(rotVal);
-	
-	// options
-	//    m - don't shade mesh
-	//    d - don't use directional lighting
-	//    p - don't use perspective
-	//    r - render mesh when shading
-	//    a - don't show axes
-	//    l - don't show axes labels
-	//    s - miniDisplay (for embedding)
-	let optionsString = ''
-	if(!domain.coloring){
-		optionsString += 'm';
-	}
-	if(!domain.directionalLighting){
-		optionsString += 'd';
-	}
-	if(!domain.perspective){
-		optionsString += 'p';
-	}
-	if(domain.showMeshWhileColoring){
-		optionsString += 'r';
-	}
-	if(!domain.showAxes){
-		optionsString += 'a';
-	}
-	if(!domain.showAxesLabels){
-		optionsString += 'l';
-	}
-	if(domain.ignoreNormal){
-		optionsString += 'n';
-	}
-	if(domain.miniDisplay){
-		optionsString += 's';
-	}
-	
-	if(optionsString !== ''){
-		url += '&op='+encodeURIComponent(optionsString);
-	}
-	
-	url += '&q='+encodeURIComponent(domain.density+'');
-	url += '&t='+encodeURIComponent(domain.transparency+'');
-	
-	return url;
 }
 
 function setDomainVisibility(){
@@ -1593,7 +1653,6 @@ function graphAll(onFinish){
 				d[i].min = spreadMin;
 				d[i].max = spreadMax;
 			}
-			console.log(d.x,d.y,d.z);
 		}
 	}
 	
@@ -1675,6 +1734,8 @@ function graphAll(onFinish){
 	}
 	domain = originalDomain;
 	updateGUIOnDomainSwitch();
+	
+	plotPointsWebGL();
 }
 
 function readDomainInputs(){
@@ -1712,8 +1773,6 @@ function graph(onFinish){
     }
     
     spread = {x:domain.x.spread, y:domain.y.spread, z:domain.z.spread}
-	
-    domain.coloring = $('#color-checkbox').prop('checked');
     
     var density = parseInt($('#mesh-quality-input').val(),10);
     domain.density = density;
@@ -1770,7 +1829,6 @@ function graph(onFinish){
             
             domain.v.max = antiSpread(domain[otherVars[1]].max, domain.spreadCenter[otherVars[1]], domain[otherVars[1]].spread);
             domain.v.min = antiSpread(domain[otherVars[1]].min, domain.spreadCenter[otherVars[1]], domain[otherVars[1]].spread);
-			console.log(domain);
         }else if(domain.currentSystem.indexOf('cylindrical') !== -1 || domain.currentSystem.indexOf('spherical') !== -1){
 			
             var cyl = domain.currentSystem.indexOf('cylindrical') !== -1;
@@ -1802,8 +1860,6 @@ function graph(onFinish){
                 inputs.y = '('+cylInputs.r+')*sin('+cylInputs.theta+')*cos('+cylInputs.sphi+')';
                 inputs.z = '('+cylInputs.r+')*sin('+cylInputs.sphi+')';
             }
-            
-            console.log(inputs)
         }
 		
 		graphParametricFunction(inputs.x, inputs.y, inputs.z, spread, onFinish);
@@ -1850,7 +1906,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 	
 	let workerIndex = 0;
 	while(graphWorkers.length < (Math.max((navigator.hardwareConcurrency - 1) / domains.length, 1) | 2)){
-		console.log('creating worker '+workerIndex);
+		console.log('creating worker ', domains.indexOf(domain), workerIndex);
 		// create a worker
 		graphWorkers.push({
 			worker: new Worker('mesh.js'),
@@ -1971,7 +2027,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 			graphWorker.subdivisionIndex = workerSubdivision.index;
 			workerSubdivision.tagged = true;
 			
-			console.log('worker '+graphWorker.index+' has been assigned',domains.indexOf(graphDomain));
+			//console.log('worker '+graphWorker.index+' has been assigned',domains.indexOf(graphDomain));
 			
 			graphWorker.domain = graphDomain;
 			
@@ -2029,7 +2085,7 @@ function graphParametricFunction(xFunc, yFunc, zFunc, spread, onFinish){
 						}
 					}
 				}else if(responseType === 'FINISHED'){
-					console.log('worker '+graphWorker.index+' has finished');	
+					//console.log('worker '+graphWorker.index+' has finished');	
 					updateBuffer(d.polyData, d.polySkipData, d.lineData, d);
 					
 					workerSubdivision.completed = true;
@@ -2221,7 +2277,6 @@ function pointToQuat(p){
 
 // assumes that all points and polygons have been created
 function initWebGL(){
-	console.log('initializing webgl...');
 	let gl = document.getElementById('canvas').getContext('webgl', {alpha: false} );
 	
 	if(!gl){
@@ -2234,14 +2289,14 @@ function initWebGL(){
 	gl.shaderSource(vertexShader, document.getElementById('vertex-shader').text);
 	gl.compileShader(vertexShader);
 	
-	console.log(gl.getShaderInfoLog(vertexShader));
+	//console.log(gl.getShaderInfoLog(vertexShader));
 	
 	// create fragment shader
 	let fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
 	gl.shaderSource(fragmentShader, document.getElementById('fragment-shader').text);
 	gl.compileShader(fragmentShader);
 	
-	console.log(gl.getShaderInfoLog(fragmentShader));
+	//console.log(gl.getShaderInfoLog(fragmentShader));
 	
 	// create our program
 	let program = gl.createProgram();
@@ -2249,7 +2304,7 @@ function initWebGL(){
 	gl.attachShader(program, fragmentShader);
 	gl.linkProgram(program);
 	
-	console.log(gl.getProgramInfoLog(program));
+	//console.log(gl.getProgramInfoLog(program));
 	
 	// get attribute/uniform locations
 	webGLInfo.positionLocation = gl.getAttribLocation(program, 'a_position');
@@ -2289,20 +2344,20 @@ function initWebGL(){
 	gl.shaderSource(axisVertexShader, document.getElementById('axis-vertex-shader').text);
 	gl.compileShader(axisVertexShader);
 	
-	console.log(gl.getShaderInfoLog(axisVertexShader));
+	//console.log(gl.getShaderInfoLog(axisVertexShader));
 	
 	let axisFragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
 	gl.shaderSource(axisFragmentShader, document.getElementById('axis-fragment-shader').text);
 	gl.compileShader(axisFragmentShader);
 	
-	console.log(gl.getShaderInfoLog(axisFragmentShader));
+	//console.log(gl.getShaderInfoLog(axisFragmentShader));
 	
 	let axisProgram = gl.createProgram();
 	gl.attachShader(axisProgram, axisVertexShader);
 	gl.attachShader(axisProgram, axisFragmentShader);
 	gl.linkProgram(axisProgram);
 	
-	console.log(gl.getProgramInfoLog(axisProgram));
+	//console.log(gl.getProgramInfoLog(axisProgram));
 	
 	webGLInfo.axisProgram = axisProgram;
 	
@@ -2479,7 +2534,7 @@ function updateAxisBuffer(){
 		const minVal = (Math.floor(c1Val / minStep) + 1) * minStep,
 			steps = Math.floor((c2Val - c1Val) / minStep) - 1;
 			
-		console.log(minStep, maxLineLength, minVal, steps);
+		//console.log(minStep, maxLineLength, minVal, steps);
 		let textNodes = [];
 		
 		for(let i = 0; i < steps; i++){

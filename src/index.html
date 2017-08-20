@@ -1312,18 +1312,6 @@
                 <hr>
                 <div class='checkbox-wrapper'>
                     <label>
-                        <div class='checkbox-row'>
-                            <input type='checkbox' id='color-checkbox' checked>
-                            <span></span>
-                            <div class='checkbox-text-wrapper'>
-                                <div class='checkbox-label'>Shade Mesh</div>
-                                <div class='checkbox-description'>Shade each polygon according to a color function based on the value of the function at the point.</div>
-                            </div>
-                        </div>
-                    </label>
-                </div>
-                <div class='checkbox-wrapper'>
-                    <label>
                         <div class='checkbox-row global-option'>
                             <input type='checkbox' id='directional-lighting-checkbox' checked>
                             <span></span>
@@ -1437,11 +1425,11 @@
                 <hr>
                 <div style='display:flex;margin-top:20px;margin-bottom:20px;padding:3px'>
                     <span class='checkbox-label' style='display:block;padding-bottom:4px'>Mesh Quality:</span>
-                    <input class='settings-input' id='mesh-quality-input' value='50'>
+                    <input class='settings-input' id='mesh-quality-input' value='60'>
                 </div>
                 <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>A measure vaguely specifying how many polygons to use per unit area of surface. Note that this 
                     does not put a hard limit on the number of polygons drawn, since some surfaces have a much 
-                    greater surface area than others. Usually 100 is sufficient for a high quality surface.
+                    greater surface area than others. Usually 120 is sufficient for a high quality surface.
                 </span>                
             </div>
         </div>
