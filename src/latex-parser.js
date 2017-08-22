@@ -193,7 +193,6 @@ function parseLatex(expression, vars){
 			var arg2 = expression.substring(index2,endIndex2+1);
 			expression = '{'+expression.substring(0,match.index) + arg1 + '/' + arg2 + expression.substring(endIndex2+1,expression.length)+'}';
 			foundFrac = true;
-			console.log(expression);
 		}
 	}
     
@@ -216,7 +215,6 @@ function parseLatex(expression, vars){
     expression = expression.replace(/\\/g,'');
     
 	
-	console.log(expression);
     return expression;
 }
 //finds the matching } to a {. Returns the index of the matching }

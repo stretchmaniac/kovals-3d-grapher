@@ -548,6 +548,13 @@ $(function(){
 	
 	domain.center = getRealDomainCenter();
 	plotPointsWebGL();
+	
+	// finally, load images (so they don't hang the interface)
+	$('img').each(function(){
+		if($(this)[0].hasAttribute('tsrc')){
+			$(this).attr('src', $(this).attr('tsrc'));
+		}
+	});
 });
 
 function tabBehavior(){

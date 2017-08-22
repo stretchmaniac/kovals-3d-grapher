@@ -174,18 +174,28 @@ function parseLatex(expression, vars){
             }
         }
     }
+	
     //fractions
-    re = /\\frac/g;
-    while((match=re.exec(expression)) !== null){
-        //5 for length of "\frac"
-        var index = match.index + 5;
-        var endIndex = matchingRightChar('{','}',expression,index);
-        var index2 = endIndex + 1;
-        var endIndex2 = matchingRightChar('{','}',expression,index2);
-        var arg1 = expression.substring(index,endIndex+1);
-        var arg2 = expression.substring(index2,endIndex2+1);
-        expression = '{'+expression.substring(0,match.index) + arg1 + '/' + arg2 + expression.substring(endIndex2+1,expression.length)+'}';
-    }
+	// the issue was that re.exec(expression) held prior data (namely, where the 
+	// last match was), so when expression changed, it didn't change where the match position was.
+	// for nested fractions, this meant the nested fraction wasn't detected. 
+	let foundFrac = true;
+	while(foundFrac){
+		foundFrac = false;
+		re = /\\frac/g;
+		while((match=re.exec(expression)) !== null){
+			//5 for length of "\frac"
+			var index = match.index + 5;
+			var endIndex = matchingRightChar('{','}',expression,index);
+			var index2 = endIndex + 1;
+			var endIndex2 = matchingRightChar('{','}',expression,index2);
+			var arg1 = expression.substring(index,endIndex+1);
+			var arg2 = expression.substring(index2,endIndex2+1);
+			expression = '{'+expression.substring(0,match.index) + arg1 + '/' + arg2 + expression.substring(endIndex2+1,expression.length)+'}';
+			foundFrac = true;
+			console.log(expression);
+		}
+	}
     
     //evaluate only the curly braces which are at the bottom of the chain
     //so they have no curly braces inside of them
@@ -205,6 +215,8 @@ function parseLatex(expression, vars){
     //really, we have the best chance of parsing if we omit backslashes
     expression = expression.replace(/\\/g,'');
     
+	
+	console.log(expression);
     return expression;
 }
 //finds the matching } to a {. Returns the index of the matching }

@@ -1195,7 +1195,7 @@ function menuOpenBodyClick(){
 
 function onGetLinkClicked(){
 	let url = getLinkUrl();
-	document.getElementById('get-link-text').textContent = 'https://alankoval.com/3dgrapher'+url;
+	document.getElementById('get-link-text').textContent = 'https://alankoval.com/3dgrapher/src/index.html'+url;
 	
 	selectText('get-link-text');
 	document.getElementById('get-link-button').onclick = function(){
@@ -1206,7 +1206,7 @@ function onGetLinkClicked(){
 function onEmbedClicked(){
 	domain.miniDisplay = true;
 	let url = getLinkUrl();
-	document.getElementById('embed-button-text').textContent = '<iframe src=\'https://alankoval.com/3dgrapher'+url+'\' width=\'800\' height=\'800\'><p>Your browser does not support iframe</p></iframe>';
+	document.getElementById('embed-button-text').textContent = '<iframe src=\'https://alankoval.com/3dgrapher/src/index.html'+url+'\' width=\'800\' height=\'800\'><p>Your browser does not support iframe</p></iframe>';
 	selectText('embed-button-text');
 	document.getElementById('embed-button').onclick = function(){
 		return false;
@@ -1215,7 +1215,7 @@ function onEmbedClicked(){
 
 function onMathematicaEmbedClicked(){
 	domain.miniDisplay = true;
-	let htmlText = '<iframe src=\'https://alankoval.com/3dgrapher'+getLinkUrl()+'\' width=\'800\' height=\'800\'><p>Your browser does not support iframe</p></iframe>';
+	let htmlText = '<iframe src=\'https://alankoval.com/3dgrapher/src/index.html'+getLinkUrl()+'\' width=\'800\' height=\'800\'><p>Your browser does not support iframe</p></iframe>';
 	let finalText = 'EmbeddedHTML["'+htmlText+'"]';
 	document.getElementById('embed-mathematica-text').textContent = finalText;
 	selectText('embed-mathematica-text');
