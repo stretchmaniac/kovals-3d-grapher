@@ -754,8 +754,8 @@ function readURLParameters(){
 		funcValue = funcValue.replace(/~\./g, ' ');
 		funcValue = funcValue.replace(/~_/g, '{');
 		funcValue = funcValue.replace(/~!/g, '}');
-		funcValue = funcValue.replace(/~~/g,',');
-		funcValue = funcValue.replace(/~/g, '\\');
+		funcValue = funcValue.replace(/~\*/g,',');
+		funcValue = funcValue.replace(/~'/g, '\\');
 		
 		console.log('writing url value', funcValue);
 		newDomain.expressionLatex = funcValue;
@@ -772,7 +772,7 @@ function readURLParameters(){
 				val = val.replace(/~r/g, '\\right');
 				val = val.replace(/~in/g, ' \\in');
 				val = val.replace(/~\./g, ',');
-				val = val.replace(/~/g, ' ');
+				val = val.replace(/~'/g, ' ');
 				
 				let fullElName = elementIDPart === 'cart' ? 'cartesian' :
 								elementIDPart === 'cyl' ? 'cylindrical' :
@@ -906,10 +906,10 @@ function getLinkUrl(){
 		func = func.replace(/\\left/g, '~l');
 		func = func.replace(/\\right/g, '~r');
 		func = func.replace(/ /g, '~.');
-		func = func.replace(/\\/g,'~');
+		func = func.replace(/\\/g,'~\'');
 		func = func.replace(/{/g, '~_');
 		func = func.replace(/}/g, '~!');
-		func = func.replace(/\,/g,'~~');
+		func = func.replace(/\,/g,'~*');
 		url += encodeURIComponent(func);
 		
 		let domainLayers = [];
@@ -931,9 +931,9 @@ function getLinkUrl(){
 			val = val.replace(/\\left/g, '~l');
 			val = val.replace(/\\right/g, '~r');
 			val = val.replace(/\\ /g, '');
-			val = val.replace(/\\in/g,' in');
+			val = val.replace(/\\in/g,'~in');
 			val = val.replace(/\,/g, '~.');
-			val = val.replace(/ /g, '~');
+			val = val.replace(/ /g, '~\'');
 			url += '&'+domainItem.code+''+funcNum+'='+encodeURIComponent(val);
 		}
 		

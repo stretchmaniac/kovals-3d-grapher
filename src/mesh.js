@@ -410,7 +410,7 @@ function graphParametricFunction2(xFunc, yFunc, zFunc, d, onFinish){
 				let loc = dir(pt, nodeDist * Math.cos(angle), nodeDist * Math.sin(angle));
 				
 				if(pt.u+loc.u < -1000){
-					console.log(pt.deriv1.du, pt.deriv1.dv, nodeDist, angle);
+					//console.log(pt.deriv1.du, pt.deriv1.dv, nodeDist, angle);
 				}
 				let point = plotPlus(xFunc, yFunc, zFunc, pt.u + loc.u, pt.v + loc.v);
 				point.angle = angle;
