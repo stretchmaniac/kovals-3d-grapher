@@ -36,146 +36,146 @@
 
 		vec3 hsl2rgb(vec3 hsl) {
 			vec3 rgb;
-			
+
 			if (hsl.y == 0.0) {
 				rgb = vec3(hsl.z); // Luminance
 			} else {
 				float f2;
-				
+
 				if (hsl.z < 0.5)
 					f2 = hsl.z * (1.0 + hsl.y);
 				else
 					f2 = hsl.z + hsl.y - hsl.y * hsl.z;
-					
+
 				float f1 = 2.0 * hsl.z - f2;
-				
+
 				rgb.r = hue2rgb(f1, f2, hsl.x + (1.0/3.0));
 				rgb.g = hue2rgb(f1, f2, hsl.x);
 				rgb.b = hue2rgb(f1, f2, hsl.x - (1.0/3.0));
-			}   
+			}
 			return rgb;
 		}
-	
+
 		precision highp float;
-		
+
 		attribute vec4 a_position;
 		attribute highp vec3 a_normal;
 		attribute vec3 a_bari_coord;
 		attribute float a_transparency;
 		attribute float a_hue;
-		
+
 		uniform vec3 u_orientation_x;
 		uniform vec3 u_orientation_y;
 		uniform vec3 u_orientation_z;
-		
+
 		uniform vec3 u_domain_center;
 		uniform float u_domain_halfwidth;
 		// ratio of canvas width to canvas height
 		uniform float u_aspect_ratio;
-		
+
 		// effectively booleans, true iff > 0
 		uniform float u_perspective;
 		uniform float u_directional_lighting;
 		uniform float u_ignore_normal;
-		
+
 		uniform float u_normal_multiplier;
-		
+
 		uniform float u_shininess;
-		
+
 		varying vec4 color;
 		varying float transparency;
 		// fun with barycentric coordinates!
 		varying vec3 v_bari_coord;
-		
+
 		void main(){
-			vec3 rotated = (a_position.x - u_domain_center.x) * u_orientation_x + 
-				(a_position.y - u_domain_center.y) * u_orientation_y + 
+			vec3 rotated = (a_position.x - u_domain_center.x) * u_orientation_x +
+				(a_position.y - u_domain_center.y) * u_orientation_y +
 				(a_position.z - u_domain_center.z) * u_orientation_z;
 			vec3 clipspace = (rotated) / (u_domain_halfwidth * 1.75);
 			clipspace.x /= u_aspect_ratio;
 			clipspace.z +=  .3;
-			
-			float shrinkFactor = (clipspace.z + 1.0) / 2.0 + 0.10; 
-			
+
+			float shrinkFactor = (clipspace.z + 1.0) / 2.0 + 0.10;
+
 			gl_Position = vec4(clipspace.xyz, u_perspective > 0.0 ? shrinkFactor : 0.6);
-			
-			// compute the darkness based on the normal, assuming the scene is lit from 
+
+			// compute the darkness based on the normal, assuming the scene is lit from
 			// (1, 1, -5)
 			vec3 light = vec3(0, 10, -2);
-			
+
 			// ooh, more lighting!
 			vec3 light2 = vec3(0,0,-4);
-			
+
 			// rotate the normal vector too
 			vec3 newNormal = a_normal.x * u_orientation_x + a_normal.y * u_orientation_y + a_normal.z * u_orientation_z;
 			newNormal = normalize(u_normal_multiplier * newNormal);
-			
+
 			color = vec4(1,0,0, 1);
-			
+
 			// phong shading per https://en.wikipedia.org/wiki/Phong_reflection_model
-			
+
 			float ksConst = u_shininess / 50.0; // 3.0
 			float kdConst = 1.6;
 			float kaConst = 0.075;
 			float aConst = u_shininess;  //150.0
 			float imConst = 0.15;
-			
+
 			vec3 LVec = normalize(light);
 			vec3 LVec2 = normalize(light2);
 			vec3 NVec = newNormal;
 			vec3 RVec = normalize(2.0 * dot(LVec, NVec) * NVec - LVec);
 			vec3 RVec2 = normalize(2.0 * dot(LVec2, NVec) * NVec - LVec2);
 			vec3 VVec = normalize(vec3(0, 0, -1.2) - clipspace.xyz);
-			
-			
+
+
 			float dot1a = dot(LVec, NVec);
 			float dot1b = dot(RVec, VVec);
-			
+
 			if(u_ignore_normal > 0.0){
 				dot1a = abs(dot1a);
 				dot1b = abs(dot1b);
 			}
-			
+
 			// light 1
 			float luminosity = kaConst * imConst + kdConst * max(dot1a, 0.0) * imConst + ksConst * pow(max(dot1b, 0.0), aConst) * imConst;
-			
+
 			float dot2a = dot(LVec2, NVec);
 			float dot2b = dot(RVec2, VVec);
-			
+
 			if(u_ignore_normal > 0.0){
 				dot2a = abs(dot2a);
 				dot2b = abs(dot2b);
 			}
-			
+
 			// light2
 			luminosity += kaConst * imConst + kdConst * max(dot2a, 0.0) * imConst + ksConst * pow(max(dot2b, 0.0), aConst) * imConst;
-			
+
 			float h = a_hue;
-			
+
 			color = vec4(hsl2rgb(vec3(h, 1, u_directional_lighting > 0.0 ? luminosity : 0.5)), a_transparency);
 			transparency = a_transparency;
-			
+
 			v_bari_coord = a_bari_coord;
 		}
 	</script>
 	<script id='fragment-shader' type='notjs'>
 		precision highp float;
-		
+
 		varying vec4 color;
 		varying vec3 v_bari_coord;
-		
+
 		// > 0 is true, <= 0 is false
 		uniform float u_draw_borders;
 		varying float transparency;
-		
+
 		void main(){
 			gl_FragColor = color;
 			float bariMin = min( min(v_bari_coord.x, v_bari_coord.y) , v_bari_coord.z);
-			
+
 			if(bariMin < 0.1 && u_draw_borders > 0.0){
-			
+
 				float multiplier = 1.0 / (1.0 + pow(2.0, -100.0 * (bariMin - 0.03)));
-				
+
 				if(transparency > 0.0){
 					gl_FragColor = vec4(color.rgb * multiplier, 1.0*(1.0 - multiplier) + multiplier*color.a);
 				}else{
@@ -187,35 +187,35 @@
 	</script>
 	<script id='axis-vertex-shader' type='notjs'>
 		attribute vec4 a_position;
-		
+
 		uniform vec3 u_orientation_x;
 		uniform vec3 u_orientation_y;
 		uniform vec3 u_orientation_z;
-		
+
 		uniform vec3 u_domain_center;
 		uniform float u_domain_halfwidth;
 		// ratio of canvas width to canvas height
 		uniform float u_aspect_ratio;
 		uniform float u_perspective;
-		
+
 		void main(){
-			vec3 rotated = (a_position.x - u_domain_center.x) * u_orientation_x + 
-				(a_position.y - u_domain_center.y) * u_orientation_y + 
+			vec3 rotated = (a_position.x - u_domain_center.x) * u_orientation_x +
+				(a_position.y - u_domain_center.y) * u_orientation_y +
 				(a_position.z - u_domain_center.z) * u_orientation_z;
 			vec3 clipspace = (rotated) / (u_domain_halfwidth * 1.75);
 			clipspace.x /= u_aspect_ratio;
 			clipspace.z += .3;
-			
-			float shrinkFactor = (clipspace.z + 1.0) / 2.0 + 0.10; 
-			
+
+			float shrinkFactor = (clipspace.z + 1.0) / 2.0 + 0.10;
+
 			gl_Position = vec4(clipspace.xyz, u_perspective > 0.0 ? shrinkFactor : 0.6);
 		}
 	</script>
 	<script id='axis-fragment-shader' type='notjs'>
 		precision mediump float;
-		
+
 		uniform vec4 u_color;
-	
+
 		void main(){
 			gl_FragColor = u_color;
 		}
@@ -244,8 +244,8 @@
 					<div id='help-intro'>
 						<h1>Introduction</h1>
 						<p>
-							Welcome to the reference for Koval's 3D Grapher! Here you can find help on everything involving usage of 
-							this application, from how to navigate the interface to fine tuning the plot to troubleshooting. Select a 
+							Welcome to the reference for Koval's 3D Grapher! Here you can find help on everything involving usage of
+							this application, from how to navigate the interface to fine tuning the plot to troubleshooting. Select a
 							topic from the left side of this window to get started.
 						</p>
 					</div>
@@ -256,7 +256,7 @@
 						</p>
 						<h3>1. Load or reload alankoval.com/3dgrapher</h3>
 						<p>
-							Start with a fresh start by navigating to alankoval.com/3dgrapher. Be sure the expression input is 
+							Start with a fresh start by navigating to alankoval.com/3dgrapher. Be sure the expression input is
 							empty and the domain input (the box below "enter expression") contains "\(x, y, z \in [-10, 10]\)" (type "in" for \(\in\) symbol).
 						</p>
 						<img tsrc='https://i.imgur.com/rAxUd6x.png' class='help-menu-image-wide'>
@@ -284,42 +284,42 @@
 					<div id='help-domain'>
 						<h1>Changing the Plotting Domain</h1>
 						<p>
-							This section outlines how to view different sections of the plot by changing the 
+							This section outlines how to view different sections of the plot by changing the
 							domain of the input variables.
 						</p>
 						<h3>Domain definitions</h3>
 						<p>
-							There are 11 separate variables in Koval's 3D Grapher, three for each coordinate system and two parametric 
+							There are 11 separate variables in Koval's 3D Grapher, three for each coordinate system and two parametric
 							variables. Each variable has a domain associated with it, written in the form \(a \in [b, c]\), where \(a\)
-							is a variable and \(b\) and \(c\) are real numbers with \(b &lt; c\). (In order to get the \(\in\) symbol, type 
+							is a variable and \(b\) and \(c\) are real numbers with \(b &lt; c\). (In order to get the \(\in\) symbol, type
 							"in".)
 						</p>
 						<img tsrc='https://i.imgur.com/eapDoUY.png' class='help-menu-image-wide'>
 						<p>
-							Above you can see six variables' domains defined, with \(a, b, c \in [i, j]\) being shorthand 
-							for \(a \in [i, j], b \in [i, j], c \in [i, j]\). The relevant domains will automatically appear 
+							Above you can see six variables' domains defined, with \(a, b, c \in [i, j]\) being shorthand
+							for \(a \in [i, j], b \in [i, j], c \in [i, j]\). The relevant domains will automatically appear
 							based on the equation typed in the expression input.
 						</p>
 						<p>
-							In order to change a domain definition, simply click on the definition and edit normally. Domain definitions 
-							may go in any order. However, <b>Do not mix domain definitions of different 
-							coordinate systems.</b> Since some coordinate systems share variable names, mixing definitions would 
+							In order to change a domain definition, simply click on the definition and edit normally. Domain definitions
+							may go in any order. However, <b>Do not mix domain definitions of different
+							coordinate systems.</b> Since some coordinate systems share variable names, mixing definitions would
 							result in ambiguity.
 						</p>
 						<img tsrc='https://i.imgur.com/ObDXa0X.png' style='margin-bottom:3px' class='help-menu-image-wide'>
 						<img tsrc='https://i.imgur.com/m48lP2G.png' class='help-menu-image-wide'>
 						<h3>Domain meaning</h3>
 						<p>
-							In general, the domain specifies the extent to which the plot will reach in that variable. For example, 
+							In general, the domain specifies the extent to which the plot will reach in that variable. For example,
 							if \(x\) is bounded between -5 and 5 (\(x \in [-5, 5]\), no section of the plot will be plotted before \(x=-5\) or
 							after \(x=5\). Likewise, for \(r \in [1, 2]\), no plotted point will satisfy \(x^2 + y^2 + z^2 &lt; 1\) or \(x^2 +y^2 +z^2 &gt; 4\).
 						</p>
 						<p>
-							However, as one might notice, while the \(r, \theta, \phi, u, v\) and \(\rho\) domain definitions come and 
-							go depending on the expression input, the \(x, y,\) and \(z\) definitions never leave. This is because these 
-							domain definitions also specify the viewing area. For example, a combination of \(r \in [0, 1]\) and 
+							However, as one might notice, while the \(r, \theta, \phi, u, v\) and \(\rho\) domain definitions come and
+							go depending on the expression input, the \(x, y,\) and \(z\) definitions never leave. This is because these
+							domain definitions also specify the viewing area. For example, a combination of \(r \in [0, 1]\) and
 							\(x,y,z \in [-10, 10]\) would result in a tiny plot, since \(x^2 +y^2 +z^2 &lt; 1\) is such a small volume in
-							a 20 by 20 by 20 cube. 
+							a 20 by 20 by 20 cube.
 						</p>
 						<div class='menu-item-flexbox'>
 							<img class='menu-item-flexbox-image' tsrc='https://i.imgur.com/m3sD8Nw.png'>
@@ -328,28 +328,28 @@
 						</div>
 						<h3>Non-cubic domains</h3>
 						<p>
-							It is also possible for the viewing area to be non-cubic, for example \(x,y \in [-10, 10], z \in [-5, 5]\). 
+							It is also possible for the viewing area to be non-cubic, for example \(x,y \in [-10, 10], z \in [-5, 5]\).
 							Note that this is distinct from the bounding box shown on screen being rectangular. A non-cubic domain will
-							result in a stretched graph, in this case a two-times stretch in the \(z\) direction only. See the result 
+							result in a stretched graph, in this case a two-times stretch in the \(z\) direction only. See the result
 							of this stretching on a sphere, \(r = 7\):
 						</p>
 						<img tsrc='https://i.imgur.com/GgAgmWn.png' class='help-menu-image-wide'>
 						<h3>Domains with multiple plots</h3>
 						<p>
-							Each plot has its own separate domain definitions. On switching plots (via the tabs above the expression input), the 
-							domain input automatically updates values. 
+							Each plot has its own separate domain definitions. On switching plots (via the tabs above the expression input), the
+							domain input automatically updates values.
 						</p>
 						<p>
 							However, since the \(x,y,z\) domain definitions also specify viewing area (and clearly there can only be one of them),
-							the viewing area is decided by the extreme values of the domain definitions across all plots. For example, if in plot 
-							one there exists a definition \(x,y,z \in [-10, 10]\) and in plot two there is \(x,y \in [-20, -5], z \in [-12, 5]\), 
+							the viewing area is decided by the extreme values of the domain definitions across all plots. For example, if in plot
+							one there exists a definition \(x,y,z \in [-10, 10]\) and in plot two there is \(x,y \in [-20, -5], z \in [-12, 5]\),
 							the final viewing are would be \( x,y \in [-20, 10], z \in [-12, 10]\).
 						</p>
 					</div>
 					<div id='help-coordinate-systems'>
 						<h1>Changing Coordinate Systems</h1>
 						<p>
-							This section gives a basic overview of the three types of supported coordinate systems (cartesian, cylindrical and spherical) and 
+							This section gives a basic overview of the three types of supported coordinate systems (cartesian, cylindrical and spherical) and
 							how to use them in Koval's 3D Grapher.
 						</p>
 						<h3>Cartesian system</h3>
@@ -357,12 +357,12 @@
 							<b>Variables: \(x, y, z\)</b>
 						</p>
 						<p>
-							The three coordinates of the cartesian coordinate system relate the perpendicular distance to the \(yz\), 
-							\(xz\) and \(xy\) planes, respectively. It is a natural extension of the \(xy\) plane in 2D, with a \(z\) 
-							axis coming out of the page. 
+							The three coordinates of the cartesian coordinate system relate the perpendicular distance to the \(yz\),
+							\(xz\) and \(xy\) planes, respectively. It is a natural extension of the \(xy\) plane in 2D, with a \(z\)
+							axis coming out of the page.
 						</p>
 						<p>
-							To use cartesian coordinates, type an equation governed by cartesian coordinates, such as 
+							To use cartesian coordinates, type an equation governed by cartesian coordinates, such as
 							\(z=\sin \left(\sqrt{x^2-y^2}\right)\).
 						</p>
 						<img tsrc='https://i.imgur.com/xZuh3xM.png' class='help-menu-image'>
@@ -377,11 +377,11 @@
 							\[y = \rho \sin{\phi}\]
 							\[z = z\]
 							Thus the cylindrical system is a direct extension of polar coordinates in 2D, where
-							\(r = 1\) is a circle in polar, \(\rho = 1\) is an infinite-length hollow cylinder (hence 
-							the name "cylindrical coordinates"). 
+							\(r = 1\) is a circle in polar, \(\rho = 1\) is an infinite-length hollow cylinder (hence
+							the name "cylindrical coordinates").
 						</p>
 						<p>
-							To use cylindrical coordinates, type an equation governed by cylindrical variables, such as 
+							To use cylindrical coordinates, type an equation governed by cylindrical variables, such as
 							\(\rho=3+\phi+\text{abs}(z)\).
 						</p>
 						<img tsrc='https://i.imgur.com/3DCIseG.png' class='help-menu-image'>
@@ -395,12 +395,12 @@
 							\[x=r\cos \left(\theta \right)\sin \left(\phi \right)\]
 							\[y=r\sin \left(\theta \right)\sin \left(\phi \right)\]
 							\[z=r\cos \left(\phi \right)\]
-							Spherical coordinates are another extension of the 2D polar coordinates, but \(\phi\) specifies an angle 
-							with the \(z\) axis, as opposed to height in cylindrical coordinates. Where \(r = 1\) is the unit circle in 
+							Spherical coordinates are another extension of the 2D polar coordinates, but \(\phi\) specifies an angle
+							with the \(z\) axis, as opposed to height in cylindrical coordinates. Where \(r = 1\) is the unit circle in
 							polar coordinates, \(r = 1\) is the unit sphere in spherical coordinates (hence the name).
 						</p>
 						<p>
-							To use spherical coordinates, type an equation governed by the three spherical variables, such as 
+							To use spherical coordinates, type an equation governed by the three spherical variables, such as
 							\(r=\sin 4\theta +\sin 8\phi +5\)
 						</p>
 						<img tsrc='https://i.imgur.com/8KuOCER.png' class='help-menu-image'>
@@ -411,14 +411,14 @@
 							This section defines the usage of parametrically defined plots using the extra variables \(u\) and \(v\).
 						</p>
 						<p>
-							Koval's 3D Grapher supports both one dimensional lines and two dimensional surfaces. For a line, set a 
-							coordinate vector (one of \([x,y,z]\), \([\rho, \phi, z]\) and \([r, \theta, \phi]\)) equal to a vector 
-							of equal size comprised of a single variable ((\u\)  or \(v\)). For example, \([x,y,z]=u[1,1,1]\) is a 
+							Koval's 3D Grapher supports both one dimensional lines and two dimensional surfaces. For a line, set a
+							coordinate vector (one of \([x,y,z]\), \([\rho, \phi, z]\) and \([r, \theta, \phi]\)) equal to a vector
+							of equal size comprised of a single variable ((\u\)  or \(v\)). For example, \([x,y,z]=u[1,1,1]\) is a
 							line passing through \((0,0,0)\) and \((1,1,1)\):
 						</p>
 						<img tsrc='https://i.imgur.com/HidnJ9V.png' class='help-menu-image'>
 						<p>
-							For a surface, set a coordinate vector equal to a vector of equal size comprised of both \(u\) and \(v\). 
+							For a surface, set a coordinate vector equal to a vector of equal size comprised of both \(u\) and \(v\).
 							Here's \(\left[x,y,z\right]=\frac{1}{3}\left[\sin u,0,\cos u\right]+\left[0,v,\sin v+\frac{\cos 4v}{3}\right]\):
 						</p>
 						<img tsrc='https://i.imgur.com/wh8nsMG.png' class='help-menu-image'>
@@ -426,7 +426,7 @@
 					<div id='help-equation-forms'>
 						<h1>Acceptable Equation Forms</h1>
 						<p>
-							This section outlines all the acceptable equation forms that may be entered into Koval's 3D Grapher, such as 
+							This section outlines all the acceptable equation forms that may be entered into Koval's 3D Grapher, such as
 							\(y = 4x + z\) and \([r,\theta,\phi]=[u,v,\sin{u}]\).
 						</p>
 						<table>
@@ -553,24 +553,24 @@
 					<div id='help-normals'>
 						<h1>Rendering and Normals</h1>
 						<p>
-							This section provides background about the rendering of the 3D plotted surface and how the "invert 
+							This section provides background about the rendering of the 3D plotted surface and how the "invert
 							normals" button illuminates the opposite side of the surface.
 						</p>
 						<p>
-							Koval's 3D Grapher relies heavily on the partial derivatives with respect to \(u\) and \(v\), that is, 
-							\(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right)\) and 
-							\(\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\). Since every 
-							function (that can be plotted here) can be represented as a parametric function in cartesian coordinates, these values 
-							are universal. They give an indication of the amount that each of the coordinate values change as \(u\) and \(v\) changes. 
+							Koval's 3D Grapher relies heavily on the partial derivatives with respect to \(u\) and \(v\), that is,
+							\(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right)\) and
+							\(\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\). Since every
+							function (that can be plotted here) can be represented as a parametric function in cartesian coordinates, these values
+							are universal. They give an indication of the amount that each of the coordinate values change as \(u\) and \(v\) changes.
 						</p>
 						<p>
-							With these vectors, one can derive a normal vector, \(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right) \times 
-							\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\), that is perpendicular to the surface when evaluated 
+							With these vectors, one can derive a normal vector, \(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right) \times
+							\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\), that is perpendicular to the surface when evaluated
 							at a point \((x,y,z)\). This normal gives a way to compute directional lighting via the <a target='_blank' href='https://en.wikipedia.org/wiki/Phong_reflection_model'>Phong Reflection Model</a>.
-							Due to the nature of this model, the "back" of the surface (the normal vector is pointing away from the screen) appears differently from the front. 
+							Due to the nature of this model, the "back" of the surface (the normal vector is pointing away from the screen) appears differently from the front.
 						</p>
 						<p>
-							Hence there exists a button to flip all the normal vectors in a plot, to make the "back" the front and vice versa. 
+							Hence there exists a button to flip all the normal vectors in a plot, to make the "back" the front and vice versa.
 						</p>
 						<img class='help-menu-image-wide' tsrc='https://i.imgur.com/DenEefC.png'>
 						<p>
@@ -584,8 +584,8 @@
 						</p>
 						<h3>My function got stuck plotting. What happened?</h3>
 						<p>
-							Unfortunately, although a great effort has been made to prevent hangups, occasionally a function never seems to 
-							finish plotting. This often is an unforeseen breakdown of the mesh at a discontinuity or other feature. Try changing 
+							Unfortunately, although a great effort has been made to prevent hangups, occasionally a function never seems to
+							finish plotting. This often is an unforeseen breakdown of the mesh at a discontinuity or other feature. Try changing
 							the mesh quality slightly to "retry" with a different mesh structure.
 						</p>
 						<h3>
@@ -595,37 +595,37 @@
 						</p>
 						<img class='help-menu-image' tsrc='https://i.imgur.com/V8QA76w.png'>
 						<p>
-							Congratulations, you have discovered a superposition of two surfaces, one face up and one face down. 
-							Usually this is caused by incorrect domain bounds (in this above case, \(r=7\), \(\phi\) had a maximum of \(\pi\) 
+							Congratulations, you have discovered a superposition of two surfaces, one face up and one face down.
+							Usually this is caused by incorrect domain bounds (in this above case, \(r=7\), \(\phi\) had a maximum of \(\pi\)
 							instead of \(\pi/2\)). You can negate its effects by checking the "Ignore Normals" checkbox in the settings menu.
 						</p>
 						<div id='global-faq'></div>
 						<h3>Why are some settings marked as "global"?</h3>
 						<p>
-							One can create multiple plots on the same set of axes by adding a tab with the plus icon above the equation input. 
+							One can create multiple plots on the same set of axes by adding a tab with the plus icon above the equation input.
 							Global options apply to all plots rather than the selected plot.
 						</p>
 						<img class='help-menu-image' tsrc='https://i.imgur.com/NrEJQW4.png'>
 						<p>
-							This is a direct consequence of the setting. For example, a perspective-enabled plot displayed with a 
-							perspective-disabled plot would result in identical points mapping to different screen coordinates. 
+							This is a direct consequence of the setting. For example, a perspective-enabled plot displayed with a
+							perspective-disabled plot would result in identical points mapping to different screen coordinates.
 						</p>
 						<h3>I want to use randomness. Is there a random function?</h3>
 						<p>
-							Yes. Type "\random(1)" to get a random number between zero and one. 
+							Yes. Type "\random(1)" to get a random number between zero and one.
 						</p>
 						<p>
-							<b>However</b>, there is a reason this function isn't listed in the function reference. If 
-							the random function is used, Koval's 3D Grapher will crash and burn. It is a core assumption that 
+							<b>However</b>, there is a reason this function isn't listed in the function reference. If
+							the random function is used, Koval's 3D Grapher will crash and burn. It is a core assumption that
 							the plotting process is deterministic. This way, sampling can be used to find out more local information
-							about a plot (the input is re-evaluated at every point). If a random function is used, Koval's 3D Grapher 
+							about a plot (the input is re-evaluated at every point). If a random function is used, Koval's 3D Grapher
 							can't agree with itself, and so fails miserably.
 						</p>
 					</div>
 					<div id='help-funcs'>
 						<h1>Function and Operator Reference</h1>
 						<p>
-							This section enumerates a list of operators and functions and their definitions that may be 
+							This section enumerates a list of operators and functions and their definitions that may be
 							used in expressions.
 						</p>
 						<table class='center' style='margin-bottom:40px'>
@@ -769,7 +769,7 @@
 						</tr>
 						<tr>
 							<td>\(\text{bellNumbers}(n)\)</td>
-							<td>Returns the \(n^{\text{th}}\) 
+							<td>Returns the \(n^{\text{th}}\)
 							<a target="_blank" href='https://en.wikipedia.org/wiki/Bell_number'>Bell Number</a>.
 							This function only accepts positive integers.</td>
 							<td></td>
@@ -796,7 +796,7 @@
 						</tr>
 						<tr>
 							<td>\(\text{catalan}(n)\)</td>
-							<td>Returns the \(n^{\text{th}}\) 
+							<td>Returns the \(n^{\text{th}}\)
 							<a target="_blank" href='https://en.wikipedia.org/wiki/Catalan_number'>Catalan Number</a>.
 							This function only accepts positive integers.</td>
 							<td></td>
@@ -936,7 +936,7 @@
 						</tr>
 						<tr>
 							<td>\(\text{hypot}(x,y,...)\)</td>
-							<td>Calculates the hypotenuse of the values. This is equal to 
+							<td>Calculates the hypotenuse of the values. This is equal to
 							\(\sqrt{x^2+y^2...}\)</td>
 							<td></td>
 						</tr>
@@ -963,13 +963,13 @@
 						</tr>
 						<tr>
 							<td>\(\text{leftShift}(x, y)\)</td>
-							<td>Bitwise shifts \(x\) left by \(y\) bits. For all you programmers it is equal 
+							<td>Bitwise shifts \(x\) left by \(y\) bits. For all you programmers it is equal
 							to \(x &lt;&lt; y\)</td>
 							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{log}(x, y)\)</td>
-							<td>Calculates \(\log_y{x}\). If \(y\) is omitted, then 
+							<td>Calculates \(\log_y{x}\). If \(y\) is omitted, then
 							it defaults to \(\log_{e}{x}\).</td>
 							<td></td>
 						</tr>
@@ -1005,7 +1005,7 @@
 						</tr>
 						<tr>
 							<td>\(\text{nthRoot}(x, n)\)</td>
-							<td>Calculates the \(n^{\text{th}}\) root of \(x\). \(n\) defaults to 
+							<td>Calculates the \(n^{\text{th}}\) root of \(x\). \(n\) defaults to
 							two if not provided.</td>
 							<td></td>
 						</tr>
@@ -1016,13 +1016,13 @@
 						</tr>
 						<tr>
 							<td>\(\text{rightArithShift}(x, y)\)</td>
-							<td>Bitwise shifts \(x\) right arithmetically by \(y\) bits. For all you programmers it is equal 
+							<td>Bitwise shifts \(x\) right arithmetically by \(y\) bits. For all you programmers it is equal
 							to \(x &gt;&gt; y\)</td>
 							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{rightLogShift}(x, y)\)</td>
-							<td>Bitwise shifts \(x\) right logically by \(y\) bits. It is equal to 
+							<td>Bitwise shifts \(x\) right logically by \(y\) bits. It is equal to
 							\(x &gt;&gt;&gt; y\)</td>
 							<td></td>
 						</tr>
@@ -1043,7 +1043,7 @@
 						</tr>
 						<tr>
 							<td>\(\text{sign}(x)\)</td>
-							<td>Calculates the sign of \(x\). This is \(-1\) when \(x&lt;1\), 
+							<td>Calculates the sign of \(x\). This is \(-1\) when \(x&lt;1\),
 							\(1\) when \(x&gt;1\) and \(0\) when \(x=0\).</td>
 							<td></td>
 						</tr>
@@ -1069,7 +1069,7 @@
 						</tr>
 						<tr>
 							<td>\(\text{stirlingS2}(x,y)\)</td>
-							<td>Calculates the 
+							<td>Calculates the
 							<a href='https://en.wikipedia.org/wiki/Stirling_numbers_of_the_second_kind' target="_blank"></a>stirling number of the second kind</td>
 							<td>One <b>must</b> type a backslash, followed by "stirlingS2", then a space to use this function.</td>
 						</tr>
@@ -1085,14 +1085,14 @@
 						</tr>
 						<tr>
 							<td>\(\text{trace}(x)\)</td>
-							<td>Calculates trace of matrix \(x\), the sum 
+							<td>Calculates trace of matrix \(x\), the sum
 							of the elements on the main diagonal. \(x\)
 							must be square.</td>
 							<td></td>
 						</tr>
 						<tr>
 							<td>\(\text{transpose}(x)\)</td>
-							<td>Reflects each element of the square matrix \(x\) over 
+							<td>Reflects each element of the square matrix \(x\) over
 							its main diagonal.</td>
 							<td></td>
 						</tr>
@@ -1102,9 +1102,9 @@
 							<td></td>
 						</tr>
 					</table>
-					
+
 					<p>
-						Don't see the function you'd like? Check out the full list of functions from 
+						Don't see the function you'd like? Check out the full list of functions from
 						<a href='http://mathjs.org/docs/reference/functions.html'>mathjs.org</a>,
 						at your own risk, of course.
 					</p>
@@ -1117,42 +1117,42 @@
 						</p>
 						<h3>1. Parameterize equation</h3>
 						<p>
-							Based on the type of equation, the expression is converted into a parametric form via straightforward transformations between 
-							coordinate systems. For example \(r=1\) becomes \(\left[x,y,z\right]=\left[\cos u\sin v,\sin u\sin v,\cos v\right]\). 
+							Based on the type of equation, the expression is converted into a parametric form via straightforward transformations between
+							coordinate systems. For example \(r=1\) becomes \(\left[x,y,z\right]=\left[\cos u\sin v,\sin u\sin v,\cos v\right]\).
 						</p>
 						<h3>2. Compute domain</h3>
 						<p>
-							All domain definitions are read. The bounds of parametric variables, if not explicitly defined, are computed based on 
+							All domain definitions are read. The bounds of parametric variables, if not explicitly defined, are computed based on
 							the domains of the dependant variables in the equation.
 						</p>
 						<h3>3. Divide the work</h3>
 						<p>
-							The domain is separated into nine square (in \(uv\) coordinates) chunks, which are sent to web workers to plot separately 
-							in the background. This is why one can see a 3 by 3 grid if "show mesh while rendering" is checked. 
+							The domain is separated into nine square (in \(uv\) coordinates) chunks, which are sent to web workers to plot separately
+							in the background. This is why one can see a 3 by 3 grid if "show mesh while rendering" is checked.
 						</p>
 						<h3>4. Seed</h3>
 						<p>
-							Each worker plots a few points in the center of the domain. If the numerically calculated value of 
-							\(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right)\) or 
-							\(\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\) is equal 
+							Each worker plots a few points in the center of the domain. If the numerically calculated value of
+							\(\left(\frac{\partial x}{\partial u},\frac{\partial y}{\partial u},\frac{\partial z}{\partial u}\right)\) or
+							\(\left(\frac{\partial x}{\partial v},\frac{\partial y}{\partial v},\frac{\partial z}{\partial v}\right)\) is equal
 							to \((0,0,0)\), a one dimensional line is constructed, else a surface.
 						</p>
 						<h3>5. Spread</h3>
 						<p>
-							A front is created of active points -- the points on the edge of the surface. These points are dealt with in order 
-							of \(uv\) distance from the seed point.  
+							A front is created of active points -- the points on the edge of the surface. These points are dealt with in order
+							of \(uv\) distance from the seed point.
 						</p>
 						<p>
-							As each point is considered, the partial derivatives at that point 
-							are calculated and used to judge the \(uv\) distance at which new neighbors are to be created. The angle formed by 
-							the surrounding front is used to determine how many neighbors to add. These neighbors are tentatively plotted, and the 
-							result is used to compute a value indicating how small the distance to the neighbors 
-							should be. 
+							As each point is considered, the partial derivatives at that point
+							are calculated and used to judge the \(uv\) distance at which new neighbors are to be created. The angle formed by
+							the surrounding front is used to determine how many neighbors to add. These neighbors are tentatively plotted, and the
+							result is used to compute a value indicating how small the distance to the neighbors
+							should be.
 						</p>
 						<p>
-							All of the neighbors are then replotted at this newly calculated distance, and a several-pass 
-							spacing algorithm is used to spread out neighbors that may be compressed by curvature. Crucially, 
-							some neighbors are added or culled to prevent an excess or shortage of connecting points over time. 
+							All of the neighbors are then replotted at this newly calculated distance, and a several-pass
+							spacing algorithm is used to spread out neighbors that may be compressed by curvature. Crucially,
+							some neighbors are added or culled to prevent an excess or shortage of connecting points over time.
 						</p>
 						<p>
 							These neighbors are then officially plotted and added to the point front. They will later compute their
@@ -1160,15 +1160,15 @@
 						</p>
 						<h3>6. Map points outside domain to inside</h3>
 						<p>
-							Using a carefully chosen function, points outside the \(xyz\) domain are mapped into a region 
-							just outside the domain, so that the mesh can quickly spread past regions outside the domain and 
-							back into important territory. 
+							Using a carefully chosen function, points outside the \(xyz\) domain are mapped into a region
+							just outside the domain, so that the mesh can quickly spread past regions outside the domain and
+							back into important territory.
 						</p>
 						<h3>7. Account for discontinuities and imaginary points</h3>
 						<p>
-							Functions like \(z=\operatorname{round}x\) are unique in that there are discontinuities between successive integers 
-							in the \(x\) direction. After plotting is finished, edges that have a length greater than expected are re-examined. 
-							If successively tests fail to find a point that bisects the distance between the nodes at the end of the edge, the edge 
+							Functions like \(z=\operatorname{round}x\) are unique in that there are discontinuities between successive integers
+							in the \(x\) direction. After plotting is finished, edges that have a length greater than expected are re-examined.
+							If successively tests fail to find a point that bisects the distance between the nodes at the end of the edge, the edge
 							is removed as a discontinuity.
 						</p>
 						<p>
@@ -1176,28 +1176,28 @@
 						</p>
 						<h3>8. Clean rough edges</h3>
 						<p>
-							Removing edges and points can leave ugly, rough surfaces. A binary search is used to find the boundaries between 
+							Removing edges and points can leave ugly, rough surfaces. A binary search is used to find the boundaries between
 							real points and imaginary points and at discontinuities.
 						</p>
 						<h3>9. Render the completed mesh</h3>
 						<p>
-							The mesh is compiled into a polygon buffer and sent back to the main thread. When drawing, perspective and directional 
-							lighting are applied as the point is rotated and scaled to the correct position, as specified by the view point. If there 
-							is transparency, all the partially opaque polygons are sorted and compiled into a single buffer for rendering by WebGL. 
+							The mesh is compiled into a polygon buffer and sent back to the main thread. When drawing, perspective and directional
+							lighting are applied as the point is rotated and scaled to the correct position, as specified by the view point. If there
+							is transparency, all the partially opaque polygons are sorted and compiled into a single buffer for rendering by WebGL.
 						</p>
 						<img class='help-menu-image-wide' tsrc='https://i.imgur.com/Feeh25s.png'>
 					</div>
 					<div id='help-about'>
 						<h1>About The Developer</h1>
 						<p>
-							My name is Alan Koval, a freshmen at the University of Minnesota. I am currently studying 
-							mathematics and computer science. You can find more about me on my website homepage, 
+							My name is Alan Koval, a freshmen at the University of Minnesota. I am currently studying
+							mathematics and computer science. You can find more about me on my website homepage,
 							<a href='https://alankoval.com'>alankoval.com</a>
 						</p>
 					</div>
 					<div id='help-acknowledgements'>
 						<h1>Acknowledgements</h1>
-						<p> 
+						<p>
 							Math library: <a href='http://mathjs.org/'>math.js</a>
 						</p>
 						<p>
@@ -1212,7 +1212,7 @@
 					</div>
 				</div>
 			</div>
-        </div>        
+        </div>
     </div>
     <div id='export-popup' class='hidden popup'>
         <div id='export-content' class='popup-content'>
@@ -1243,7 +1243,7 @@
                 Animation
             </div>
             <div class='popup-inner-content'>
-                Use this dialog to set up animations between two different graphs. 
+                Use this dialog to set up animations between two different graphs.
                 <div class='variable-list'>
                     <div class='variable-list-item'>
                         <div class='variable-list-item-sub'>
@@ -1269,7 +1269,7 @@
                 </div>
                 <span style='display:block; margin-bottom:5px'>Frames: <input id='animation-frame-input' class='var-input'></span>
                 <div class='animate-note'>Note: depending on your step size and domain (and the quality of your current graph), this could take awhile, like
-                on the order of hours if you're not paying attention. For reference, a high quality animation (500 Points Wide, 100 
+                on the order of hours if you're not paying attention. For reference, a high quality animation (500 Points Wide, 100
                 frames, full color) takes about 25 minutes on my (average) computer.
                 </div>
                 <div class='animate-error-area'></div>
@@ -1291,7 +1291,7 @@
                             <input name='play-style' value='loop' type='radio' checked='checked'>Loop at end
                         </div>
                         <div>
-                            <input name='play-style' value='reverse' type='radio'>Reverse at end 
+                            <input name='play-style' value='reverse' type='radio'>Reverse at end
                         </div>
                         <div class='animation-result-frame-time'>
                             Animation speed: <input type='range' value='91' id='animation-result-frame-time-input' class='var-input'>
@@ -1355,8 +1355,8 @@
                             <span></span>
                             <div class='checkbox-text-wrapper'>
                                 <div class='checkbox-label'>Ignore Normal when Shading</div>
-                                <div class='checkbox-description'>When checked, the bottom of a surface (usually darker) will appear the same as the 
-									top. Useful when a surface overlaps itself or for a Mobius strip. However, it does have the side effect 
+                                <div class='checkbox-description'>When checked, the bottom of a surface (usually darker) will appear the same as the
+									top. Useful when a surface overlaps itself or for a Mobius strip. However, it does have the side effect
 									of making shading appear slightly less realistic for wavy functions.</div>
                             </div>
                         </div>
@@ -1368,13 +1368,13 @@
                 </div>
                 <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>The opacity of the surface, with 0 being entirely transparent
 					(invisible) and 1 being entirely opaque (solid). Note that too many partially transparent polygons can lead to a decline in performance.
-					In addition, since all transparent polygons must be rendered using the same buffer, all partially transparent surfaces will share the 
+					In addition, since all transparent polygons must be rendered using the same buffer, all partially transparent surfaces will share the
 					same value for the "Ignore Normal when Shading" and "Render Mesh when Shading" settings above.
                 </span>
 				<div style='display:flex;flex-direction:row;margin-top:20px;margin-bottom:20px;padding:3px'>
                     <span class='checkbox-label' style='display:block;padding-bottom:4px'>Mesh Color</span>
 					<div id='mesh-color-button-wrapper'>
-						<button style='background-color:rgb(116,169,48)' class='mesh-color-option mesh-color-option-selected'></button>					
+						<button style='background-color:rgb(116,169,48)' class='mesh-color-option mesh-color-option-selected'></button>
 						<button style='background-color:rgb(55,169,48)' class='mesh-color-option'></button>
 						<button style='background-color:rgb(48,169,162)' class='mesh-color-option'></button>
 						<button style='background-color:rgb(48,116,169)' class='mesh-color-option'></button>
@@ -1390,7 +1390,7 @@
                     <input class='settings-input' id='shininess-input' value='1'>
                 </div>
                 <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>
-					How shiny the surface looks. Note that high values of shininess require greater precision to render 
+					How shiny the surface looks. Note that high values of shininess require greater precision to render
 					well (see mesh quality below).
                 </span>
                 <span class='settings-header'>Axis Options</span>
@@ -1427,10 +1427,10 @@
                     <span class='checkbox-label' style='display:block;padding-bottom:4px'>Mesh Quality:</span>
                     <input class='settings-input' id='mesh-quality-input' value='60'>
                 </div>
-                <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>A measure vaguely specifying how many polygons to use per unit area of surface. Note that this 
-                    does not put a hard limit on the number of polygons drawn, since some surfaces have a much 
+                <span style='margin-left:50px;display:block;margin-top:5px;margin-bottom:20px'>A measure vaguely specifying how many polygons to use per unit area of surface. Note that this
+                    does not put a hard limit on the number of polygons drawn, since some surfaces have a much
                     greater surface area than others. Usually 120 is sufficient for a high quality surface.
-                </span>                
+                </span>
             </div>
         </div>
     </div>
@@ -1487,7 +1487,7 @@
                     </div>
                 </div>
                 <div id='after-work-bar'>
-                    <div id='notification-bar'>enter expression</div>
+                    <div id='notification-bar'></div>
                     <div id='cart-domain-bar'></div>
                     <div id='cyl-domain-bar'></div>
                     <div id='sphere-domain-bar'></div>
@@ -1511,8 +1511,3 @@
 </body>
 
 </html>
-
-
-
-
-
