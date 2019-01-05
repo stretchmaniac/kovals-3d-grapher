@@ -8,6 +8,7 @@
 //  expression: <{vars:[__, ...  __, __,], body:__}>
 //}
 function characterizeExpression(expr){
+	console.log(expr);
     //latex-parser encloses multi-character variable names in 2 parentheses...
     expr = expr.replace(/\(\(phi\)\)/g,'(phi)');
     expr = expr.replace(/\(\(theta\)\)/g,'(theta)');
@@ -143,6 +144,60 @@ function characterizeExpression(expr){
             }
             
             if(!head){
+				// check for total differential forms, that is, (dx/du, dy/dv, dz/du) = (a(u), b(u), c(u))
+				let diffMatch = structure.map(x => /^\[\(d\((.*?)\)\)\/\(d\((.*?)\)\)\,\(d\((.*?)\)\)\/\(d\((.*?)\)\)\,\(d\((.*?)\)\)\/\(d\((.*?)\)\)\]$/g.exec(x));
+				if(diffMatch[0] || diffMatch[1]){
+					for(let i of [0, 1]){
+						if(!diffMatch[i]){
+							continue;
+						}
+						// matching differential variables
+						if(diffMatch[i][2] === diffMatch[i][4] && diffMatch[i][4] === diffMatch[i][6]){
+							head = structure[i];
+							body = structure[i === 0 ? 1 : 0];
+							
+							diffVar = diffMatch[i][2];
+							// make sure our variables are either u or v
+							if(diffVar !== 'u' && diffVar !== 'v'){
+								return {
+									error: 'Please use one of the two parametric variables: u or v'
+								}
+							}
+							// determine which coordinate system this belongs to
+							let vars = [1, 3, 5].map(x => diffMatch[i][x]);
+							let system = '';
+							if(vars.indexOf('x') !== -1 && vars.indexOf('y') !== -1 && vars.indexOf('z') !== -1){
+								system = 'cartesian';
+							}else if(vars.indexOf('rho') !== -1 && vars.indexOf('phi') !== -1 && vars.indexOf('z') !== -1){
+								system = 'cylindrical';
+							}else if(vars.indexOf('r') !== -1 && vars.indexOf('phi') !== -1 && vars.indexOf('theta') !== -1){
+								system = 'spherical';
+							}
+							if(system === ''){
+								return {
+									error: 'Make sure your variables belong to the same coordinate system and that none are repeated'
+								}
+							}
+							
+							// it is in the correct form for a one dimensional simple differential relation 
+							return {
+								error: 'none',
+								type: system,
+								parametric: true,
+								expression: {
+									vars: vars,
+									diffStatus: [1, 1, 1],
+									body: body
+								}
+							}
+						}else{
+							return {
+								error: 'Only differential relations of one parametric variable are currently supported'
+							}
+						}
+					}
+				}
+				
                 if(isAtomic(structure[0]) || isAtomic(structure[1])){
                     return {
                         error:'make sure each system variable is present once for parametric expressions'
